@@ -1,0 +1,6 @@
+# Go binaries and local build output
+/manu
+/bin/
+/dist/
+*.test
+coverage.out

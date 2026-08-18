@@ -22,11 +22,14 @@ canônico como `Hypothesis`. Uma direção possível deve ser marcada como `Futu
 option`. Não use ADR para registrar preferências triviais, tarefas, detalhes
 de implementação temporários ou uma lista de ideias.
 
-Nesta fundação documental não há ADR adicional: as direções registradas no
-OpenSpec e em [`ARCHITECTURE.md`](../../ARCHITECTURE.md) não satisfazem de modo
-inequívoco, ao mesmo tempo, aceitação, dificuldade de reversão e trade-off
-arquitetural específico sem antecipar decisões físicas. O primeiro ADR deverá
-ser criado quando uma mudança posterior cumprir os quatro critérios.
+## ADRs publicados
+
+- [`0001-contrato-universal-de-compreensao.md`](0001-contrato-universal-de-compreensao.md)
+  — decisão `Accepted` sobre analisadores especializados projetados em um
+  contrato universal de compreensão.
+- [`0002-fundacao-go-first.md`](0002-fundacao-go-first.md)
+  — decisão `Accepted` sobre o runtime Go-first, o módulo único e a política
+  de atualização do toolchain.
 
 ## Estados
 

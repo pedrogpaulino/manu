@@ -38,6 +38,30 @@ escolha vigente, uma hipótese ou uma opção futura deve permanecer identificad
 como tal; ver [a política de ADRs](docs/decisions/README.md) para decisões que
 precisem de registro próprio.
 
+### Decisão aceita: fundação Go-first e módulo inicial
+
+O `Manu Agent`, a CLI, o pipeline comum do `Knowledge Engine` e o backend
+inicial usam Go como runtime principal. O módulo único tem o caminho canônico
+`github.com/pedrogpaulino/manu`, com o layout inicial em `cmd/manu`, `internal`
+e `testdata`; não há `pkg` nem workspace multi-módulo nesta fundação. A
+composição usa dependências explícitas na raiz do processo e não adota um
+container de DI enquanto o grafo permanecer pequeno.
+
+O `go.mod` usa `go 1.25` como versão mínima da linguagem, ainda suportada em
+17/08/2026, e `toolchain go1.26.6` como toolchain local validado. A política
+acompanha os patches da linha estável suportada após testes e benchmark e
+repete a linha de base e a verificação de vulnerabilidades ao mudar de versão
+principal. A distribuição futura poderá fixar esse toolchain em uma imagem,
+mas isso não transforma uma imagem ou um Compose completo em implementação
+presente.
+
+Go é a escolha principal do runtime, não uma exigência para todos os
+analisadores especializados. Outro runtime só entra atrás de um protocolo
+externo versionado, em mudança própria e após medições demonstrarem que o
+benefício semântico compensa os custos de empacotamento, isolamento e
+operação. A decisão e seus trade-offs estão no
+[ADR 0002 — Fundação Go-first](docs/decisions/0002-fundacao-go-first.md).
+
 ## Visão C4 simplificada
 
 A visão abaixo usa C4 apenas para tornar os limites compreensíveis. Os nomes
@@ -145,6 +169,231 @@ Uma nova execução volta ao fluxo pelo artefato e pela observação. Ela compar
 o conhecimento existente e pode indicar que uma página está desatualizada ou
 que há conflito, preservando o estado anterior para revisão.
 
+## Primeiro corte vertical: pipeline comum
+
+O primeiro corte transforma o fluxo conceitual em um experimento comparável,
+sem criar um engine separado para cada linguagem ou tipo de fonte. O pipeline
+comum é:
+
+```text
+Source autorizada
+  → descoberta e Analysis Snapshot
+  → fallback genérico + analisadores especializados compostos
+  → observações, relações, evidências, cobertura e lacunas
+  → projeções relacional, textual e vetorial reconstruíveis
+  → recuperação híbrida
+  → pacote limitado de evidências autorizado
+  → AI Gateway
+  → resposta gerada, citações e abstinência
+```
+
+### Descoberta, fallback e composição de analisadores
+
+1. **Registro e descoberta:** a fonte é registrada com sua autorização,
+   `Source Revision` ou hash verificável, e o recorte recebe um
+   `Analysis Snapshot`. A descoberta identifica os `Artifact`s e seu contexto;
+   não copia bases externas para este repositório nem concede ao modelo acesso
+   direto ao diretório analisado.
+2. **Fallback genérico:** toda fonte textual autorizada recebe ao menos o
+   inventário genérico aplicável, incluindo tipo, localização, identidade,
+   hash e extração textual quando possível. O fallback permanece útil para
+   consulta e recuperação, mas declara como não suportadas as dimensões que
+   dependeriam de uma especialização ausente.
+3. **Analisadores especializados compostos:** analisadores de linguagem,
+   framework, pacote, configuração ou documento podem observar os mesmos
+   artefatos e acrescentar semântica, relações e `Possible Flow`s. Suas
+   contribuições são aditivas no contrato comum: método, evidência,
+   `Analysis Coverage` e `Explicit Gap`s permanecem distinguíveis, e uma
+   contribuição nova não sobrescreve silenciosamente uma observação anterior.
+   O corte pode aprofundar Java/Quarkus e manter cobertura declarativa para
+   WSO2 e inventário para Python/Frappe sem prometer a mesma profundidade.
+
+O resultado factual e sua proveniência são preservados antes de qualquer
+projeção. A arquitetura não cria um modelo físico independente por analisador;
+um único fluxo correlaciona as contribuições e mantém resultados parciais
+utilizáveis quando uma dimensão falha.
+
+### Projeções e recuperação híbrida
+
+O conhecimento comum pode ser projetado em três visões recuperáveis:
+
+- **relacional:** entidades, relações, identificadores e metadados para
+  consultas estruturadas e expansão de relações diretas;
+- **textual:** unidades semanticamente delimitadas, localização e metadados
+  para correspondência de termos e citações;
+- **vetorial:** embeddings ligados ao conteúdo, à revisão e à proveniência que
+  os originaram para busca por similaridade.
+
+Essas projeções são reconstruíveis e não são a fonte de verdade. A recuperação
+híbrida combina termos exatos, similaridade semântica e relações sustentadas,
+ordena os sinais de modo reproduzível e limita o orçamento de contexto. Se
+embeddings estiverem indisponíveis, proibidos ou incompletos, inventário,
+conteúdo textual, relações e evidências já produzidos continuam utilizáveis;
+a limitação da recuperação semântica permanece visível.
+
+### Pacote de evidências e resposta assistida
+
+Uma consulta valida primeiro `Organization`, usuário, `Source` e a política
+de transferência. Só então monta um pacote limitado com trechos, entidades,
+relações, localizações, `Evidence`, `Provenance`, cobertura e lacunas
+autorizadas. O pacote é a única entrada da etapa de resposta; o modelo não
+consulta a fonte diretamente nem pode contornar as permissões do índice.
+
+O `AI Gateway` mantém portas conceituais separadas para embeddings e geração.
+Para o experimento inicial, a OpenAI API é o adaptador externo autorizado,
+substituível atrás dessa fronteira; identificadores de modelo, parâmetros,
+tokens, custo estimado, latência e estado pertencem ao registro da execução,
+não ao contrato do domínio. A credencial é fornecida externamente ao processo
+e nunca deve aparecer em manifesto, documento, saída, log ou fixture.
+
+Quando autorizada, a resposta é `Generated knowledge`, referencia as
+evidências usadas, separa observações de inferências e declara lacunas. Se o
+pacote não sustentar uma conclusão, a resposta deve limitar ou recusar a
+conclusão em vez de usar conhecimento geral do modelo como evidência da
+organização. Se a IA estiver indisponível ou proibida, somente as etapas
+dependentes dela ficam limitadas; os resultados não dependentes continuam
+disponíveis conforme as políticas já descritas.
+
+### Superfície operacional inicial por CLI
+
+A superfície inicial é uma CLI, escolhida como o caminho operacional mais
+curto para o experimento e para automação. Suas intenções conceituais são:
+
+```text
+source register   registrar uma fonte e suas políticas
+analyze           criar um Analysis Snapshot
+status            consultar progresso, cobertura, falhas e lacunas
+ask               recuperar evidências e solicitar uma resposta
+evidence          inspecionar o suporte de uma resposta ou relação
+eval              executar perguntas de competência
+benchmark         medir ingestão, consulta, recursos e custo
+```
+
+Os nomes finais podem evoluir na implementação, mas cada operação deve ter
+uma saída legível por pessoa e uma representação estruturada para automação.
+Falha parcial, ausência de IA e abstinência devem ser estados distinguíveis
+de uma falha técnica total.
+
+## Fronteira de benchmark e escolha posterior de stack
+
+Esta mudança define a fronteira de medição, não uma escolha definitiva de
+linguagem, biblioteca, persistência, protocolo ou mecanismo de ingestão. Uma
+decisão posterior de stack deve executar o mesmo microcorte comparável sobre o
+manifesto e o corpus identificados, preservando suas revisões ou hashes.
+
+O benchmark deve medir, no mínimo:
+
+- descoberta, hashing e atualização de arquivos;
+- parsing representativo de Java, XML/WSO2 e Python/texto;
+- transformação para o resultado mínimo comum e suas evidências;
+- leitura e escrita em lote pela fronteira de persistência;
+- concorrência limitada, duração, pico de memória e volume persistido;
+- operação local compatível com o futuro modo Compose;
+- primeira análise, repetição sem mudança e atualização localizada;
+- latência, tokens e custo externo quando a IA for usada.
+
+As medições registram ambiente, configuração e limitações e servem como linha
+de base experimental, não como SLA ou promessa comercial. O adaptador OpenAI
+do experimento não fixa o provedor de produção, e uma projeção inicial como
+PostgreSQL/pgvector não transforma a fronteira do benchmark em modelo físico
+obrigatório. A escolha posterior deve considerar conjuntamente desempenho,
+consumo, maturidade e segurança das bibliotecas e velocidade de evolução,
+usando operações e corpus reais do corte.
+
+## Contrato universal de compreensão
+
+Cada analisador é especializado na semântica da `Source` que conhece. Essa
+especialização não cria um contrato isolado: o resultado de cada analisador
+deve poder contribuir para um contrato conceitual universal de compreensão,
+que permite correlacionar fontes diferentes sem nivelar artificialmente a
+profundidade alcançada.
+
+```text
+Source
+  │
+  ▼
+analisador especializado ──► resultado + cobertura + lacunas
+                                      │
+                                      ▼
+                         contrato universal de compreensão
+                                      │
+                                      ▼
+                 correlação ──► base de conhecimento viva
+```
+
+O contrato organiza significado e suporte, e não escolhe protocolo,
+serialização, estrutura de dados, mecanismo de persistência ou stack. Suas
+dimensões iniciais são:
+
+1. inventário, paisagem e estrutura;
+2. entidades e relações;
+3. fluxos e dependências;
+4. decisões, condições e origens dos dados usados;
+5. variações por configuração, ambiente e feature flag;
+6. capacidades disponíveis e como acessá-las;
+7. erros, sua criação, propagação e caminhos possíveis;
+8. evolução entre revisões, releases, configurações e implantações;
+9. correspondência e divergência documental;
+10. evidências, proveniência, incerteza e lacunas.
+
+Uma `Source` pode contribuir somente para parte dessas dimensões. A
+correlação projeta contribuições compatíveis nos conceitos comuns, mas
+preserva a `Source`, o método, o contexto e o suporte de cada contribuição.
+Uma relação ou síntese não ganha uma certeza maior apenas por ser correlacionada
+com outra fonte.
+
+Os fluxos devem manter as qualificações `Possible Flow`, `Observed Execution` e
+`Business Process`. Uma capacidade oferecida pelo ambiente é uma `Capability`,
+enquanto uma página, mapa, explicação ou relatório produzido pelo Manu é um
+`Knowledge Product`; ambos permanecem relacionados sem serem confundidos. Cada
+resultado expõe sua `Analysis Coverage` e suas `Explicit Gap`s.
+
+### Cobertura parcial e explícita
+
+Cada análise deve declarar o escopo e as dimensões tentados, bem como o
+resultado da cobertura em cada dimensão: produzido, incompleto, não suportado,
+não aplicável ou com falha. A existência de um analisador para um tipo de
+fonte não é um selo de compreensão completa, nem implica profundidade uniforme
+entre fontes ou execuções.
+
+Quando uma dimensão falhar, as demais contribuições sustentadas continuam
+utilizáveis. A falha parcial e as lacunas ficam visíveis para a correlação e
+para as experiências que apresentam o conhecimento. Novas dimensões ou
+detalhes especializados podem ser adicionados depois, desde que mantenham uma
+projeção compreensível para o contrato universal.
+
+## Contexto para comparações qualificadas
+
+Conhecimento que depende de versão ou ambiente deve manter os contextos que a
+análise realmente conhece, sem condensá-los em um campo genérico de “versão”.
+Os vínculos podem estar ausentes ou ser desconhecidos; essa ausência é parte
+do resultado e não deve ser preenchida por inferência.
+
+| Contexto | Papel na comparação |
+| --- | --- |
+| `Source Revision` | Revisão da `Source` que foi observada, quando identificável. |
+| `Analysis Snapshot` | Recorte, instante e método da análise que produziu as observações. |
+| `Environment` | Ambiente ao qual uma configuração, documentação ou implantação se aplica, quando conhecido. |
+| `Release` | Release ou marco de evolução ao qual os artefatos e a documentação se referem, quando disponível. |
+| `Build Artifact` | Artefato de build relacionado a uma revisão de fonte, se essa relação puder ser sustentada. |
+| `Deployment` | Implantação que relaciona um artefato de build a um ambiente, quando houver evidência do vínculo. |
+| `Configuration State` | Configurações e variações ativas no escopo analisado, incluindo flags quando aplicável. |
+| `Documentation Revision` | Revisão da documentação usada ou comparada com a fonte, análise ou ambiente. |
+
+Uma comparação deve primeiro declarar quais desses contextos estão presentes,
+quais não estão disponíveis e quais relações são sustentadas. Só depois deve
+explicar uma diferença, preservando a evidência de cada lado. Assim, código
+igual com `Configuration State` diferente deve ser apresentado como diferença
+de configuração; uma `Source Revision` sem vínculo conhecido com `Build
+Artifact` ou `Deployment` não autoriza afirmar que o código analisado é o que
+está implantado; e uma `Documentation Revision` anterior à fonte analisada
+deve ser sinalizada como possível desatualização ou necessidade de revisão.
+
+Vínculo com uma implantação também não transforma, por si só, um caminho
+reconstruído em ocorrência observada. Comparações e explicações devem manter
+separadas a origem, o suporte, a temporalidade e o contexto comportamental,
+declarando a lacuna quando não houver evidência suficiente.
+
 ## Preservação de conteúdo curado
 
 Conteúdo curado é uma contribuição humana, não um cache descartável da última
@@ -242,6 +491,30 @@ antes de exibir conteúdo ou evidência. Quando uma etapa não é permitida, o
 resultado deve indicar a ausência ou o redaction aplicável em vez de inventar
 suporte.
 
+### Acesso à fonte e transferência para IA são autorizações independentes
+
+Autorizar o `Knowledge Engine` a acessar e analisar uma `Source` não autoriza,
+por si só, transferir seu conteúdo para um modelo ou provedor externo. A
+decisão de transferência deve ser avaliada separadamente pelas políticas da
+instalação, da fonte e do usuário, inclusive quando a análise da fonte já foi
+permitida.
+
+Essa regra é a mesma nos modos **SaaS dedicado** e **self-hosted**: os dois
+devem aplicar as mesmas políticas conceituais de instalação, fonte e usuário,
+sem depender de um mecanismo físico específico de conexão. Se a análise dentro
+da célula for permitida, mas a transferência externa for proibida, o engine
+continua produzindo o conhecimento que não depende de IA e bloqueia somente as
+etapas que exigem essa transferência. A limitação deve permanecer visível
+para as experiências e não ser preenchida por uma inferência do modelo.
+
+Quando a IA estiver indisponível, não configurada ou proibida, continuam
+disponíveis os resultados não dependentes de IA, como inventário, estrutura,
+relações, evidências, `Possible Flow`s e conhecimento curado já autorizado.
+Sínteses ou explicações que dependeriam de IA podem ficar limitadas ou
+indisponíveis, sem retirar a proveniência nem ampliar o acesso ao conteúdo
+original. Uma saída de IA, quando autorizada, permanece conhecimento gerado e
+não substitui evidência técnica.
+
 ## Portabilidade e independência de modelo
 
 O desenho mantém portas conceituais entre fontes, `Knowledge Engine`,
@@ -276,15 +549,23 @@ suportar todos os adaptadores desde o primeiro incremento.
 - `Organization` é uma fronteira transversal obrigatória, inclusive na
   instalação de uma única organização.
 - As políticas de instalação, fonte e usuário permanecem separadas.
+- Analisadores especializados contribuem para um contrato universal de
+  compreensão, com cobertura parcial explícita — produzida, incompleta, não
+  suportada, não aplicável ou com falha — sem promessa de profundidade
+  uniforme entre fontes.
+- A IA pode apoiar síntese, explicação, classificação ou consulta quando
+  autorizada, mas sua saída não é evidência técnica autossuficiente e não é
+  condição para a disponibilidade de resultados não dependentes dela.
 - A forma inicial é uma célula de uma organização em Docker Compose/VPS e o
   desenho não exige cloud ou fornecedor de IA.
 
 Esses invariantes são aceitos como parte da fundação documental. Uma decisão
 de implementação que seja difícil de reverter e dependa de trade-offs
 específicos deve ser registrada como ADR segundo
-[docs/decisions/README.md](docs/decisions/README.md); não há um ADR adicional
-nesta mudança porque nenhum desses invariantes, por si só, exige cristalizar
-um mecanismo físico ou operacional.
+[docs/decisions/README.md](docs/decisions/README.md). O contrato universal de
+compreensão está registrado no [ADR 0001 — Contrato universal de compreensão](docs/decisions/0001-contrato-universal-de-compreensao.md);
+decisões posteriores sobre mecanismos físicos ou operacionais devem seguir a
+mesma política.
 
 ### Hipóteses a validar
 

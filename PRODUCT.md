@@ -97,6 +97,45 @@ Quando uma nova análise divergir de conteúdo curado, a experiência deve
 sinalizar desatualização ou conflito e propor revisão. Ela não deve
 sobrescrever silenciosamente a contribuição humana.
 
+### Contrato universal de compreensão
+
+Compreender uma base heterogênea não significa apenas reconhecer o tipo de
+fonte ou gerar documentação. O `Knowledge Engine` deve reunir contribuições
+de analisadores especializados em um contrato conceitual comum, para que
+resultados de fontes diferentes possam ser relacionados, examinados e
+avaliados. Esse contrato descreve o significado, o suporte e os limites da
+compreensão; não define formato de dados, protocolo de integração ou outra
+decisão de implementação.
+
+As dimensões universais iniciais são:
+
+| Dimensão | O que a compreensão pode demonstrar |
+| --- | --- |
+| Paisagem, inventário e estrutura | Quais sistemas, aplicações, serviços, componentes, fontes e documentos existem e como se organizam. |
+| Entidades e relações | Quais elementos se correspondem entre fontes e que relações ou dependências são sustentadas. |
+| Fluxos e dependências | Quais percursos e dependências podem ser reconstruídos e qual é a distinção entre `Possible Flow`, `Observed Execution` e `Business Process`. |
+| Decisões, condições e origens dos dados usados | Quais regras, condições, decisões e dados participam de um comportamento ou resultado. |
+| Variações por configuração, ambiente e feature flag | O que muda entre configurações e ambientes e quais diferenças podem ser explicadas. |
+| Capacidades disponíveis e como acessá-las | O que o ambiente analisado oferece ou permite realizar e quais referências sustentam esse entendimento. |
+| Erros, criação, propagação e fluxos possíveis | Onde erros podem surgir, como podem se propagar e quais caminhos possíveis devem ser investigados. |
+| Evolução | O que mudou entre revisões, releases, configurações e implantações conhecidas. |
+| Correspondência e divergência documental | Em que medida a documentação corresponde às fontes analisadas e onde há desatualização ou conflito. |
+| Evidências, proveniência, incerteza e lacunas | O que sustenta cada resultado, de onde veio, o que permanece incerto e o que não foi possível compreender. |
+
+Cada análise deve declarar o escopo tentado e a situação de cada dimensão:
+resultado produzido, incompleto, não suportado, não aplicável ou falha. Uma
+fonte aparecer no catálogo de analisadores não representa compreensão
+completa dela. Analisadores podem alcançar profundidades diferentes e
+contribuir apenas para parte do contrato; resultados parciais continuam
+úteis quando sua cobertura e suas lacunas ficam visíveis, sem nivelar
+artificialmente as fontes.
+
+Nas experiências, uma `Capability` é algo oferecido ou realizável no ambiente,
+enquanto uma página, explicação, mapa ou relatório produzido pelo Manu é um
+`Knowledge Product`. As análises expõem sua `Analysis Coverage` e suas
+`Explicit Gap`s, preservando as distinções entre `Possible Flow`, `Observed Execution`
+e `Business Process`.
+
 ### Princípios de experiência
 
 As experiências do Manu devem:
@@ -180,13 +219,94 @@ afirmações de que o MVP já os garante:
 | Capturar e preservar conhecimento especialista. | Quantidade de páginas revisadas, corrigidas ou enriquecidas; nenhuma revisão curada perdida silenciosamente após uma nova análise. |
 | Demonstrar valor para o comprador. | Decisão de continuar o uso com base em resultados observados, usuários recorrentes e uma métrica de custo, tempo ou risco escolhida com o time. |
 
+## Perguntas de competência e critério de compreensão
+
+O Knowledge Engine será avaliado por sua capacidade de responder perguntas
+úteis sobre uma base conhecida, e não pela quantidade de documentação,
+entidades ou relações produzidas. O conjunto inicial deve ser versionado e
+representar as necessidades dos públicos autorizados. Cada caso de avaliação
+deve registrar o recorte e as revisões das fontes, a pergunta, o público, uma
+resposta de referência revisável com autoria e as evidências esperadas,
+quando existirem.
+
+As famílias iniciais de perguntas são:
+
+| Família | Pergunta representativa |
+| --- | --- |
+| Paisagem, inventário e estrutura | Quais sistemas, aplicações, serviços, componentes, fontes e documentos existem no recorte e como se organizam? |
+| Entidades, relações e dependências | Quais entidades se relacionam ou dependem umas das outras e quais fontes sustentam cada relação? |
+| Fluxos e decisões | Qual `Possible Flow` pode ocorrer, em que condições e com quais dados? Há evidência de `Observed Execution` ou apenas uma interpretação de `Business Process`? |
+| Variações e contexto | O que muda entre configurações, ambientes, feature flags, releases e implantações, e quais contextos são conhecidos ou desconhecidos? |
+| Capacidades e erros | Que `Capability` o ambiente oferece e como ela pode ser acessada? Que erros podem surgir, propagar-se ou alterar um caminho possível? |
+| Evolução e documentação | O que mudou entre revisões e a documentação correspondente está atualizada, divergente ou aguardando revisão? |
+| Evidência, incerteza e lacunas | O que sustenta uma afirmação, qual é sua proveniência e origem, que conflitos existem e o que o Manu deve declarar que não sabe? |
+
+As respostas e os resultados associados devem ser comparados com a referência
+revisável pelos seguintes critérios independentes:
+
+| Critério | O que verificar |
+| --- | --- |
+| Correção | A resposta coincide com o que a referência e as evidências permitem afirmar e não introduz conclusões indevidas. |
+| Cobertura | Os aspectos relevantes da pergunta foram tratados, e omissões, dimensões incompletas ou não suportadas permanecem visíveis. |
+| Rastreabilidade | Cada conclusão relevante aponta para a fonte, o artefato, o método, o momento, as `Evidence`s e a `Provenance` disponíveis. |
+| Atualidade | A resposta considera as revisões e os contextos temporais conhecidos, sinaliza documentação possivelmente desatualizada e não atribui uma diferença a um contexto ausente. |
+| Incerteza | A origem como conhecimento observado, gerado ou curado, o estado de contestação e a distinção entre caminho possível, execução observada e processo de negócio permanecem explícitos; conflitos não são reduzidos a uma certeza única. |
+| Abstinência apropriada | Quando o suporte é insuficiente, o Manu limita ou recusa a conclusão, declara a lacuna e não a preenche com uma inferência apresentada como fato. |
+
+Esses critérios também registram suporte apresentado, omissões, incerteza e
+abstinências para permitir regressão e comparação entre análises. Eles não
+formam uma pontuação universal nem substituem a inspeção dos fatores que
+sustentam cada resposta.
+
+Quando houver comparação temporal, o recorte deve preservar, conforme
+disponíveis, `Source Revision`, `Analysis Snapshot`, `Environment`, `Release`,
+`Build Artifact`, `Deployment`, `Configuration State` e `Documentation
+Revision`, sem atribuir uma diferença a um contexto ausente.
+
 ## MVP vertical
+
+### Decisão aceita: primeiro corte vertical
+
+O primeiro corte do MVP será demonstrado sobre três bases com papéis
+deliberadamente diferentes. Elas formam um experimento comparável, não uma
+promessa de compreender profundamente todas as linguagens, frameworks ou
+artefatos que aparecem no ambiente:
+
+| Base do corpus | Papel no corte | Profundidade inicial | Sinal de validação |
+| --- | --- | --- | --- |
+| **Ticketmaster** | Referência de correção semântica em Java/Quarkus. | Análise especializada de inventário, símbolos, endpoints, chamadas, configurações referenciadas, exceções e `Possible Flow`s mínimos, conforme as evidências permitirem. | Perguntas de competência respondidas com entidades, relações e evidências verificáveis; limitações de cobertura permanecem identificadas. |
+| **Pacotes CAR do WSO2** | Prova de heterogeneidade declarativa e de middleware. | Amostra de quatro a seis pacotes para abertura segura, inventário e referências diretas entre artefatos declarativos observáveis, sem prometer a mesma profundidade semântica de Java. | Diversidade de artefatos, referências e lacunas pode ser recuperada e relacionada ao pacote e à revisão analisados. |
+| **ERPNext** | Prova de inventário e escala, com um recorte funcional de pedido a faturamento. | Inventário amplo com o fallback genérico; semântica profunda de Python/Frappe fica explicitamente fora deste primeiro corte. | A base permanece consultável no recorte de escala, com cobertura, dimensões não suportadas e limites de interpretação visíveis. |
+
+Todas as fontes textuais autorizadas recebem, quando aplicável, ao menos
+descoberta, inventário e extração genérica sustentada. Analisadores
+especializados acrescentam semântica, relações e evidências sem apagar
+observações ou lacunas anteriores. Assim, uma fonte sem especialização ainda
+pode contribuir para o conhecimento, mas não deve ser apresentada como se
+tivesse a profundidade do Ticketmaster. A cobertura efetivamente alcançada
+por cada base e cada analisador é o resultado a ser validado.
+
+### Restrições atuais do primeiro corte
+
+- Cada recorte deve ser identificável por sua revisão ou hash e por suas
+  inclusões, exclusões e autorizações de processamento; relatórios gerados e
+  material sensível não fazem parte das referências iniciais.
+- O corte mantém os papéis distintos de correção semântica, heterogeneidade e
+  escala; não nivela a profundidade dos analisadores nem transforma fallback
+  genérico em compreensão especializada.
+- O primeiro corte é um experimento documental e técnico delimitado. Ele não
+  fixa linguagem, biblioteca, formato físico, protocolo de analisadores ou
+  stack de produção.
 
 ### Recorte
 
-O MVP deve provar um fluxo de ponta a ponta sobre **duas a quatro aplicações
-reais**, escolhidas em um ambiente empresarial com contexto legado. O recorte
-inclui:
+O MVP deve provar um fluxo de ponta a ponta sobre um **corpus heterogêneo de
+duas a quatro aplicações reais**, escolhido em um ambiente empresarial com
+contexto legado. O corpus deve combinar, conforme estiverem disponíveis,
+código, arquivos, APIs, bancos de dados, configurações e documentos
+existentes. Não é necessário que cada aplicação ofereça todos os tipos de
+fonte; a cobertura alcançada e as lacunas devem permanecer explícitas. O
+recorte inclui:
 
 1. fontes técnicas e **documentos existentes** dessas aplicações;
 2. descoberta e correlação de relações sustentadas por evidências;
@@ -195,7 +315,19 @@ inclui:
 5. preservação do conteúdo curado quando novas análises trouxerem mudanças,
    lacunas ou conflitos;
 6. uma demonstração de uso da base em pelo menos um cenário de onboarding,
-   análise de impacto ou orientação de investigação.
+   análise de impacto ou orientação de investigação;
+7. um conjunto versionado de perguntas de competência aplicado ao corpus,
+   com respostas de referência revisáveis, autoria, evidências esperadas e
+   registro de suporte, omissões, incerteza e abstinência.
+
+As três bases e seus papéis fixam o primeiro corte do MVP; não permanece em
+aberto uma nova escolha de duas a quatro aplicações para esse corte. Até a
+publicação do manifesto e a obtenção da primeira linha de base, permanecem em
+aberto apenas as revisões ou hashes efetivamente usados, as inclusões e
+exclusões autorizadas, a composição exata da amostra de pacotes CAR e os
+limiares de validação. Aplicações, fontes ou domínios adicionais serão
+seleções ou expansões futuras do MVP, sujeitas a nova validação, e não reabrem
+o recorte atual.
 
 O MVP é uma prova vertical do núcleo e de suas primeiras experiências, não
 uma tentativa de entregar o catálogo, a wiki, o grafo, a busca, o chat, o
@@ -208,17 +340,23 @@ Cada parte do MVP deve produzir aprendizado verificável:
 
 | Parte do MVP | Hipótese a validar | Sinal de validação |
 | --- | --- | --- |
-| Duas a quatro aplicações reais, vistas em conjunto | **H1:** um contexto limitado, porém transversal, é mais útil que documentação isolada por aplicação. | Usuários conseguem localizar a aplicação, seus vizinhos e o contexto necessário para uma tarefa representativa. |
+| Corpus heterogêneo do MVP, com duas a quatro aplicações e a amostra WSO2, visto em conjunto | **H1:** um contexto limitado, porém transversal, é mais útil que documentação isolada por aplicação. | Usuários conseguem localizar a aplicação, seus vizinhos e o contexto necessário para uma tarefa representativa, mesmo quando as fontes têm profundidades diferentes. |
 | Documentos existentes tratados como fonte de primeira classe | **H2:** documentos já mantêm conhecimento que não aparece apenas em código ou metadados. | Documentos são encontrados, relacionados a entidades/claims e citados por usuários durante a tarefa; lacunas ficam registradas. |
 | Relações com evidências e proveniência | **H3:** uma relação explicável é mais confiável e acionável que um vínculo sem origem visível. | Amostra de claims aponta para fonte e momento; especialistas conseguem confirmar, contestar ou marcar conflito. |
 | Catálogo e páginas geradas/editáveis | **H4:** uma primeira versão gerada reduz o custo de começar e manter documentação. | Especialistas conseguem revisar uma amostra, medir o esforço de edição e publicar páginas úteis em vez de descartá-las. |
 | Revisão e curadoria humana | **H5:** especialistas aceitarão a base como lugar de trabalho se suas contribuições forem preservadas. | Revisões, correções e enriquecimentos aparecem para os usuários autorizados; nova análise sinaliza desatualização/conflito sem apagar curadoria. |
 | Demonstração de onboarding, impacto ou investigação | **H6:** a mesma base atende mais de uma necessidade e gera valor observável. | Uma pessoa conclui o cenário definido com evidências e compara seu tempo, confiança ou número de escalonamentos com a linha de base. |
 | Uso por uma liderança compradora | **H7:** o benefício percebido é suficiente para justificar continuidade empresarial. | O comprador identifica uma métrica de custo, tempo ou risco melhorada e decide se o recorte merece prosseguir. |
+| Perguntas de competência e referências revisáveis | **H8:** respostas comparáveis a referências revisáveis demonstram compreensão e evolução melhor que volume de documentação gerada. | O mesmo conjunto versionado é aplicado às fontes escolhidas; especialistas revisam referências e resultados e registram correção, cobertura, rastreabilidade, atualidade, incerteza e abstinência. |
+| Profundidade progressiva por analisador | **H9:** um fallback genérico útil, combinado com especialização onde houver evidência e prioridade, oferece mais valor que esperar cobertura uniforme antes de validar o produto. | Cada base expõe dimensões produzidas, incompletas, não suportadas, não aplicáveis ou em falha; as perguntas comparam somente dimensões aplicáveis e mantêm as lacunas visíveis. |
 
 Os sinais devem ser registrados com o contexto da aplicação, a tarefa, o
-usuário e a linha de base utilizada. Um resultado positivo em uma demonstração
-não deve ser generalizado para todo o portfólio sem nova validação.
+usuário, a revisão das fontes, a referência revisável e a linha de base
+utilizada. A seleção das aplicações e os limiares de correção, cobertura e
+abstinência continuam em aberto até existir uma primeira linha de base; eles
+serão ajustados como instrumentos de aprendizado, não como SLA ou promessa
+comercial. Um resultado positivo em uma demonstração não deve ser
+generalizado para todo o portfólio sem nova validação.
 
 ## Limites e não objetivos do MVP
 
@@ -273,6 +411,9 @@ Depois de validar o fluxo vertical, poderão ser explorados:
 - SaaS compartilhado operacional com múltiplas organizações na mesma célula;
 - um Control Plane para operar várias instalações/células;
 - novas fontes, domínios e experiências sobre a base viva.
+- aprofundamento posterior da semântica WSO2 ou Python/Frappe, quando o
+  primeiro corte fornecer evidência e uma mudança específica justificar esse
+  investimento.
 
 Essas possibilidades não definem o MVP, não formam um roadmap implícito e não
 devem alterar o núcleo: o conhecimento sustentado por fontes, evidências e

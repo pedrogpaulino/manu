@@ -1,0 +1,18 @@
+# Metadados e controle de versão local
+.git
+.git/**
+
+# Binários e saídas locais
+/manu
+/bin/
+/dist/
+/out/
+/output/
+/results/
+*.test
+coverage.out
+
+# Corpus externo, quando estiver no contexto de build
+/corpus/
+/external/
+/external-corpus/

@@ -1,0 +1,2 @@
+The generic fallback records bounded metadata and keeps source text out of
+the result by default.

@@ -2,7 +2,15 @@
 
 ## Escopo
 
-O Manu está em descoberta e este repositório mantém sua fundação documental. Não há aplicação, stack, dependências, comandos de build, implantação ou suíte de testes estabelecidos neste estágio. Não invente comandos, diretórios, ferramentas ou decisões para preencher lacunas.
+O Manu ainda está em descoberta, mas este repositório já contém o primeiro
+microcorte executável do projeto: um módulo Go, a CLI como primeiro modo do
+Manu Agent e uma imagem Docker Linux multi-stage. O microcorte é local,
+determinístico e limitado; ele não constitui o produto completo e não inclui,
+neste escopo, daemon, IA local, banco principal, API HTTP ou serviço de cloud.
+Os comandos canônicos para construir, executar e verificar esse recorte estão
+em [`README.md`](README.md). Não invente capacidades, comandos, diretórios,
+ferramentas ou decisões para preencher lacunas além do que estiver especificado
+nas mudanças OpenSpec em escopo.
 
 ## Ordem de leitura
 
@@ -25,13 +33,28 @@ O Manu está em descoberta e este repositório mantém sua fundação documental
 
 ## OpenSpec e verificação
 
-Leia os artefatos da mudança antes de editar e mantenha a implementação limitada às tarefas previstas. A verificação disponível para a mudança atual é:
+Leia os artefatos da mudança antes de editar e mantenha a implementação
+limitada às tarefas previstas. Para uma mudança ativa, as verificações atuais
+incluem formatação, análise estática, testes, builds estáticos e integridade do
+módulo:
 
 ```text
-openspec validate establish-project-documentation-foundation
+gofmt -d <arquivos Go>
+go vet ./...
+go test ./... -count=1
+go mod verify
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o <saída> ./cmd/manu
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o <saída> ./cmd/manu
+openspec validate <change> --strict
 ```
 
-Não há testes de aplicação a executar enquanto não existir código ou uma suíte definida.
+Substitua `<change>` pelo identificador da mudança OpenSpec ativa; não fixe a
+verificação em uma mudança arquivada. Os comandos completos, a verificação da
+imagem Docker e as limitações de ferramentas opcionais ficam no
+[`README.md`](README.md). Execute `go test -race ./...` somente quando CGO e um
+compilador C estiverem disponíveis; se `govulncheck` ou outra ferramenta
+opcional não estiver disponível, registre a ausência sem alegar que a
+verificação foi feita.
 
 ## Development workflow
 

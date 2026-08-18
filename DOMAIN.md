@@ -55,6 +55,24 @@ apresenta afirmações, evidências e contexto em linguagem legível. Revisões 
 atos de curadoria preservam a evolução humana da página e do conhecimento;
 uma nova análise não deve apagar silenciosamente esse histórico.
 
+O contrato universal de compreensão acrescenta uma trilha conceitual à
+mesma base, sem transformar o mapa em um desenho físico:
+
+```text
+Source ──► Specialized Analyzer ──► Analysis
+                                      │
+                                      ├── Analysis Coverage
+                                      │       └── Explicit Gap
+                                      └── Understanding Dimension
+
+Competence Question ──► referência revisável ──► avaliação do conhecimento
+```
+
+Uma `Analysis` pode contribuir para apenas parte das dimensões e correlacionar
+seus resultados com observações de outras fontes. A `Analysis Coverage` torna
+visível o escopo tentado e o que permaneceu sem suporte; uma `Explicit Gap` não
+é um espaço a ser preenchido por inferência.
+
 `Organization` é a fronteira conceitual transversal: fontes, artefatos,
 entidades, afirmações, páginas, permissões, políticas e atividades de revisão
 pertencem a uma organização. Isso continua verdadeiro em uma instalação que
@@ -114,6 +132,82 @@ incompleta, estar desatualizada ou discordar de outra observação. Uma
 `Observation` não vira automaticamente uma verdade, uma `Knowledge Claim` ou
 uma decisão humana: sua interpretação deve permanecer rastreável à fonte,
 ao método e às evidências.
+
+### `Specialized Analyzer`
+
+Analisador especializado é uma responsabilidade conceitual que interpreta uma
+`Source` ou seus `Artifact`s com a semântica apropriada ao tipo de fonte. Ele
+produz contribuições para o contrato universal de compreensão, mas não precisa
+cobrir todas as dimensões nem possuir a mesma profundidade de outro analisador.
+O termo descreve responsabilidade e significado, não protocolo, plugin,
+linguagem, processo ou tecnologia de implementação.
+
+### `Analysis`
+
+`Analysis` é uma aplicação delimitada de um ou mais `Specialized Analyzer`s a
+uma fonte, seus artefatos e o contexto disponível. Seu resultado pode conter
+`Observation`s, `Knowledge Claim`s, `Evidence`, `Provenance`, relações,
+`Analysis Coverage` e `Explicit Gap`s. Uma análise descreve o que foi tentado
+e sustentado naquele recorte; não equivale à compreensão completa da fonte nem
+à ocorrência de um comportamento em runtime.
+
+### `Understanding Contract`
+
+Contrato universal de compreensão é o vocabulário conceitual comum pelo qual
+analisadores especializados descrevem suas contribuições para a base de
+conhecimento viva. O contrato permite correlacionar resultados de fontes
+distintas, preservando origem, método, suporte, temporalidade, cobertura e
+lacunas. Ele define significado e qualificadores, não formato de serialização,
+modelo físico de dados ou mecanismo de integração.
+
+### `Understanding Dimension`
+
+Dimensão de compreensão é uma área semântica que uma análise pode tentar
+descrever. As dimensões iniciais são: paisagem, inventário e estrutura;
+entidades e relações; fluxos e dependências; decisões, condições e origens dos
+dados; variações por configuração, ambiente ou feature flag; capacidades e
+formas de acesso; erros, criação, propagação e caminhos possíveis; evolução
+entre revisões, releases, configurações e implantações; correspondência e
+divergência documental; e evidências, proveniência, incerteza e lacunas.
+
+Uma dimensão orienta a correlação e a avaliação, mas não é uma promessa de que
+toda `Source` poderá fornecê-la ou de que todos os analisadores a produzirão no
+mesmo nível de detalhe.
+
+### `Analysis Coverage`
+
+Cobertura da análise é a declaração contextual das dimensões e escopos que um
+`Specialized Analyzer` tentou examinar, dos resultados produzidos e do suporte
+que permaneceu limitado. Para cada dimensão, a cobertura deve distinguir, no
+mínimo, resultado produzido, resultado incompleto, não suportado, não
+aplicável e falha. Esses estados descrevem o alcance daquela análise; não são
+um selo binário de compatibilidade, uma medida universal de qualidade ou uma
+pontuação única de confiança.
+
+Cobertura efetiva continua válida quando uma dimensão falha: os resultados das
+demais dimensões não são descartados, e a falha permanece visível junto ao seu
+contexto.
+
+### `Explicit Gap`
+
+Lacuna explícita é uma ausência material de conhecimento ou suporte que a
+análise reconhece e apresenta como tal. Pode resultar de dimensão não
+suportada ou não aplicável, falha parcial, escopo não analisado, evidência
+inacessível, conflito não resolvido, contexto temporal desconhecido ou falta de
+telemetria. Lacuna explícita não significa que o fato esteja ausente no
+ambiente, e ausência de observação não é evidência de ausência. Ela impede que
+uma inferência seja usada para ocultar o que as fontes não sustentam.
+
+### `Competence Question`
+
+Pergunta de competência é uma pergunta representativa, versionada e revisável
+que expressa uma necessidade de um público autorizado e testa se o
+`Knowledge Engine` compreendeu um recorte da base. Ela relaciona o contexto e a
+revisão das fontes, uma resposta de referência curável, evidências esperadas
+quando existirem e os critérios pelos quais se avaliam correção, cobertura,
+rastreabilidade, atualidade, incerteza e abstinência apropriada. Não é apenas
+uma pergunta livre de usuário nem se prova pelo volume de páginas ou
+documentação gerada.
 
 ### `Entity`
 
@@ -213,6 +307,37 @@ e pode coexistir com observações e sínteses que apontem em outra direção.
 desencadeá-lo. Conhecimento curado não é infalível, mas não pode ser perdido
 por uma nova análise automática.
 
+### `Capability`
+
+`Capability` é algo que o ambiente analisado oferece ou permite realizar para
+algum consumidor, pessoa ou processo. Ela descreve uma possibilidade efetiva
+do ambiente, como consultar um relatório, executar uma operação ou obter uma
+saída sob certas condições. Uma `Capability` pode ser relacionada a entidades,
+acesso, entradas, saídas, evidências e documentação conhecidas; não é o mesmo
+que a explicação que o Manu produz sobre ela.
+
+Um relatório que já existe no ambiente é tratado como `Capability` ou recurso
+disponível do ambiente, conforme a evidência permitir. A análise deve
+relacioná-lo ao modo de acesso, às entradas e saídas e à documentação
+conhecida, sem reclassificá-lo como produto do Manu apenas por tê-lo
+descoberto.
+
+### `Knowledge Product`
+
+`Knowledge Product` é uma composição consumível de conhecimento produzida,
+organizada ou publicada pelo Manu para apoiar entendimento, consulta,
+investigação ou mudança. Pode ser uma página, explicação, mapa, catálogo ou
+relatório de impacto e deve apontar para as `Capability`s, relações, claims,
+evidências e lacunas utilizadas, quando existirem. Seu papel é apresentar ou
+aplicar conhecimento da base; ele não se torna uma capacidade do ambiente que
+está sendo analisado.
+
+Um relatório de impacto gerado pelo Manu, por exemplo, é um `Knowledge Product`
+mesmo quando descreve relatórios e outras capacidades existentes no ambiente.
+Os dois usos da palavra “relatório” permanecem distinguíveis pela origem,
+proveniência e responsabilidade: o primeiro é recurso do ambiente, o segundo é
+resultado produzido pelo Manu.
+
 ## Núcleo, experiências e colaboração
 
 O `Knowledge Engine` é o núcleo que descobre, interpreta e relaciona
@@ -296,6 +421,32 @@ sinônimo de “decisão aceita”. Uma claim curada pode continuar sendo uma
 hipótese, e uma observação pode documentar uma restrição atual sem ter sido
 curada por uma pessoa.
 
+## Contextos temporais e de execução
+
+Conhecimento que depende de versão, ambiente ou momento deve manter os
+contextos que as fontes e a análise conseguirem sustentar. Eles são
+qualificadores relacionados, não um único campo genérico de “versão” e não
+um modelo físico de armazenamento.
+
+| Contexto | Definição conceitual | Distinção principal |
+| --- | --- | --- |
+| `Source Revision` | Revisão identificável da `Source` ou do `Artifact` que foi observada, como uma versão de código, documento ou definição de origem. | Indica o que estava na fonte; não afirma qual build foi implantado nem que foi executado. |
+| `Analysis Snapshot` | Recorte temporal e metodológico no qual uma `Analysis` examinou fontes, artefatos e contextos disponíveis. | Indica o que a análise tentou observar e quando; não substitui a revisão da fonte ou o estado do ambiente. |
+| `Environment` | Contexto operacional reconhecível em que uma aplicação, serviço ou processo pode existir, como desenvolvimento, teste ou produção. | Nomeia o contexto de operação; não é, por si só, uma implantação nem prova de execução. |
+| `Release` | Identidade de uma versão distribuível ou comunicada de uma aplicação, serviço ou produto do ambiente. | Pode relacionar fonte, build e implantação, mas não é sinônimo de nenhum deles. |
+| `Build Artifact` | Artefato concreto produzido por uma transformação de build, pronto para ser distribuído ou implantado. | Pode ter vínculo conhecido com uma `Source Revision` e um `Release`; não é a implantação nem a execução. |
+| `Deployment` | Estado ou ato de disponibilizar um `Build Artifact` em um `Environment`, com seu contexto temporal e demais vínculos conhecidos. | Indica disponibilidade pretendida ou realizada; não prova que houve uma `Observed Execution`. |
+| `Configuration State` | Configuração efetiva ou pretendida para um `Environment` ou `Deployment`, incluindo regras de seleção e variações por configuração ou feature flag quando conhecidas. | Pode alterar o comportamento possível sem alterar a `Source Revision`; não deve ser confundida com o código ou com um segredo não observado. |
+| `Documentation Revision` | Revisão identificável do conteúdo documental usado ou produzido para explicar o ambiente, incluindo documentos existentes e páginas mantidas na base. `Revision` é a forma específica usada para a evolução de uma `Wiki Page` ou de conteúdo curado; `Documentation Revision` qualifica de modo mais amplo a revisão documental comparada ao ambiente. | Pode estar defasada em relação à fonte; não é a mesma coisa que `Source Revision` ou uma revisão de código. |
+
+Uma análise registra somente os vínculos temporais e de execução que as
+evidências sustentam. Qualquer contexto ou ligação pode estar ausente,
+desconhecido ou não aplicável, e essa condição deve permanecer explícita;
+vínculo ausente não significa que a relação seja falsa. Uma comparação deve
+declarar quais contextos possui, quais desconhece e quais não se aplicam, sem
+atribuir uma diferença a código, configuração, build, implantação ou
+documentação quando a causa não puder ser sustentada.
+
 ## Distinções de elementos do ambiente
 
 Os termos abaixo são categorias conceituais de `Entity`. Eles não definem
@@ -318,23 +469,90 @@ atravessar várias aplicações por meio de um ou mais `Flow`s. Essas relações
 são exemplos de modelagem, não uma taxonomia fechada nem uma regra de
 hierarquia obrigatória.
 
+### `Possible Flow`
+
+`Possible Flow` é a qualificação de um `Flow` reconstruído a partir de código,
+contratos, configurações, documentação ou outras fontes que sustentem um
+caminho que pode ocorrer. Ele descreve possibilidade sob as condições
+analisadas, incluindo ramificações e dependências conhecidas; não descreve que
+o caminho ocorreu. Sem telemetria ou outro registro operacional que sustente a
+ocorrência, um `Possible Flow` não pode ser apresentado como execução em
+runtime.
+
+### `Observed Execution`
+
+`Observed Execution` é a ocorrência de um `Flow` sustentada por evidência
+operacional autorizada, em um contexto temporal e ambiental conhecido ou
+explicitamente desconhecido. A evidência deve indicar o que foi observado e
+seu escopo; ela não transforma automaticamente a execução em explicação de
+causa, decisão de negócio ou ocorrência de todas as etapas de um processo.
+Quando não há telemetria ou registro equivalente, a ocorrência permanece
+desconhecida e o Manu deve conservar o `Possible Flow` como possibilidade, sem
+afirmar que ele aconteceu em runtime.
+
+### Relação entre `Flow` e `Business Process`
+
+`Flow` é o conceito geral de percurso ou sequência. Um `Possible Flow` é uma
+visão de comportamento que pode apoiar parte de um `Business Process`, e um
+`Observed Execution` fornece evidência de uma ocorrência desse percurso. Já o
+`Business Process` é orientado a objetivo, regras, participantes e resultado
+de negócio; pode atravessar várias aplicações e ser apoiado por vários flows.
+Uma documentação ou curadoria pode relacionar os conceitos, mas a relação
+deve preservar se veio de fonte técnica, observação operacional ou
+interpretação de negócio. Observar um flow não prova, por si só, a intenção,
+as regras ou a conclusão de um `Business Process`.
+
 ## Invariantes de colaboração e conhecimento
+
+As dimensões abaixo são qualificadores independentes de uma afirmação ou
+produto de conhecimento: origem (como foi produzido), suporte (em que se
+apoia e se é contestado), realidade comportamental (que tipo de fluxo ou
+processo descreve), temporalidade (em quais contextos vale) e lacunas (o que
+permanece sem cobertura ou conhecimento). Nenhuma dimensão deve ser deduzida
+automaticamente de outra.
 
 1. Especialistas podem revisar, corrigir e enriquecer conhecimento para os
    usuários autorizados da mesma `Organization`.
-2. Toda síntese ou página gerada deve manter ligação rastreável com suas
-   observações, claims, evidências e proveniência quando esses elementos
-   existirem.
-3. Conteúdo curado, suas revisões e seu contexto humano não são substituídos
+2. `Observed knowledge`, `Generated knowledge` e `Curated knowledge` registram
+   a origem da produção. Uma origem não pode ser inferida de cobertura,
+   evidência, temporalidade, estado de contestação ou realidade comportamental.
+3. Toda afirmação, página, relação, explicação ou `Knowledge Product` que
+   possa orientar entendimento deve manter `Evidence` e `Provenance` quando
+   existirem, distinguir suporte de contestação e declarar quando o suporte é
+   insuficiente.
+4. Cada `Analysis` deve declarar sua `Analysis Coverage`, incluindo dimensões
+   e escopos tentados e estados produzidos, incompletos, não suportados, não
+   aplicáveis ou em falha. Resultados de dimensões concluídas continuam
+   utilizáveis quando outra dimensão falhar.
+5. `Explicit Gap`s devem permanecer visíveis para ausência de cobertura,
+   contexto, telemetria, evidência ou resolução. Uma lacuna não deve ser
+   preenchida por inferência nem ser tratada como prova de que o fato não
+   existe.
+6. `Flow`, `Possible Flow`, `Observed Execution` e `Business Process` mantêm
+   realidades comportamentais distintas. Sem telemetria ou registro
+   operacional equivalente, o Manu não pode afirmar que um `Possible Flow`
+   ocorreu em runtime; uma interpretação de `Business Process` também não é
+   observação automática do código.
+7. Contextos como `Source Revision`, `Analysis Snapshot`, `Environment`,
+   `Release`, `Build Artifact`, `Deployment`, `Configuration State` e
+   `Documentation Revision` permanecem separados. Vínculos ausentes,
+   desconhecidos ou não aplicáveis são informados, e comparações não atribuem
+   uma causa sem suporte contextual.
+8. Conteúdo curado, suas revisões e seu contexto humano não são substituídos
    silenciosamente por uma análise automática. O resultado esperado é uma
    proposta, um alerta de desatualização ou um conflito para `Review`.
-4. Evidências ocultas por política de visualização continuam distintas de
-   claims sem evidência; autorização para ver conteúdo não altera sua origem.
-5. Claims conflitantes permanecem identificáveis até que uma revisão humana
-   ou outra decisão explícita explique como tratá-las.
-6. Os tipos de conhecimento e os estados epistemológicos devem ser informados
-   de modo que uma experiência não transforme uma hipótese em fato ou uma
-   síntese em contribuição humana sem base.
+9. Evidências ocultas por política de visualização continuam distintas de
+   claims sem evidência; autorização para ver conteúdo não altera sua origem,
+   seu suporte ou sua proveniência.
+10. Claims conflitantes permanecem identificáveis até que uma revisão humana
+    ou outra decisão explícita explique como tratá-las.
+11. Os qualificadores não são condensados em uma pontuação única de confiança.
+    Qualquer resumo futuro deve preservar os fatores de origem, suporte,
+    comportamento, contexto temporal e lacuna para inspeção.
+12. Perguntas de competência e suas referências são versionadas e revisáveis;
+    uma resposta é avaliada por correção, cobertura, rastreabilidade,
+    atualidade, incerteza e abstinência apropriada, não pelo volume de
+    documentação gerada.
 
 ## Questões abertas
 
@@ -352,14 +570,24 @@ preenchidas por suposições escondidas neste glossário.
   fonte?
 - Quais evidências mínimas permitem afirmar que dois nomes encontrados em
   fontes diferentes representam a mesma `Entity`?
-- Como representar validade temporal, escopo e conflito entre claims sem
-  reduzir incerteza a um único indicador de confiança?
+- Como detalhar validade, escopo e conflito entre claims nos contextos
+  temporais disponíveis sem reduzir incerteza a um único indicador de
+  confiança?
+- Qual granularidade de `Analysis Coverage` é útil para cada experiência sem
+  ocultar dimensões incompletas, não suportadas, não aplicáveis ou em falha?
+- Quais evidências operacionais são suficientes para qualificar uma ocorrência
+  como `Observed Execution`, e como relacioná-la a um `Business Process` sem
+  confundir comportamento observado com interpretação de negócio?
+- Como registrar e revisar `Competence Question`s, referências e critérios
+  quando especialistas discordarem sobre a resposta esperada?
 - Quais estados e permissões de `Review` são suficientes para a primeira
   experiência de curadoria, preservando o histórico humano?
-- Quando um `Flow` é uma visão técnica de um `Business Process` e quando deve
-  permanecer uma descrição independente?
+- Como representar vínculos ausentes ou desconhecidos entre `Source Revision`,
+  `Build Artifact`, `Deployment`, `Configuration State` e
+  `Documentation Revision` sem sugerir uma causa que não foi observada?
 
 Enquanto essas questões não forem decididas, documentos e experiências devem
 usar os termos acima com a definição mais específica que as evidências
 permitirem, indicar ambiguidade e evitar apresentar uma convenção local como
-verdade universal.
+verdade universal. Uma futura forma de resumir cobertura ou suporte não deve
+substituir a inspeção desses qualificadores por uma pontuação de confiança.

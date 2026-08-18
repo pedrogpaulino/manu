@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<proxy name="BookingProxy" targetEndpoint="bookingEndpoint">
+  <resource methods="POST" url-mapping="/bookings" inSequence="bookingIn"/>
+  <property name="region" value="${env.REGION}"/>
+  <endpoint name="bookingEndpoint" uri="https://example.test/api/bookings?token=should-not-leak"/>
+  <import location="conf/booking.xml"/>
+</proxy>
