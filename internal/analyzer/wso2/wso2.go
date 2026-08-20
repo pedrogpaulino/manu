@@ -15,6 +15,7 @@ import (
 
 	"github.com/pedrogpaulino/manu/internal/analysis"
 	"github.com/pedrogpaulino/manu/internal/contract"
+	"github.com/pedrogpaulino/manu/internal/evidence"
 	"github.com/pedrogpaulino/manu/internal/source"
 )
 
@@ -177,6 +178,14 @@ func (a *Analyzer) parseXML(ctx context.Context, input analysis.ArtifactInput, m
 					return output, contributionErr
 				}
 				output.Contributions = append(output.Contributions, contribution)
+				if input.Evidence.Enabled {
+					output.Evidence = append(output.Evidence, analysis.EvidenceDraft{
+						ContributionID: contribution.ID,
+						Locator:        contribution.Locator,
+						Content:        "element " + value.Name.Local,
+						OriginalHash:   input.Artifact.Hash,
+					})
+				}
 				addCoverage(&output, seenCoverage, coverage(input, "member:"+member, contract.CoverageProduced, "declarative WSO2 type observed", member))
 			}
 			for _, attribute := range value.Attr {
@@ -199,6 +208,21 @@ func (a *Analyzer) parseXML(ctx context.Context, input analysis.ArtifactInput, m
 						return output, contributionErr
 					}
 					output.Contributions = append(output.Contributions, contribution)
+					if input.Evidence.Enabled {
+						draft := analysis.EvidenceDraft{
+							ContributionID: contribution.ID,
+							Locator:        contribution.Locator,
+							OriginalHash:   evidence.ContentDigest(attribute.Value),
+						}
+						if redacted {
+							draft.State = evidence.ContentStateRedacted
+							draft.RedactionReason = "sensitive-content"
+							draft.Content = "attribute " + attribute.Name.Local + " (redacted)"
+						} else {
+							draft.Content = "attribute " + attribute.Name.Local + ": " + target
+						}
+						output.Evidence = append(output.Evidence, draft)
+					}
 					addCoverage(&output, seenCoverage, coverage(input, "member:"+member, contract.CoverageProduced, "literal import/include target observed", member))
 				}
 				if isReferenceAttribute(attributeName) {
@@ -219,6 +243,21 @@ func (a *Analyzer) parseXML(ctx context.Context, input analysis.ArtifactInput, m
 						return output, contributionErr
 					}
 					output.Contributions = append(output.Contributions, contribution)
+					if input.Evidence.Enabled {
+						draft := analysis.EvidenceDraft{
+							ContributionID: contribution.ID,
+							Locator:        contribution.Locator,
+							OriginalHash:   evidence.ContentDigest(attribute.Value),
+						}
+						if redacted {
+							draft.State = evidence.ContentStateRedacted
+							draft.RedactionReason = "sensitive-content"
+							draft.Content = "attribute " + attribute.Name.Local + " (redacted)"
+						} else {
+							draft.Content = "attribute " + attribute.Name.Local + ": " + target
+						}
+						output.Evidence = append(output.Evidence, draft)
+					}
 					addCoverage(&output, seenCoverage, coverage(input, "member:"+member, contract.CoverageProduced, "literal WSO2 reference observed", member))
 				}
 			}
@@ -247,6 +286,21 @@ func (a *Analyzer) parseXML(ctx context.Context, input analysis.ArtifactInput, m
 				return output, contributionErr
 			}
 			output.Contributions = append(output.Contributions, contribution)
+			if input.Evidence.Enabled {
+				draft := analysis.EvidenceDraft{
+					ContributionID: contribution.ID,
+					Locator:        contribution.Locator,
+					OriginalHash:   evidence.ContentDigest(literal),
+				}
+				if redacted {
+					draft.State = evidence.ContentStateRedacted
+					draft.RedactionReason = "sensitive-content"
+					draft.Content = "include text (redacted)"
+				} else {
+					draft.Content = "include text: " + target
+				}
+				output.Evidence = append(output.Evidence, draft)
+			}
 			addCoverage(&output, seenCoverage, coverage(input, "member:"+member, contract.CoverageProduced, "literal import/include text observed", member))
 		case xml.EndElement:
 			if len(stack) > 0 {
@@ -260,6 +314,7 @@ func appendOutput(left, right analysis.Output) analysis.Output {
 	left.Contributions = append(left.Contributions, right.Contributions...)
 	left.Coverage = append(left.Coverage, right.Coverage...)
 	left.Gaps = append(left.Gaps, right.Gaps...)
+	left.Evidence = append(left.Evidence, right.Evidence...)
 	return left
 }
 
@@ -315,7 +370,7 @@ func sanitizeLiteral(value string) (string, bool) {
 		return "", false
 	}
 	lower := strings.ToLower(value)
-	for _, marker := range []string{"password", "passwd", "secret", "token", "authorization", "bearer", "credential"} {
+	for _, marker := range []string{"password", "passwd", "secret", "token", "authorization", "bearer", "credential", "api-key", "api_key", "clientsecret", "private key", "pem"} {
 		if strings.Contains(lower, marker) {
 			return "[redacted]", true
 		}

@@ -88,6 +88,6 @@ isolamento, segurança e operação adicionais.
 
 ## Relações
 
-- OpenSpec: [proposta](../../openspec/changes/benchmark-select-knowledge-engine-stack/proposal.md), [design](../../openspec/changes/benchmark-select-knowledge-engine-stack/design.md) e [tarefas](../../openspec/changes/benchmark-select-knowledge-engine-stack/tasks.md)
+- OpenSpec arquivado: [proposta](../../openspec/changes/archive/2026-08-17-benchmark-select-knowledge-engine-stack/proposal.md), [design](../../openspec/changes/archive/2026-08-17-benchmark-select-knowledge-engine-stack/design.md) e [tarefas](../../openspec/changes/archive/2026-08-17-benchmark-select-knowledge-engine-stack/tasks.md)
 - Documentos afetados: [`ARCHITECTURE.md`](../../ARCHITECTURE.md) e [índice de ADRs](README.md)
 - ADR substituído/substituto: não aplicável

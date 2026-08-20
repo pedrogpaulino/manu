@@ -1,0 +1,717 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Manu local HTTP API",
+    "version": "v1",
+    "description": "Contrato HTTP local, sem autenticação, para o primeiro recorte de ingestão, consulta e inspeção de evidências. A instância é limitada ao endereço loopback e usa uma única organização configurada; o valor padrão é `local`. Os envelopes JSON têm versão `v1`. Erros usam `application/problem+json` e não expõem conteúdo bruto, segredos ou diagnósticos de provedores."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8080",
+      "description": "Servidor local padrão (o endereço configurado deve permanecer em loopback)."
+    }
+  ],
+  "x-manu-runtime": {
+    "authentication": "none",
+    "organization_scope": "fixed_configured_organization",
+    "loopback_only": true,
+    "synchronous_query": true,
+    "request_id_header": "X-Request-ID",
+    "limits_are_configurable": true,
+    "default_limits": {
+      "server_max_body_bytes": 67108864,
+      "bundle_max_bytes": 67108864,
+      "manifest_max_bytes": 1048576,
+      "evidence_units_max": 10000,
+      "evidence_stream_max_bytes": 262144,
+      "evidence_text_max_bytes": 65536,
+      "query_max_bytes": 16384,
+      "package_max_units": 16,
+      "package_max_bytes": 262144,
+      "package_max_tokens": 16000
+    }
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": "Sinais locais de vida e prontidão."
+    },
+    {
+      "name": "ingestions",
+      "description": "Aceitação e acompanhamento assíncrono de bundles."
+    },
+    {
+      "name": "queries",
+      "description": "Execução síncrona e reinspeção de consultas."
+    },
+    {
+      "name": "evidence",
+      "description": "Inspeção de uma Evidence Unit persistida e autorizada."
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Verifica se o processo está vivo",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Processo vivo.",
+            "headers": {
+              "X-Request-ID": {"$ref": "#/components/headers/RequestID"}
+            },
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/HealthResponse"},
+                "example": {
+                  "version": "v1",
+                  "status": "ok",
+                  "code": "alive",
+                  "message": "process is alive",
+                  "request_id": "req_example_01"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Verifica se as dependências locais estão prontas",
+        "description": "A verificação consulta apenas o estado local e o schema configurado; não chama provedores de IA.",
+        "operationId": "getReadiness",
+        "responses": {
+          "200": {
+            "description": "Dependências locais prontas.",
+            "headers": {
+              "X-Request-ID": {"$ref": "#/components/headers/RequestID"}
+            },
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/HealthResponse"},
+                "example": {
+                  "version": "v1",
+                  "status": "ready",
+                  "code": "ready",
+                  "message": "service is ready",
+                  "request_id": "req_example_02"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Não pronto. `code` é um dos valores seguros: `readiness_canceled`, `readiness_timeout`, `readiness_not_configured`, `schema_missing`, `schema_incomplete`, `schema_incompatible`, `dependency_unavailable` ou `readiness_unavailable`.",
+            "headers": {
+              "X-Request-ID": {"$ref": "#/components/headers/RequestID"}
+            },
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/HealthResponse"},
+                "example": {
+                  "version": "v1",
+                  "status": "not_ready",
+                  "code": "schema_incomplete",
+                  "message": "required schema is incomplete",
+                  "request_id": "req_example_03"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ingestions": {
+      "post": {
+        "tags": ["ingestions"],
+        "summary": "Aceita um bundle para ingestão assíncrona",
+        "description": "O request deve ser `multipart/form-data` com as partes canônicas na ordem `manifest.json`, `artifacts.ndjson`, `contributions.ndjson` e, opcionalmente, `evidence.ndjson`. O job é aceito antes de seu processamento terminar. A organização é a única organização configurada na instalação e não é recebida no request.",
+        "operationId": "createIngestion",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {"$ref": "#/components/schemas/AnalysisBundleMultipart"},
+              "encoding": {
+                "manifest.json": {"contentType": "application/json"},
+                "artifacts.ndjson": {"contentType": "application/x-ndjson"},
+                "contributions.ndjson": {"contentType": "application/x-ndjson"},
+                "evidence.ndjson": {"contentType": "application/x-ndjson"}
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Bundle aceito; o job continua assíncrono.",
+            "headers": {
+              "X-Request-ID": {"$ref": "#/components/headers/RequestID"}
+            },
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/IngestionResponse"},
+                "example": {
+                  "version": "v1",
+                  "id": "11111111-1111-4111-8111-111111111111",
+                  "organization_id": "local",
+                  "state": "pending",
+                  "stage": "validation",
+                  "attempt_count": 0,
+                  "counts": {"artifact_count": 0, "observation_count": 0, "evidence_count": 0, "failure_count": 0},
+                  "request_id": "req_example_10"
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/InvalidIngestion"},
+          "408": {"$ref": "#/components/responses/RequestTimeout"},
+          "409": {"$ref": "#/components/responses/IngestionConflict"},
+          "413": {"$ref": "#/components/responses/IngestionLimit"},
+          "415": {"$ref": "#/components/responses/UnsupportedMedia"},
+          "500": {"$ref": "#/components/responses/IngestionFailed"},
+          "503": {"$ref": "#/components/responses/IngestionUnavailable"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowedPost"}
+        }
+      }
+    },
+    "/api/v1/ingestions/{ingestion_id}": {
+      "parameters": [{"$ref": "#/components/parameters/IngestionID"}],
+      "get": {
+        "tags": ["ingestions"],
+        "summary": "Consulta o estado de uma ingestão",
+        "description": "O identificador deve ser um UUID textual de 36 caracteres. O retorno não inclui lease, erro bruto ou conteúdo secreto.",
+        "operationId": "getIngestion",
+        "responses": {
+          "200": {
+            "description": "Estado atual do job.",
+            "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/IngestionResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/InvalidIngestionPath"},
+          "404": {"$ref": "#/components/responses/IngestionNotFound"},
+          "408": {"$ref": "#/components/responses/RequestTimeout"},
+          "500": {"$ref": "#/components/responses/IngestionFailed"},
+          "503": {"$ref": "#/components/responses/IngestionUnavailable"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowedGet"}
+        }
+      }
+    },
+    "/api/v1/queries": {
+      "post": {
+        "tags": ["queries"],
+        "summary": "Executa uma consulta de forma síncrona",
+        "description": "O corpo aceita somente JSON conhecido e exige o tipo epistemológico `kind`. A execução é síncrona e retorna em estado terminal: `completed`, `partial`, `abstained` ou `failed`. Quando há resultado, `claims[].id` é estável e cada citação aponta para uma Evidence Unit reinspecionável; a política local pode produzir abstinência determinística antes de qualquer provedor.",
+        "operationId": "createQuery",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/QueryRequest"},
+              "example": {
+                "question": "Quais fluxos são observados neste sistema?",
+                "kind": "possible_flow",
+                "source_id": "22222222-2222-4222-8222-222222222222",
+                "snapshot_id": "33333333-3333-4333-8333-333333333333"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consulta concluída em `completed`, `partial` ou `abstained`; `failed` usa 500 com o mesmo envelope de consulta.",
+            "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/QueryResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/InvalidQuery"},
+          "408": {"$ref": "#/components/responses/RequestTimeout"},
+          "409": {"$ref": "#/components/responses/QueryConflict"},
+          "413": {"$ref": "#/components/responses/QueryLimit"},
+          "415": {"$ref": "#/components/responses/UnsupportedMedia"},
+          "500": {
+            "description": "Falha da execução ou resultado terminal `failed`. Falhas do serviço usam problem+json; uma execução `failed` persistida usa o envelope QueryResponse.",
+            "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+            "content": {
+              "application/json": {"schema": {"$ref": "#/components/schemas/QueryResponse"}},
+              "application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}}
+            }
+          },
+          "503": {"$ref": "#/components/responses/QueryUnavailable"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowedPost"}
+        }
+      }
+    },
+    "/api/v1/queries/{query_id}": {
+      "parameters": [{"$ref": "#/components/parameters/QueryID"}],
+      "get": {
+        "tags": ["queries"],
+        "summary": "Reinspeciona uma execução de consulta",
+        "description": "Permite observar estados `pending` e `running` persistidos, além dos estados terminais. O identificador deve ser um UUID textual de 36 caracteres.",
+        "operationId": "getQuery",
+        "responses": {
+          "200": {
+            "description": "Envelope da execução.",
+            "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/QueryResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/InvalidQueryPath"},
+          "404": {"$ref": "#/components/responses/QueryNotFound"},
+          "408": {"$ref": "#/components/responses/RequestTimeout"},
+          "500": {"$ref": "#/components/responses/QueryFailed"},
+          "503": {"$ref": "#/components/responses/QueryUnavailable"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowedGet"}
+        }
+      }
+    },
+    "/api/v1/evidence/{evidence_id}": {
+      "parameters": [{"$ref": "#/components/parameters/EvidenceID"}],
+      "get": {
+        "tags": ["evidence"],
+        "summary": "Inspeciona uma Evidence Unit",
+        "description": "Retorna somente identidade, proveniência, locator, estado de conteúdo e conteúdo local autorizado. Linhas omitidas ou negadas nunca carregam conteúdo. A coleção `/api/v1/evidence` não oferece operação de listagem neste recorte.",
+        "operationId": "getEvidence",
+        "responses": {
+          "200": {
+            "description": "Evidence Unit persistida e autorizada.",
+            "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/EvidenceResponse"},
+                "example": {
+                  "version": "v1",
+                  "id": "44444444-4444-4444-8444-444444444444",
+                  "organization_id": "local",
+                  "source_id": "22222222-2222-4222-8222-222222222222",
+                  "snapshot_id": "33333333-3333-4333-8333-333333333333",
+                  "artifact_id": "55555555-5555-4555-8555-555555555555",
+                  "locator": {"path": "src/example.go", "start_line": 10, "end_line": 18},
+                  "content_state": "present",
+                  "classification": "safe_text",
+                  "persist": "allow",
+                  "external_transfer": "deny",
+                  "content": "func Example() {}",
+                  "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "content_bytes": 18,
+                  "content_characters": 18,
+                  "truncated": false,
+                  "request_id": "req_example_20"
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/InvalidEvidencePath"},
+          "404": {"$ref": "#/components/responses/EvidenceNotFound"},
+          "408": {"$ref": "#/components/responses/RequestTimeout"},
+          "500": {"$ref": "#/components/responses/EvidenceFailed"},
+          "503": {"$ref": "#/components/responses/EvidenceUnavailable"},
+          "405": {"$ref": "#/components/responses/MethodNotAllowedGet"}
+        }
+      }
+    }
+  },
+  "components": {
+    "headers": {
+      "RequestID": {
+        "description": "Identificador de correlação ecoado no corpo e na resposta. Se o request não o fornecer, o servidor gera um valor seguro.",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_.-]{1,128}$"
+        },
+        "example": "req_example_01"
+      }
+    },
+    "parameters": {
+      "IngestionID": {
+        "name": "ingestion_id",
+        "in": "path",
+        "required": true,
+        "description": "Identificador UUID textual da ingestão.",
+        "schema": {"$ref": "#/components/schemas/UUID"},
+        "example": "11111111-1111-4111-8111-111111111111"
+      },
+      "QueryID": {
+        "name": "query_id",
+        "in": "path",
+        "required": true,
+        "description": "Identificador UUID textual da consulta.",
+        "schema": {"$ref": "#/components/schemas/UUID"},
+        "example": "66666666-6666-4666-8666-666666666666"
+      },
+      "EvidenceID": {
+        "name": "evidence_id",
+        "in": "path",
+        "required": true,
+        "description": "Identificador UUID textual da Evidence Unit.",
+        "schema": {"$ref": "#/components/schemas/UUID"},
+        "example": "44444444-4444-4444-8444-444444444444"
+      }
+    },
+    "responses": {
+      "InvalidIngestion": {"$ref": "#/components/responses/Problem400Ingestion"},
+      "InvalidIngestionPath": {"$ref": "#/components/responses/Problem400IngestionPath"},
+      "IngestionNotFound": {"$ref": "#/components/responses/Problem404Ingestion"},
+      "IngestionConflict": {"$ref": "#/components/responses/Problem409Ingestion"},
+      "IngestionLimit": {"$ref": "#/components/responses/Problem413Ingestion"},
+      "IngestionFailed": {"$ref": "#/components/responses/Problem500Ingestion"},
+      "IngestionUnavailable": {"$ref": "#/components/responses/Problem503Ingestion"},
+      "InvalidQuery": {"$ref": "#/components/responses/Problem400Query"},
+      "InvalidQueryPath": {"$ref": "#/components/responses/Problem400QueryPath"},
+      "QueryNotFound": {"$ref": "#/components/responses/Problem404Query"},
+      "QueryConflict": {"$ref": "#/components/responses/Problem409Query"},
+      "QueryLimit": {"$ref": "#/components/responses/Problem413Query"},
+      "QueryFailed": {"$ref": "#/components/responses/Problem500Query"},
+      "QueryUnavailable": {"$ref": "#/components/responses/Problem503Query"},
+      "InvalidEvidencePath": {"$ref": "#/components/responses/Problem400EvidencePath"},
+      "EvidenceNotFound": {"$ref": "#/components/responses/Problem404Evidence"},
+      "EvidenceFailed": {"$ref": "#/components/responses/Problem500Evidence"},
+      "EvidenceUnavailable": {"$ref": "#/components/responses/Problem503Evidence"},
+      "RequestTimeout": {
+        "description": "O request foi cancelado ou excedeu o prazo; `code` é `request_canceled` ou `request_timeout`.",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "request_timeout", "message": "request timed out", "status": 408, "request_id": "req_example_30"}}}
+      },
+      "UnsupportedMedia": {
+        "description": "O media type não é aceito pela operação.",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "unsupported_media_type", "message": "content type is not supported", "status": 415, "request_id": "req_example_31"}}}
+      },
+      "MethodNotAllowedPost": {
+        "description": "O método não é permitido para a coleção; `Allow: POST`.",
+        "headers": {"Allow": {"schema": {"type": "string", "const": "POST"}}, "X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "method_not_allowed", "message": "method is not allowed", "status": 405, "request_id": "req_example_32"}}}
+      },
+      "MethodNotAllowedGet": {
+        "description": "O método não é permitido para o recurso; `Allow: GET`.",
+        "headers": {"Allow": {"schema": {"type": "string", "const": "GET"}}, "X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "method_not_allowed", "message": "method is not allowed", "status": 405, "request_id": "req_example_33"}}}
+      },
+      "Problem400Ingestion": {
+        "description": "Bundle ou request de ingestão inválido (`invalid_ingestion`).",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "invalid_ingestion", "message": "ingestion payload is invalid", "status": 400, "request_id": "req_example_34"}}}
+      },
+      "Problem400IngestionPath": {
+        "description": "O identificador ou caminho de ingestão é inválido (`invalid_ingestion_path`).",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "invalid_ingestion_path", "message": "ingestion path is invalid", "status": 400, "request_id": "req_example_35"}}}
+      },
+      "Problem404Ingestion": {
+        "description": "Ingestão não encontrada (`ingestion_not_found`).",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "ingestion_not_found", "message": "ingestion was not found", "status": 404, "request_id": "req_example_36"}}}
+      },
+      "Problem409Ingestion": {
+        "description": "Conflito de identidade da ingestão (`ingestion_conflict`).",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "ingestion_conflict", "message": "ingestion conflicts with existing work", "status": 409, "request_id": "req_example_37"}}}
+      },
+      "Problem413Ingestion": {
+        "description": "Limite de body, bundle, manifest ou evidências excedido (`ingestion_limit_exceeded`); uma rejeição global anterior ao roteamento pode usar `body_too_large`. Padrões: body/bundle 64 MiB, manifest 1 MiB, stream de evidências 256 KiB, 10.000 unidades e 64 KiB por texto; os limites são configuráveis.",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "ingestion_limit_exceeded", "message": "ingestion exceeds configured limits", "status": 413, "request_id": "req_example_38"}}}
+      },
+      "Problem500Ingestion": {
+        "description": "Falha interna da ingestão (`ingestion_failed`).",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "ingestion_failed", "message": "ingestion failed", "status": 500, "request_id": "req_example_39"}}}
+      },
+      "Problem503Ingestion": {
+        "description": "Serviço de ingestão indisponível ou ocupado (`ingestion_unavailable` ou `ingestion_busy`); o limite global de concorrência pode usar `concurrency_limited`.",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "ingestion_unavailable", "message": "ingestion service is unavailable", "status": 503, "request_id": "req_example_40"}}}
+      },
+      "Problem400Query": {
+        "description": "Request de consulta inválido (`invalid_query`).",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "invalid_query", "message": "query request is invalid", "status": 400, "request_id": "req_example_41"}}}
+      },
+      "Problem400QueryPath": {
+        "description": "O identificador ou caminho da consulta é inválido (`invalid_query_path`); um resultado persistido inválido pode usar `invalid_query`.",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "invalid_query_path", "message": "query path is invalid", "status": 400, "request_id": "req_example_42"}}}
+      },
+      "Problem404Query": {
+        "description": "Consulta não encontrada (`query_not_found`).",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "query_not_found", "message": "query was not found", "status": 404, "request_id": "req_example_43"}}}
+      },
+      "Problem409Query": {
+        "description": "Conflito de execução da consulta (`query_conflict`).",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "query_conflict", "message": "query conflicts with existing execution", "status": 409, "request_id": "req_example_44"}}}
+      },
+      "Problem413Query": {
+        "description": "Limite do corpo da consulta excedido (`query_limit_exceeded`); uma rejeição global anterior ao roteamento pode usar `body_too_large`. O padrão é 16 KiB, configurável.",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "query_limit_exceeded", "message": "query exceeds configured limits", "status": 413, "request_id": "req_example_45"}}}
+      },
+      "Problem500Query": {
+        "description": "Falha da consulta (`query_failed`).",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "query_failed", "message": "query failed", "status": 500, "request_id": "req_example_46"}}}
+      },
+      "Problem503Query": {
+        "description": "Consulta indisponível, ocupada ou ainda não terminou (`query_unavailable`, `query_busy` ou `query_not_complete`); o limite global de concorrência pode usar `concurrency_limited`.",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "query_unavailable", "message": "query service is unavailable", "status": 503, "request_id": "req_example_47"}}}
+      },
+      "Problem400EvidencePath": {
+        "description": "O identificador ou caminho da evidência é inválido (`invalid_evidence_path`).",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "invalid_evidence_path", "message": "evidence path is invalid", "status": 400, "request_id": "req_example_48"}}}
+      },
+      "Problem404Evidence": {
+        "description": "Evidence Unit não encontrada (`evidence_not_found`).",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "evidence_not_found", "message": "evidence was not found", "status": 404, "request_id": "req_example_49"}}}
+      },
+      "Problem500Evidence": {
+        "description": "Evidence Unit armazenada inválida ou falha na inspeção (`evidence_invalid` ou `evidence_failed`).",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "evidence_failed", "message": "evidence inspection failed", "status": 500, "request_id": "req_example_50"}}}
+      },
+      "Problem503Evidence": {
+        "description": "Serviço de evidências indisponível ou ocupado (`evidence_unavailable` ou `query_busy`); o limite global de concorrência pode usar `concurrency_limited`.",
+        "headers": {"X-Request-ID": {"$ref": "#/components/headers/RequestID"}},
+        "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}, "example": {"version": "v1", "code": "evidence_unavailable", "message": "evidence service is unavailable", "status": 503, "request_id": "req_example_51"}}}
+      }
+    },
+    "schemas": {
+      "UUID": {
+        "type": "string",
+        "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$",
+        "description": "UUID textual de 36 caracteres; a validação do handler aceita maiúsculas e minúsculas."
+      },
+      "Digest": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$",
+        "description": "Digest SHA-256 em hexadecimal minúsculo."
+      },
+      "RequestID": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[A-Za-z0-9_.-]{1,128}$"
+      },
+      "HealthResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "status", "code", "request_id"],
+        "properties": {
+          "version": {"type": "string", "const": "v1"},
+          "status": {"type": "string", "enum": ["ok", "ready", "not_ready"]},
+          "code": {"type": "string", "pattern": "^[a-z0-9_.-]{1,64}$"},
+          "message": {"type": "string", "maxLength": 128},
+          "request_id": {"$ref": "#/components/schemas/RequestID"}
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "code", "message", "status", "request_id"],
+        "properties": {
+          "version": {"type": "string", "const": "v1"},
+          "code": {"type": "string", "pattern": "^[a-z0-9_.-]{1,64}$"},
+          "message": {"type": "string", "maxLength": 128},
+          "status": {"type": "integer", "minimum": 400, "maximum": 599},
+          "request_id": {"$ref": "#/components/schemas/RequestID"}
+        },
+        "description": "Envelope de erro seguro. O texto é fixo e não carrega conteúdo do request, DSN, segredo ou mensagem de provedor."
+      },
+      "IngestionCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_count", "observation_count", "evidence_count", "failure_count"],
+        "properties": {
+          "artifact_count": {"type": "integer", "minimum": 0},
+          "observation_count": {"type": "integer", "minimum": 0},
+          "evidence_count": {"type": "integer", "minimum": 0},
+          "failure_count": {"type": "integer", "minimum": 0}
+        }
+      },
+      "IngestionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "id", "organization_id", "state", "stage", "attempt_count", "counts", "request_id"],
+        "properties": {
+          "version": {"type": "string", "const": "v1"},
+          "id": {"$ref": "#/components/schemas/UUID"},
+          "organization_id": {"type": "string", "minLength": 1},
+          "state": {"type": "string", "enum": ["pending", "running", "completed", "partial", "failed"]},
+          "stage": {"type": "string", "enum": ["validation", "canonical_persistence", "textual_projection", "relational_projection", "embedding_projection", "activation"]},
+          "attempt_count": {"type": "integer", "minimum": 0},
+          "counts": {"$ref": "#/components/schemas/IngestionCounts"},
+          "diagnostic_code": {"type": "string", "pattern": "^[a-z0-9_.-]{1,64}$"},
+          "request_id": {"$ref": "#/components/schemas/RequestID"}
+        }
+      },
+      "AnalysisBundleMultipart": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["manifest.json", "artifacts.ndjson", "contributions.ndjson"],
+        "properties": {
+          "manifest.json": {"type": "string", "format": "binary", "contentMediaType": "application/json", "description": "Parte obrigatória; máximo padrão de 1 MiB."},
+          "artifacts.ndjson": {"type": "string", "format": "binary", "contentMediaType": "application/x-ndjson", "description": "Parte obrigatória de artefatos."},
+          "contributions.ndjson": {"type": "string", "format": "binary", "contentMediaType": "application/x-ndjson", "description": "Parte obrigatória de contribuições."},
+          "evidence.ndjson": {"type": "string", "format": "binary", "contentMediaType": "application/x-ndjson", "description": "Parte opcional quando o bundle fornece evidências; stream máximo padrão de 256 KiB e 10.000 unidades."}
+        },
+        "description": "O servidor também limita o body/bundle a 64 MiB por padrão. A ordem e os nomes são parte do contrato; os limites podem ser configurados."
+      },
+      "QueryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["question", "kind"],
+        "properties": {
+          "question": {"type": "string", "minLength": 1, "maxLength": 16384, "description": "Pergunta não vazia, sem NUL, CR ou LF; o limite padrão do corpo é 16 KiB."},
+          "kind": {"type": "string", "enum": ["inventory", "possible_flow", "observed_execution", "business_intent"], "description": "Tipo epistemológico declarado pelo cliente; não é inferido do texto da pergunta."},
+          "source_id": {"$ref": "#/components/schemas/UUID"},
+          "snapshot_id": {"$ref": "#/components/schemas/UUID", "description": "Opcional; quando informado, `source_id` também é obrigatório."}
+        },
+        "description": "A organização é fixa na configuração e não pode ser enviada como campo ou header de escopo."
+      },
+      "QueryResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "id", "organization_id", "state", "question_digest", "request_id"],
+        "properties": {
+          "version": {"type": "string", "const": "v1"},
+          "id": {"$ref": "#/components/schemas/UUID"},
+          "organization_id": {"type": "string", "minLength": 1},
+          "source_id": {"$ref": "#/components/schemas/UUID"},
+          "snapshot_id": {"$ref": "#/components/schemas/UUID"},
+          "state": {"type": "string", "enum": ["pending", "running", "completed", "partial", "failed", "abstained"]},
+          "question_digest": {"$ref": "#/components/schemas/Digest"},
+          "package_digest": {"$ref": "#/components/schemas/Digest"},
+          "result": {"$ref": "#/components/schemas/QueryResult"},
+          "diagnostic_code": {"type": "string", "pattern": "^[a-z0-9_.-]{1,64}$"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "started_at": {"type": "string", "format": "date-time"},
+          "finished_at": {"type": "string", "format": "date-time"},
+          "request_id": {"$ref": "#/components/schemas/RequestID"}
+        },
+        "description": "Envelope de status. `partial` e `abstained` são estados observáveis; não significam que uma hipótese foi promovida a execução observada."
+      },
+      "QueryResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "knowledge_state", "text", "claims", "citations", "gaps", "generation"],
+        "properties": {
+          "version": {"type": "string", "const": "v1alpha1"},
+          "knowledge_state": {"type": "string", "enum": ["generated_reviewable"]},
+          "text": {"type": "string", "maxLength": 65536},
+          "claims": {"type": "array", "items": {"$ref": "#/components/schemas/Claim"}},
+          "citations": {"type": "array", "items": {"$ref": "#/components/schemas/Citation"}},
+          "gaps": {"type": "array", "items": {"$ref": "#/components/schemas/Gap"}},
+          "generation": {"$ref": "#/components/schemas/GenerationMetadata"}
+        },
+        "description": "Resultado gerado e revisável. Cada afirmação possui identificador estável e suas citações apontam para Evidence Units reinspecionáveis."
+      },
+      "Claim": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "ordinal", "kind", "support", "text"],
+        "properties": {
+          "id": {"$ref": "#/components/schemas/UUID"},
+          "ordinal": {"type": "integer", "minimum": 1},
+          "kind": {"type": "string", "enum": ["observed", "generated", "gap"]},
+          "support": {"type": "string", "enum": ["supported", "unsupported", "abstained"]},
+          "text": {"type": "string", "maxLength": 16384},
+          "citation_ordinals": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+          "gap_ordinals": {"type": "array", "items": {"type": "integer", "minimum": 1}}
+        }
+      },
+      "Citation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ordinal", "organization_id", "source_id", "snapshot_id", "evidence_id", "locator", "role"],
+        "properties": {
+          "ordinal": {"type": "integer", "minimum": 1},
+          "organization_id": {"$ref": "#/components/schemas/UUID"},
+          "source_id": {"$ref": "#/components/schemas/UUID"},
+          "snapshot_id": {"$ref": "#/components/schemas/UUID"},
+          "evidence_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "locator": {"$ref": "#/components/schemas/Locator"},
+          "role": {"type": "string", "enum": ["supports", "contests", "context"]}
+        }
+      },
+      "Gap": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ordinal", "id", "code", "message"],
+        "properties": {
+          "ordinal": {"type": "integer", "minimum": 1},
+          "id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "code": {"type": "string", "pattern": "^[a-z0-9_.-]{1,64}$"},
+          "message": {"type": "string", "maxLength": 4096}
+        }
+      },
+      "GenerationMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["provider", "model", "profile", "protocol", "usage", "termination", "package_id", "package_digest", "query_id", "query_digest", "started_at", "finished_at", "latency"],
+        "properties": {
+          "provider": {"type": "string", "enum": ["none", "simulated", "openai", "openai-compatible", "openrouter"]},
+          "model": {"type": "string", "maxLength": 128},
+          "profile": {"type": "string", "maxLength": 128},
+          "protocol": {"type": "string", "enum": ["none", "responses", "chat_completions"]},
+          "usage": {"type": "object", "additionalProperties": false, "required": ["input_items", "output_items", "input_tokens", "output_tokens"], "properties": {"input_items": {"type": "integer", "minimum": 0}, "output_items": {"type": "integer", "minimum": 0}, "input_tokens": {"type": "integer", "minimum": 0}, "output_tokens": {"type": "integer", "minimum": 0}}},
+          "termination": {"type": "string", "enum": ["completed", "partial", "abstained"]},
+          "package_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "package_digest": {"$ref": "#/components/schemas/Digest"},
+          "query_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "query_digest": {"$ref": "#/components/schemas/Digest"},
+          "started_at": {"type": "string", "format": "date-time"},
+          "finished_at": {"type": "string", "format": "date-time"},
+          "latency": {"type": "integer", "minimum": 0}
+        }
+      },
+      "Locator": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "uri": {"type": "string", "maxLength": 4096},
+          "source_id": {"type": "string", "maxLength": 256},
+          "artifact_id": {"type": "string", "maxLength": 256},
+          "path": {"type": "string", "maxLength": 4096},
+          "member": {"type": "string", "maxLength": 1024},
+          "start_line": {"type": "integer", "minimum": 0},
+          "start_column": {"type": "integer", "minimum": 0},
+          "end_line": {"type": "integer", "minimum": 0},
+          "end_column": {"type": "integer", "minimum": 0},
+          "byte_offset": {"type": "integer", "minimum": 0},
+          "byte_length": {"type": "integer", "minimum": 0}
+        },
+        "description": "Localizador de proveniência; não concede acesso ao filesystem original."
+      },
+      "EvidenceResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "id", "organization_id", "source_id", "snapshot_id", "artifact_id", "locator", "content_state", "classification", "persist", "external_transfer", "content_hash", "content_bytes", "content_characters", "truncated", "request_id"],
+        "properties": {
+          "version": {"type": "string", "const": "v1"},
+          "id": {"$ref": "#/components/schemas/UUID"},
+          "organization_id": {"type": "string", "minLength": 1},
+          "source_id": {"$ref": "#/components/schemas/UUID"},
+          "snapshot_id": {"$ref": "#/components/schemas/UUID"},
+          "artifact_id": {"$ref": "#/components/schemas/UUID"},
+          "observation_id": {"$ref": "#/components/schemas/UUID"},
+          "locator": {"$ref": "#/components/schemas/Locator"},
+          "content_state": {"type": "string", "enum": ["present", "redacted", "omitted"]},
+          "classification": {"type": "string", "enum": ["", "safe_text", "sensitive", "prompt_injection_like", "binary", "invalid", "prohibited"]},
+          "persist": {"type": "string", "enum": ["allow", "redact", "deny"]},
+          "external_transfer": {"type": "string", "enum": ["allow", "redact", "deny"]},
+          "content": {"type": "string", "maxLength": 65536, "description": "Presente apenas quando autorizado; nunca é serializado para conteúdo omitido ou negado."},
+          "content_hash": {"$ref": "#/components/schemas/Digest"},
+          "content_bytes": {"type": "integer", "minimum": 0},
+          "content_characters": {"type": "integer", "minimum": 0},
+          "truncated": {"type": "boolean"},
+          "request_id": {"$ref": "#/components/schemas/RequestID"}
+        },
+        "description": "Proveniência e conteúdo local autorizado de uma Evidence Unit. O corpo nunca contém segredo, erro bruto ou conteúdo de uma unidade negada/omitida."
+      }
+    }
+  }
+}

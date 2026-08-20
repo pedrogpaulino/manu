@@ -41,6 +41,12 @@ var (
 	ErrDuplicateAnalyzer = errors.New("analysis: duplicate analyzer")
 	// ErrInvalidRequest identifies a runner request that cannot be scoped.
 	ErrInvalidRequest = errors.New("analysis: invalid request")
+	// ErrInvalidEvidence identifies an evidence run that cannot be safely
+	// materialized or validated.
+	ErrInvalidEvidence = errors.New("analysis: invalid evidence request")
+	// ErrEvidenceLimitExceeded identifies a configured evidence bound that
+	// cannot be accepted.
+	ErrEvidenceLimitExceeded = errors.New("analysis: evidence limit exceeded")
 )
 
 // Descriptor declares the contract and input types supported by an analyzer.
@@ -108,6 +114,9 @@ type ArtifactInput struct {
 	// RootHandle is owned by the runner for the duration of a run. Analyzer
 	// reads must stay relative to this confined root.
 	RootHandle *os.Root
+	// Evidence describes whether this execution requested bounded evidence
+	// drafts. It is empty for the legacy Run path.
+	Evidence EvidenceInput
 }
 
 // Input is a shorter compatibility spelling for ArtifactInput.
@@ -119,6 +128,10 @@ type Output struct {
 	Contributions []contract.Contribution `json:"contributions,omitempty"`
 	Coverage      []contract.Coverage     `json:"coverage,omitempty"`
 	Gaps          []contract.Gap          `json:"gaps,omitempty"`
+	// Evidence contains in-memory drafts only. The runner sanitizes and
+	// validates them before exposing Evidence Units; raw drafts are never
+	// serialized as analyzer output.
+	Evidence []EvidenceDraft `json:"-"`
 }
 
 // AnalysisOutput is the domain-oriented spelling of Output.
@@ -138,6 +151,29 @@ func (i ArtifactInput) Text(ctx context.Context, includeContent bool) (source.Te
 	return source.ExtractTextInRoot(ctx, i.RootHandle, i.Artifact.Path, source.TextOptions{
 		MaxBytes:       limit,
 		IncludeContent: includeContent,
+	})
+}
+
+// EvidenceText returns a separately bounded textual preview for an evidence
+// run. Its bound is intentionally smaller and independent from the legacy
+// analyzer extraction limit so a draft cannot retain an entire source file.
+func (i ArtifactInput) EvidenceText(ctx context.Context) (source.TextResult, error) {
+	if i.RootHandle == nil {
+		return source.TextResult{}, fmt.Errorf("%w: root handle is required", ErrInvalidRequest)
+	}
+	if i.Evidence.Limits.MaxUnitsPerArtifact < 0 || i.Evidence.Limits.MaxBytesPerUnit < 0 || i.Evidence.Limits.MaxCharactersPerUnit < 0 {
+		return source.TextResult{}, fmt.Errorf("%w: evidence limits must not be negative", ErrEvidenceLimitExceeded)
+	}
+	limit := i.Evidence.Limits.MaxBytesPerUnit
+	if limit <= 0 {
+		limit = DefaultEvidenceMaxBytesPerUnit
+	}
+	if i.Limits.MaxExtractionBytes > 0 && i.Limits.MaxExtractionBytes < limit {
+		limit = i.Limits.MaxExtractionBytes
+	}
+	return source.ExtractTextInRoot(ctx, i.RootHandle, i.Artifact.Path, source.TextOptions{
+		MaxBytes:       limit,
+		IncludeContent: true,
 	})
 }
 

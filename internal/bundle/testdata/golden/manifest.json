@@ -1,0 +1,72 @@
+{
+  "version": "v1alpha1",
+  "organization": {
+    "id": "organization-1",
+    "name": "Fixture organization"
+  },
+  "contract_version": "v1alpha1",
+  "result_id": "result-1",
+  "source": {
+    "id": "source-1",
+    "name": "fixture",
+    "type": "filesystem",
+    "revision": "revision-1"
+  },
+  "snapshot": {
+    "id": "snapshot-7bc99e16ac6905a0deb1ce0a44a3c03d76797036adb37e5ea2f221b9c65044ac",
+    "source_id": "source-1",
+    "revision": "revision-1",
+    "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "execution": {
+    "run_id": "run-1",
+    "configuration_id": "configuration-1"
+  },
+  "artifact_count": 1,
+  "contribution_count": 1,
+  "coverage": [],
+  "gaps": [],
+  "failures": [],
+  "analysis": {
+    "id": "analysis-1",
+    "configuration_id": "configuration-1",
+    "revision": "analysis-revision-1"
+  },
+  "factual_digest": "8f092747f4dde9b221d8bc33bac7198d75120157f81d3965102d910620f8f1c2",
+  "files": [
+    {
+      "name": "artifacts.ndjson",
+      "bytes": 224,
+      "count": 1,
+      "digest": "2e26d89d8540d227c7f9b02b4e567edd5f122cf3a5fe0e42bbe00ff685641cb6"
+    },
+    {
+      "name": "contributions.ndjson",
+      "bytes": 429,
+      "count": 1,
+      "digest": "ac730a888e85086485223d08a10fa00882f0f46fe2c2282d423f2f05fd3157d3"
+    },
+    {
+      "name": "evidence.ndjson",
+      "bytes": 990,
+      "count": 1,
+      "digest": "880046b24e616caf1b3fdc1a5e8e7f1a98e6f733c4d43f0c958fadba025671e3"
+    }
+  ],
+  "counts": {
+    "artifact_count": 1,
+    "contribution_count": 1,
+    "evidence_unit_count": 1
+  },
+  "limits": {
+    "max_bundle_bytes": 1048576,
+    "max_manifest_bytes": 65536,
+    "max_evidence_bytes": 65536,
+    "max_artifacts": 10,
+    "max_contributions": 10,
+    "max_evidence_units": 10
+  },
+  "evidence": {
+    "state": "available"
+  }
+}

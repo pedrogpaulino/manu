@@ -11,6 +11,16 @@ principal de compreensão](../../openspec/specs/knowledge-engine-comprehension/s
 usando os termos do [domínio canônico](../../DOMAIN.md). O vínculo de identidade
 e autorização das fontes está no [manifesto do corpus](first-vertical-slice-corpus.md).
 
+O registro da primeira execução com os analisadores reais locais está em
+[avaliação local da tarefa 9.4](first-vertical-slice-real-9-4.md). Ele mantém
+as fontes somente leitura, não usa provider e separa resultados de
+extração, ingestão, recuperação, geração e política.
+
+A linha de base versionada da tarefa 9.5, com ambiente, configuração, perfis,
+métricas, transferência, custos e limitações, está em [linha de base da tarefa
+9.5](first-vertical-slice-9-5.md), com o registro estruturado em
+[JSON](first-vertical-slice-9-5.json).
+
 ## 1. Escopo e estados do conhecimento
 
 O primeiro corte tem três papéis de referência diferentes:

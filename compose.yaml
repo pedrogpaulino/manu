@@ -1,0 +1,124 @@
+name: manu-local
+
+x-manu-image: &manu-image
+  image: manu:local
+  build:
+    context: .
+    dockerfile: Dockerfile
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg18-bookworm
+    environment:
+      POSTGRES_DB: ${MANU_POSTGRES_DATABASE:-manu}
+      POSTGRES_USER: ${MANU_POSTGRES_USER:-manu}
+      POSTGRES_PASSWORD: ${MANU_POSTGRES_PASSWORD:-}
+      # This cell is local-only and deliberately has no credential in the
+      # example. Set POSTGRES_HOST_AUTH_METHOD and a secret password in a
+      # deployment-specific environment before exposing PostgreSQL elsewhere.
+      POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_HOST_AUTH_METHOD:-trust}
+      PGDATA: /var/lib/postgresql/18/docker
+    volumes:
+      - manu-postgres-data:/var/lib/postgresql
+      - manu-postgres-socket:/var/run/postgresql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  migrate:
+    <<: *manu-image
+    command: ["migrate", "--json"]
+    environment:
+      MANU_POSTGRES_HOST: postgres
+      MANU_POSTGRES_PORT: 5432
+      MANU_POSTGRES_DATABASE: ${MANU_POSTGRES_DATABASE:-manu}
+      MANU_POSTGRES_USER: ${MANU_POSTGRES_USER:-manu}
+      MANU_POSTGRES_PASSWORD: ${MANU_POSTGRES_PASSWORD:-}
+      MANU_POSTGRES_SSL_MODE: ${MANU_POSTGRES_SSL_MODE:-disable}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *manu-image
+    command: ["serve"]
+    # Linux host networking keeps the unauthenticated server's mandatory
+    # loopback bind reachable from the host. PostgreSQL remains unpublished;
+    # the API uses the shared Unix-socket volume below.
+    network_mode: host
+    environment:
+      MANU_SERVER_MODE: ${MANU_SERVER_MODE:-platform}
+      MANU_SERVER_LISTEN_ADDRESS: ${MANU_SERVER_LISTEN_ADDRESS:-127.0.0.1:8080}
+      MANU_ORGANIZATION_ID: ${MANU_ORGANIZATION_ID:-local}
+      MANU_ORGANIZATION_NAME: ${MANU_ORGANIZATION_NAME:-Local organization}
+      MANU_POSTGRES_HOST: /var/run/postgresql
+      MANU_POSTGRES_PORT: 5432
+      MANU_POSTGRES_DATABASE: ${MANU_POSTGRES_DATABASE:-manu}
+      MANU_POSTGRES_USER: ${MANU_POSTGRES_USER:-manu}
+      MANU_POSTGRES_PASSWORD: ${MANU_POSTGRES_PASSWORD:-}
+      MANU_POSTGRES_SSL_MODE: ${MANU_POSTGRES_SSL_MODE:-disable}
+      MANU_POSTGRES_MAX_OPEN_CONNS: ${MANU_POSTGRES_MAX_OPEN_CONNS:-10}
+      MANU_POSTGRES_MAX_IDLE_CONNS: ${MANU_POSTGRES_MAX_IDLE_CONNS:-5}
+      MANU_POSTGRES_CONN_MAX_LIFETIME: ${MANU_POSTGRES_CONN_MAX_LIFETIME:-30m}
+      MANU_POSTGRES_CONN_MAX_IDLE_TIME: ${MANU_POSTGRES_CONN_MAX_IDLE_TIME:-5m}
+      MANU_POLICY_PERSIST: ${MANU_POLICY_PERSIST:-allow}
+      MANU_POLICY_EXTERNAL_TRANSFER: ${MANU_POLICY_EXTERNAL_TRANSFER:-deny}
+      MANU_EMBEDDING_ENABLED: ${MANU_EMBEDDING_ENABLED:-false}
+      MANU_EMBEDDING_PROVIDER: ${MANU_EMBEDDING_PROVIDER:-}
+      MANU_EMBEDDING_MODEL: ${MANU_EMBEDDING_MODEL:-}
+      MANU_EMBEDDING_BASE_URL: ${MANU_EMBEDDING_BASE_URL:-}
+      MANU_EMBEDDING_API_KEY: ${MANU_EMBEDDING_API_KEY:-}
+      MANU_EMBEDDING_TIMEOUT: ${MANU_EMBEDDING_TIMEOUT:-30s}
+      MANU_EMBEDDING_MAX_BATCH_SIZE: ${MANU_EMBEDDING_MAX_BATCH_SIZE:-32}
+      MANU_EMBEDDING_DIMENSION: ${MANU_EMBEDDING_DIMENSION:-0}
+      MANU_EMBEDDING_BUDGET_MAX_REQUESTS: ${MANU_EMBEDDING_BUDGET_MAX_REQUESTS:-0}
+      MANU_EMBEDDING_BUDGET_MAX_INPUT_TOKENS: ${MANU_EMBEDDING_BUDGET_MAX_INPUT_TOKENS:-0}
+      MANU_EMBEDDING_BUDGET_MAX_OUTPUT_TOKENS: ${MANU_EMBEDDING_BUDGET_MAX_OUTPUT_TOKENS:-0}
+      MANU_EMBEDDING_BUDGET_MAX_COST_USD: ${MANU_EMBEDDING_BUDGET_MAX_COST_USD:-0}
+      MANU_GENERATION_ENABLED: ${MANU_GENERATION_ENABLED:-false}
+      MANU_GENERATION_PROVIDER: ${MANU_GENERATION_PROVIDER:-}
+      MANU_GENERATION_MODEL: ${MANU_GENERATION_MODEL:-}
+      MANU_GENERATION_BASE_URL: ${MANU_GENERATION_BASE_URL:-}
+      MANU_GENERATION_API_KEY: ${MANU_GENERATION_API_KEY:-}
+      MANU_GENERATION_PROTOCOL: ${MANU_GENERATION_PROTOCOL:-responses}
+      MANU_GENERATION_TIMEOUT: ${MANU_GENERATION_TIMEOUT:-1m}
+      MANU_GENERATION_MAX_OUTPUT_TOKENS: ${MANU_GENERATION_MAX_OUTPUT_TOKENS:-2048}
+      MANU_GENERATION_TEMPERATURE: ${MANU_GENERATION_TEMPERATURE:-0}
+      MANU_GENERATION_BUDGET_MAX_REQUESTS: ${MANU_GENERATION_BUDGET_MAX_REQUESTS:-0}
+      MANU_GENERATION_BUDGET_MAX_INPUT_TOKENS: ${MANU_GENERATION_BUDGET_MAX_INPUT_TOKENS:-0}
+      MANU_GENERATION_BUDGET_MAX_OUTPUT_TOKENS: ${MANU_GENERATION_BUDGET_MAX_OUTPUT_TOKENS:-0}
+      MANU_GENERATION_BUDGET_MAX_COST_USD: ${MANU_GENERATION_BUDGET_MAX_COST_USD:-0}
+      MANU_EVALUATION_LIVE: ${MANU_EVALUATION_LIVE:-false}
+      MANU_INGESTION_STAGING_DIRECTORY: /var/lib/manu/ingestions
+    volumes:
+      - manu-ingestion-data:/var/lib/manu/ingestions
+      - manu-postgres-socket:/var/run/postgresql
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # The scratch runtime has no shell or HTTP client. The binary's ready
+      # command probes the real /readyz dependency/schema contract.
+      test: ["CMD", "/manu", "ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  manu-postgres-data:
+    name: manu-postgres-data
+  manu-postgres-socket:
+    name: manu-postgres-socket
+  manu-ingestion-data:
+    name: manu-ingestion-data

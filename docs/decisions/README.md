@@ -30,6 +30,12 @@ de implementação temporários ou uma lista de ideias.
 - [`0002-fundacao-go-first.md`](0002-fundacao-go-first.md)
   — decisão `Accepted` sobre o runtime Go-first, o módulo único e a política
   de atualização do toolchain.
+- [`0003-postgresql-fonte-de-verdade-pgvector-projecao.md`](0003-postgresql-fonte-de-verdade-pgvector-projecao.md)
+  — decisão `Accepted` sobre PostgreSQL como fonte de verdade operacional e
+  pgvector como projeção vetorial inicial reconstruível.
+- [`0004-ai-gateway-independente-de-provedor.md`](0004-ai-gateway-independente-de-provedor.md)
+  — decisão `Accepted` sobre o `AI Gateway` com portas independentes de
+  embedding e geração e adaptadores explícitos por provedor/protocolo.
 
 ## Estados
 

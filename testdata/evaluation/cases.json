@@ -1,0 +1,470 @@
+{
+  "version": "v1alpha1",
+  "cases": [
+    {
+      "case_id": "FIX-ABS-01",
+      "case_version": 1,
+      "state": "draft",
+      "corpus_id": "first-vertical-slice",
+      "corpus_revision": "2026-08-17",
+      "source_id": "fixture-analyzers",
+      "source_revision": "2b08cbdd9ff398d135fa103ccbeaf84e1c774233",
+      "scope": {
+        "purpose": "abstinência quando a fixture não sustenta execução",
+        "dimensions": ["evidence_provenance_uncertainty_gaps", "flows_and_dependencies"],
+        "artifacts": ["analyzers/Sample.java", "contract/manifest.golden.json"]
+      },
+      "inclusions": [
+        {"ref": "analyzers/Sample.java", "reason": "fixture Java pequena e determinística"},
+        {"ref": "contract/manifest.golden.json", "reason": "manifesto estruturado do contrato"}
+      ],
+      "exclusions": [
+        {"ref": "runtime-execution", "reason": "a fixture não inclui telemetria ou ambiente executado"}
+      ],
+      "authorization_ref": "local-read-only-fixture",
+      "audience": "sustentação",
+      "competence_question": "O que o Manu não pode afirmar sobre uma execução ou intenção de negócio nesta fixture?",
+      "kind": "abstention",
+      "acceptable_claims": [
+        {
+          "claim_id": "fix-abs-claim",
+          "statement": "A resposta deve se abster de afirmar execução observada ou intenção de negócio sem telemetria e documentação correspondente.",
+          "origin": "generated",
+          "match": "semantic",
+          "evidence_ids": ["fix-abs-coverage"],
+          "gap_ids": ["fix-gap-execution", "fix-gap-intent"]
+        }
+      ],
+      "expected_evidence": [
+        {
+          "evidence_id": "fix-abs-coverage",
+          "kind": "coverage",
+          "pattern": {"path_pattern": "contract/manifest.golden.json", "member": "gaps"}
+        }
+      ],
+      "expected_gaps": [
+        {
+          "gap_id": "fix-gap-execution",
+          "code": "observed_execution_unavailable",
+          "statement": "Não há telemetria ou ambiente vinculado para confirmar execução observada.",
+          "attribution_stage": "generation"
+        },
+        {
+          "gap_id": "fix-gap-intent",
+          "code": "business_intent_unavailable",
+          "statement": "A intenção de negócio não está documentada na fixture autorizada.",
+          "attribution_stage": "generation"
+        }
+      ],
+      "authors": ["manu-change-9-1"],
+      "reviewers": ["manu-contract-validation"],
+      "reviewed_at": "2026-08-17T00:00:00Z",
+      "failure_attribution": [
+        {"stage": "extraction", "code": "missing_telemetry_context", "reason": "a fonte não oferece registro operacional"},
+        {"stage": "generation", "code": "unsupported_execution_claim", "reason": "a resposta não pode converter lacuna em fato"},
+        {"stage": "policy", "code": "transfer_not_authorized", "reason": "somente referências locais estão autorizadas"}
+      ]
+    },
+    {
+      "case_id": "FIX-INV-01",
+      "case_version": 1,
+      "state": "draft",
+      "corpus_id": "first-vertical-slice",
+      "corpus_revision": "2026-08-17",
+      "source_id": "fixture-analyzers",
+      "source_revision": "2b08cbdd9ff398d135fa103ccbeaf84e1c774233",
+      "scope": {
+        "purpose": "inventário sustentado da fixture local",
+        "dimensions": ["evidence_provenance_uncertainty_gaps", "landscape_inventory_structure"],
+        "artifacts": ["analyzers/Sample.java", "contract/manifest.golden.json"]
+      },
+      "inclusions": [
+        {"ref": "analyzers/Sample.java", "reason": "artefato Java incluído no recorte"},
+        {"ref": "contract/manifest.golden.json", "reason": "manifesto usado para identidade e cobertura"}
+      ],
+      "exclusions": [
+        {"ref": "generated-output", "reason": "saída de execução não é fonte do caso"}
+      ],
+      "authorization_ref": "local-read-only-fixture",
+      "audience": "arquitetura",
+      "competence_question": "Quais artefatos e dimensões estão presentes na fixture autorizada?",
+      "kind": "inventory",
+      "acceptable_claims": [
+        {
+          "claim_id": "fix-inv-claim",
+          "statement": "A fixture oferece um manifesto estruturado e um artefato Java pequeno, com cobertura e lacunas registradas.",
+          "origin": "observed",
+          "match": "semantic",
+          "evidence_ids": ["fix-inv-manifest", "fix-inv-java"],
+          "gap_ids": ["fix-inv-gap"]
+        }
+      ],
+      "expected_evidence": [
+        {
+          "evidence_id": "fix-inv-manifest",
+          "kind": "manifest",
+          "locator": {"path": "contract/manifest.golden.json", "member": "manifest"}
+        },
+        {
+          "evidence_id": "fix-inv-java",
+          "kind": "artifact",
+          "locator": {"path": "analyzers/Sample.java", "member": "Sample"}
+        }
+      ],
+      "expected_gaps": [
+        {
+          "gap_id": "fix-inv-gap",
+          "code": "runtime_not_attempted",
+          "statement": "A fixture não representa um ambiente de execução ou implantação.",
+          "attribution_stage": "extraction"
+        }
+      ],
+      "authors": ["manu-change-9-1"],
+      "reviewers": ["manu-contract-validation"],
+      "reviewed_at": "2026-08-17T00:00:00Z",
+      "failure_attribution": [
+        {"stage": "extraction", "code": "inventory_missing", "reason": "artefato esperado não foi materializado"},
+        {"stage": "retrieval", "code": "inventory_not_found", "reason": "evidência materializada não entrou no pacote"},
+        {"stage": "policy", "code": "fixture_transfer_blocked", "reason": "conteúdo fora da política não pode ser transferido"}
+      ]
+    },
+    {
+      "case_id": "FIX-PROV-01",
+      "case_version": 1,
+      "state": "draft",
+      "corpus_id": "first-vertical-slice",
+      "corpus_revision": "2026-08-17",
+      "source_id": "fixture-analyzers",
+      "source_revision": "2b08cbdd9ff398d135fa103ccbeaf84e1c774233",
+      "scope": {
+        "purpose": "proveniência reproduzível da fixture",
+        "dimensions": ["evidence_provenance_uncertainty_gaps", "evolution"],
+        "artifacts": ["contract/manifest.golden.json", "analyzers/Sample.java"]
+      },
+      "inclusions": [
+        {"ref": "contract/manifest.golden.json", "reason": "identidade e revisão do snapshot"},
+        {"ref": "analyzers/Sample.java", "reason": "locador do artefato analisado"}
+      ],
+      "exclusions": [
+        {"ref": "untracked-local-state", "reason": "estado local não faz parte da revisão do caso"}
+      ],
+      "authorization_ref": "local-read-only-fixture",
+      "audience": "curadoria",
+      "competence_question": "Como uma afirmação da fixture pode ser reaberta por revisão, artefato e locador?",
+      "kind": "provenance",
+      "acceptable_claims": [
+        {
+          "claim_id": "fix-prov-claim",
+          "statement": "A afirmação deve manter a revisão da fonte e um locador relativo do artefato, sem exigir igualdade textual da resposta.",
+          "origin": "generated",
+          "match": "semantic",
+          "evidence_ids": ["fix-prov-manifest", "fix-prov-java"],
+          "gap_ids": ["fix-prov-gap"]
+        }
+      ],
+      "expected_evidence": [
+        {
+          "evidence_id": "fix-prov-manifest",
+          "kind": "provenance",
+          "pattern": {"path_pattern": "contract/manifest.golden.json", "member": "snapshot"}
+        },
+        {
+          "evidence_id": "fix-prov-java",
+          "kind": "locator",
+          "locator": {"path": "analyzers/Sample.java", "member": "Sample"}
+        }
+      ],
+      "expected_gaps": [
+        {
+          "gap_id": "fix-prov-gap",
+          "code": "external_revision_not_applicable",
+          "statement": "A fixture é versionada pelo repositório de testes e não representa um corpus externo implantado.",
+          "attribution_stage": "policy"
+        }
+      ],
+      "authors": ["manu-change-9-1"],
+      "reviewers": ["manu-contract-validation"],
+      "reviewed_at": "2026-08-17T00:00:00Z",
+      "failure_attribution": [
+        {"stage": "extraction", "code": "provenance_missing", "reason": "revisão ou locador não foi preservado"},
+        {"stage": "retrieval", "code": "locator_unreachable", "reason": "referência não foi encontrada no pacote"},
+        {"stage": "generation", "code": "provenance_omitted", "reason": "resposta não permitiu reabrir a afirmação"}
+      ]
+    },
+    {
+      "case_id": "TM-ABS-01",
+      "case_version": 1,
+      "state": "draft",
+      "corpus_id": "first-vertical-slice",
+      "corpus_revision": "2026-08-17",
+      "source_id": "ticketmaster-java-quarkus",
+      "source_revision": "88cab04c59c58e745a94302e5c9e856830c4c902",
+      "scope": {
+        "purpose": "abstinência de execução observada e intenção de negócio",
+        "dimensions": ["evidence_provenance_uncertainty_gaps", "flows_and_dependencies"],
+        "artifacts": ["app/src/main/java/tech/buildrun/service/BookingService.java"]
+      },
+      "inclusions": [
+        {"ref": "app/src/main/java/tech/buildrun/service/BookingService.java", "reason": "caminho estático autorizado"}
+      ],
+      "exclusions": [
+        {"ref": "runtime-state", "reason": "banco, filas e telemetria estão fora do recorte"}
+      ],
+      "authorization_ref": "corpus-manifest-2026-08-17",
+      "audience": "sustentação",
+      "competence_question": "O que não pode ser concluído sobre uma reserva executada a partir somente do código?",
+      "kind": "abstention",
+      "acceptable_claims": [
+        {
+          "claim_id": "tm-abs-claim",
+          "statement": "O código sustenta um caminho possível, mas não confirma que uma reserva ocorreu nem qual era a intenção de negócio.",
+          "origin": "generated",
+          "match": "semantic",
+          "evidence_ids": ["tm-abs-service"],
+          "gap_ids": ["tm-gap-telemetry", "tm-gap-intent"]
+        }
+      ],
+      "expected_evidence": [
+        {
+          "evidence_id": "tm-abs-service",
+          "kind": "possible_flow",
+          "locator": {"path": "app/src/main/java/tech/buildrun/service/BookingService.java", "member": "BookingService", "start_line": 32, "end_line": 63}
+        }
+      ],
+      "expected_gaps": [
+        {
+          "gap_id": "tm-gap-telemetry",
+          "code": "observed_execution_unavailable",
+          "statement": "Não há logs, métricas ou traces vinculados à revisão para confirmar execução observada.",
+          "attribution_stage": "generation"
+        },
+        {
+          "gap_id": "tm-gap-intent",
+          "code": "business_intent_unavailable",
+          "statement": "A intenção de negócio não está documentada pela evidência estática autorizada.",
+          "attribution_stage": "generation"
+        }
+      ],
+      "authors": ["manu-change-9-1"],
+      "reviewers": ["manu-contract-validation"],
+      "reviewed_at": "2026-08-17T00:00:00Z",
+      "failure_attribution": [
+        {"stage": "extraction", "code": "telemetry_absent", "reason": "o corpus contém código, não execução observada"},
+        {"stage": "generation", "code": "execution_claim_unsupported", "reason": "a resposta deve preservar a abstinência"},
+        {"stage": "policy", "code": "runtime_out_of_scope", "reason": "estado operacional não foi autorizado"}
+      ]
+    },
+    {
+      "case_id": "TM-FLOW-01",
+      "case_version": 1,
+      "state": "draft",
+      "corpus_id": "first-vertical-slice",
+      "corpus_revision": "2026-08-17",
+      "source_id": "ticketmaster-java-quarkus",
+      "source_revision": "88cab04c59c58e745a94302e5c9e856830c4c902",
+      "scope": {
+        "purpose": "Possible Flow estático de reserva",
+        "dimensions": ["errors_and_possible_flows", "flows_and_dependencies"],
+        "artifacts": [
+          "app/src/main/java/tech/buildrun/controller/BookingController.java",
+          "app/src/main/java/tech/buildrun/service/BookingService.java",
+          "app/src/main/java/tech/buildrun/entity/SeatEntity.java"
+        ]
+      },
+      "inclusions": [
+        {"ref": "app/src/main/java/tech/buildrun/controller/BookingController.java", "reason": "endpoint e chamada direta"},
+        {"ref": "app/src/main/java/tech/buildrun/service/BookingService.java", "reason": "serviço e condições do caminho"},
+        {"ref": "app/src/main/java/tech/buildrun/entity/SeatEntity.java", "reason": "estado do assento"}
+      ],
+      "exclusions": [
+        {"ref": "app/src/test", "reason": "testes não são a base do fluxo de produção"},
+        {"ref": "runtime-execution", "reason": "não há telemetria autorizada"}
+      ],
+      "authorization_ref": "corpus-manifest-2026-08-17",
+      "audience": "arquitetura",
+      "competence_question": "Qual Possible Flow de reserva é sustentado por entrada, chamadas diretas, condições e dados observáveis?",
+      "kind": "possible_flow",
+      "acceptable_claims": [
+        {
+          "claim_id": "tm-flow-claim",
+          "statement": "A entrada do endpoint pode chamar o serviço, validar assentos, criar a reserva e atualizar o estado; isso permanece um Possible Flow estático.",
+          "origin": "observed",
+          "match": "semantic",
+          "evidence_ids": ["tm-flow-controller", "tm-flow-service", "tm-flow-seat"],
+          "gap_ids": ["tm-flow-gap"]
+        }
+      ],
+      "expected_evidence": [
+        {
+          "evidence_id": "tm-flow-controller",
+          "kind": "endpoint",
+          "locator": {"path": "app/src/main/java/tech/buildrun/controller/BookingController.java", "member": "BookingController", "start_line": 20, "end_line": 41}
+        },
+        {
+          "evidence_id": "tm-flow-service",
+          "kind": "service",
+          "locator": {"path": "app/src/main/java/tech/buildrun/service/BookingService.java", "member": "BookingService", "start_line": 32, "end_line": 63}
+        },
+        {
+          "evidence_id": "tm-flow-seat",
+          "kind": "entity",
+          "locator": {"path": "app/src/main/java/tech/buildrun/entity/SeatEntity.java", "member": "SeatEntity", "start_line": 6, "end_line": 21}
+        }
+      ],
+      "expected_gaps": [
+        {
+          "gap_id": "tm-flow-gap",
+          "code": "possible_not_observed",
+          "statement": "O caminho possível não prova execução observada, dados vivos ou intenção de negócio.",
+          "attribution_stage": "generation"
+        }
+      ],
+      "authors": ["manu-change-9-1"],
+      "reviewers": ["manu-contract-validation"],
+      "reviewed_at": "2026-08-17T00:00:00Z",
+      "failure_attribution": [
+        {"stage": "extraction", "code": "call_edge_missing", "reason": "chamada direta ou condição esperada não foi extraída"},
+        {"stage": "retrieval", "code": "flow_evidence_missing", "reason": "locador extraído não foi recuperado"},
+        {"stage": "generation", "code": "possible_as_observed", "reason": "resposta confundiu caminho estático com execução"}
+      ]
+    },
+    {
+      "case_id": "TM-INV-01",
+      "case_version": 1,
+      "state": "draft",
+      "corpus_id": "first-vertical-slice",
+      "corpus_revision": "2026-08-17",
+      "source_id": "ticketmaster-java-quarkus",
+      "source_revision": "88cab04c59c58e745a94302e5c9e856830c4c902",
+      "scope": {
+        "purpose": "inventário Java e Quarkus do recorte autorizado",
+        "dimensions": ["landscape_inventory_structure", "configuration_variations"],
+        "artifacts": ["app/pom.xml", "app/src/main/java", "app/src/main/resources"]
+      },
+      "inclusions": [
+        {"ref": "app/pom.xml", "reason": "versões e extensões declaradas"},
+        {"ref": "app/src/main/java", "reason": "fontes Java principais"},
+        {"ref": "app/src/main/resources", "reason": "nomes de configuração sem valores sensíveis"}
+      ],
+      "exclusions": [
+        {"ref": "app/src/test", "reason": "material de comportamento esperado, não inventário de runtime"},
+        {"ref": "deployment-state", "reason": "ambiente implantado e estado de banco estão fora do recorte"}
+      ],
+      "authorization_ref": "corpus-manifest-2026-08-17",
+      "audience": "arquitetura",
+      "competence_question": "Quais componentes, endpoints e configurações existem no recorte Ticketmaster autorizado?",
+      "kind": "inventory",
+      "acceptable_claims": [
+        {
+          "claim_id": "tm-inv-claim",
+          "statement": "O recorte possui uma aplicação Java/Quarkus com fontes organizadas, recursos de configuração e endpoints identificáveis na revisão registrada.",
+          "origin": "observed",
+          "match": "semantic",
+          "evidence_ids": ["tm-inv-pom", "tm-inv-controller"],
+          "gap_ids": ["tm-inv-gap"]
+        }
+      ],
+      "expected_evidence": [
+        {
+          "evidence_id": "tm-inv-pom",
+          "kind": "build_manifest",
+          "locator": {"path": "app/pom.xml", "member": "project"}
+        },
+        {
+          "evidence_id": "tm-inv-controller",
+          "kind": "endpoint",
+          "locator": {"path": "app/src/main/java/tech/buildrun/controller/BookingController.java", "member": "BookingController", "start_line": 20, "end_line": 41}
+        }
+      ],
+      "expected_gaps": [
+        {
+          "gap_id": "tm-inv-gap",
+          "code": "environment_unknown",
+          "statement": "A revisão não informa ambiente implantado, dependências efetivamente carregadas ou estado de configuração em produção.",
+          "attribution_stage": "extraction"
+        }
+      ],
+      "authors": ["manu-change-9-1"],
+      "reviewers": ["manu-contract-validation"],
+      "reviewed_at": "2026-08-17T00:00:00Z",
+      "failure_attribution": [
+        {"stage": "extraction", "code": "artifact_inventory_missing", "reason": "componente ou locador esperado não foi produzido"},
+        {"stage": "retrieval", "code": "inventory_candidate_missing", "reason": "evidência de inventário não foi selecionada"},
+        {"stage": "policy", "code": "sensitive_resource_excluded", "reason": "valores de configuração não autorizados permanecem fora do caso"}
+      ]
+    },
+    {
+      "case_id": "TM-PROV-01",
+      "case_version": 1,
+      "state": "draft",
+      "corpus_id": "first-vertical-slice",
+      "corpus_revision": "2026-08-17",
+      "source_id": "ticketmaster-java-quarkus",
+      "source_revision": "88cab04c59c58e745a94302e5c9e856830c4c902",
+      "scope": {
+        "purpose": "proveniência de entidades e relações do Ticketmaster",
+        "dimensions": ["entities_and_relationships", "evidence_provenance_uncertainty_gaps"],
+        "artifacts": [
+          "app/src/main/java/tech/buildrun/entity/BookingEntity.java",
+          "app/src/main/java/tech/buildrun/entity/SeatEntity.java",
+          "app/src/main/java/tech/buildrun/service/BookingService.java"
+        ]
+      },
+      "inclusions": [
+        {"ref": "app/src/main/java/tech/buildrun/entity/BookingEntity.java", "reason": "entidade de reserva"},
+        {"ref": "app/src/main/java/tech/buildrun/entity/SeatEntity.java", "reason": "entidade de assento"},
+        {"ref": "app/src/main/java/tech/buildrun/service/BookingService.java", "reason": "relação de serviço"}
+      ],
+      "exclusions": [
+        {"ref": "live-database", "reason": "dados vivos e cardinalidade efetiva não estão autorizados"}
+      ],
+      "authorization_ref": "corpus-manifest-2026-08-17",
+      "audience": "curadoria",
+      "competence_question": "Como reabrir a proveniência de uma relação entre reserva, assento e serviço?",
+      "kind": "provenance",
+      "acceptable_claims": [
+        {
+          "claim_id": "tm-prov-claim",
+          "statement": "A relação deve apontar para entidades e serviço por locadores da revisão, sem inventar dados vivos ou cardinalidade efetiva.",
+          "origin": "generated",
+          "match": "semantic",
+          "evidence_ids": ["tm-prov-booking", "tm-prov-seat", "tm-prov-service"],
+          "gap_ids": ["tm-prov-gap"]
+        }
+      ],
+      "expected_evidence": [
+        {
+          "evidence_id": "tm-prov-booking",
+          "kind": "entity",
+          "locator": {"path": "app/src/main/java/tech/buildrun/entity/BookingEntity.java", "member": "BookingEntity", "start_line": 11, "end_line": 26}
+        },
+        {
+          "evidence_id": "tm-prov-seat",
+          "kind": "entity",
+          "locator": {"path": "app/src/main/java/tech/buildrun/entity/SeatEntity.java", "member": "SeatEntity", "start_line": 6, "end_line": 21}
+        },
+        {
+          "evidence_id": "tm-prov-service",
+          "kind": "service",
+          "locator": {"path": "app/src/main/java/tech/buildrun/service/BookingService.java", "member": "BookingService", "start_line": 32, "end_line": 63}
+        }
+      ],
+      "expected_gaps": [
+        {
+          "gap_id": "tm-prov-gap",
+          "code": "live_state_unknown",
+          "statement": "O código não confirma schema, cardinalidade efetiva ou dados de produção.",
+          "attribution_stage": "extraction"
+        }
+      ],
+      "authors": ["manu-change-9-1"],
+      "reviewers": ["manu-contract-validation"],
+      "reviewed_at": "2026-08-17T00:00:00Z",
+      "failure_attribution": [
+        {"stage": "extraction", "code": "provenance_edge_missing", "reason": "entidade ou relação esperada não foi localizada"},
+        {"stage": "retrieval", "code": "provenance_not_retrieved", "reason": "locadores não chegaram ao pacote"},
+        {"stage": "generation", "code": "live_fact_inferred", "reason": "resposta extrapolou a proveniência estática"}
+      ]
+    }
+  ]
+}

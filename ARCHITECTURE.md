@@ -1,8 +1,15 @@
 # Arquitetura do Manu
 
-> **Estado:** visão arquitetural inicial, orientada ao MVP. Este documento
-> descreve fronteiras, invariantes e fluxos conceituais; não é um desenho de
-> tabelas, pacotes, APIs ou infraestrutura definitiva.
+> **Estado:** visão arquitetural orientada ao MVP, com o estado do corte local
+> identificado ao longo do texto. Este documento descreve fronteiras,
+> invariantes e fluxos; não é um desenho de produção, de tabelas definitivo ou
+> de implantação SaaS. A API, as migrações PostgreSQL/pgvector, a persistência
+> e os clientes CLI já possuem contratos executáveis locais. A integração do
+> Agent com o bundle estendido e a composição do executor de ingestão no
+> processo servidor foram verificadas na célula local Linux; o registro está em
+> [`docs/verification/10-3-local-cell.md`](docs/verification/10-3-local-cell.md).
+> Nada aqui apresenta autenticação, UI, daemon remoto, IA local, SaaS ou
+> operação de produção como capacidade disponível.
 
 ## Propósito e contexto
 
@@ -21,17 +28,44 @@ e traces não são necessárias para esse recorte.
 
 ### Restrições atuais
 
-- A solução deve poder ser executada como uma instalação em Docker Compose em
-  uma VPS, sem exigir um serviço de cloud específico.
+- A forma inicial deve poder ser executada como uma célula Docker Compose
+  local, sem exigir um serviço de cloud específico. VPS e self-hosted são
+  modos de implantação a validar posteriormente.
 - O MVP começa com uma `Organization` por instalação. A fronteira lógica da
   organização existe mesmo nesse modo reduzido.
-- O armazenamento e a busca vetorial iniciais podem usar PostgreSQL/pgvector;
-  isso é uma escolha de implementação inicial, não um contrato para o modelo
-  físico do domínio.
-- O acesso a modelos passa por um `AI Gateway`, que evita acoplar o núcleo a
-  um provedor ou modelo específico.
+- A decisão aceita para a persistência operacional do primeiro corte é usar
+  PostgreSQL como fonte de verdade; pgvector é somente a projeção vetorial
+  inicial reconstruível. A implementação local fornece migrações e composição
+  do banco, mas isso não é um contrato para o modelo físico definitivo nem uma
+  capacidade de produção.
+- O acesso a modelos, quando autorizado e implementado, passa por um `AI
+  Gateway` com portas independentes de embedding e geração e adaptadores
+  explícitos, sem transformar `OpenAI-compatible` em contrato de domínio.
 - SaaS compartilhado operacional, `Control Plane`, integração com chamados e
   ingestão de dados operacionais ficam fora do MVP.
+
+### Estado executável do corte local
+
+O Agent determinístico continua independente da plataforma: `manu analyze`,
+`manu inspect` e `manu benchmark` leem a fonte autorizada sem banco ou IA. A
+plataforma local acrescenta `manu migrate` e `manu serve`, com os clientes
+`manu ingest`, `manu ingestion`, `manu ask` e `manu evidence`. A API documentada
+em [`docs/openapi.json`](docs/openapi.json) expõe ingestões, consultas,
+evidências, liveness e readiness.
+
+O fluxo executável é `Agent → Analysis Bundle → API → PostgreSQL/projeções →
+consulta`. O formato `legacy` (`v1alpha1`) continua sendo o padrão de
+`manu analyze`; para a plataforma, `--output-mode bundle
+--organization-id <id>` produz diretamente o bundle estendido exigido por
+`manu ingest`. O modo bundle remove a raiz local da fonte do envelope portátil
+e inclui as sequências canônicas disponíveis. O staging, a persistência antes
+do `202` e a recuperação do executor após reinício foram exercitados na
+verificação 10.3, sem transformar essa célula em uma instalação de produção.
+
+Não existe comando público para reconstruir projeções. As projeções são
+derivadas dos fatos canônicos; a troca de perfil de embedding requer uma
+reconstrução explícita em mudança operacional própria. A ausência de um
+comando não autoriza apagar o volume ou editar tabelas manualmente.
 
 As restrições acima limitam o trabalho presente. Uma afirmação que seja uma
 escolha vigente, uma hipótese ou uma opção futura deve permanecer identificada
@@ -61,6 +95,46 @@ externo versionado, em mudança própria e após medições demonstrarem que o
 benefício semântico compensa os custos de empacotamento, isolamento e
 operação. A decisão e seus trade-offs estão no
 [ADR 0002 — Fundação Go-first](docs/decisions/0002-fundacao-go-first.md).
+
+### Decisão aceita: PostgreSQL como fonte de verdade e pgvector como projeção
+
+Para o primeiro corte consultável, PostgreSQL é a fonte de verdade operacional
+da representação canônica de uma `Organization`: fontes, snapshots, artefatos,
+observações, entidades, relações, evidências, cobertura, lacunas, falhas e
+estado das operações. Snapshots são imutáveis e o histórico permanece
+consultável quando a visão ativa muda.
+
+pgvector é somente a projeção vetorial inicial. Projeções textuais,
+relacionais e vetoriais podem ser removidas e reconstruídas a partir dos fatos
+canônicos autorizados; embeddings não são conhecimento nem evidência. A
+alteração de um perfil de embedding exige uma nova projeção e não pode misturar
+vetores incompatíveis. O Agent continua produzindo bundles localmente, sem
+conexão direta com o banco ou dependência de IA.
+
+Essa decisão fixa uma fronteira operacional para o primeiro vertical slice,
+não um modelo físico definitivo nem uma implantação de produção. O porquê e
+os trade-offs estão no
+[ADR 0003 — PostgreSQL e pgvector](docs/decisions/0003-postgresql-fonte-de-verdade-pgvector-projecao.md).
+
+### Decisão aceita: `AI Gateway` independente de provedor
+
+O `AI Gateway` expõe duas portas internas independentes: `Embedder`, para
+embeddings, e `Generator`, para geração baseada em um pacote autorizado de
+evidências. DTOs de provedor não atravessam essas portas; uso, latência,
+modelo efetivo e erros são normalizados sem apagar metadados de auditoria.
+
+O primeiro corte prevê adaptadores explícitos para a API nativa da OpenAI e
+para um protocolo `OpenAI-compatible` configurado, inicialmente validado com
+OpenRouter. Compatibilidade de transporte não é contrato do domínio: as
+capacidades devem ser declaradas e validadas, sem fallback silencioso. Cada
+capacidade tem configuração, credencial, prazo e orçamento próprios; trocar o
+gerador não exige reindexação, enquanto trocar o embedding exige rebuild.
+
+Essa fronteira aceita a portabilidade como regra de arquitetura. Os
+adaptadores e a configuração local existem, mas chamadas externas são opt-in,
+o modo simulado é o padrão e não há autenticação, IA local ou suporte de
+produção. A decisão e seus trade-offs estão no
+[ADR 0004 — AI Gateway](docs/decisions/0004-ai-gateway-independente-de-provedor.md).
 
 ## Visão C4 simplificada
 
@@ -102,7 +176,7 @@ flowchart LR
     K["Knowledge Engine\ndescoberta e conhecimento"]
     P["Plataforma\nmonólito modular"]
     G["AI Gateway\ninterface de modelos"]
-    D["PostgreSQL/pgvector\nconhecimento e vetores"]
+    D["PostgreSQL\nfonte canônica + pgvector\nprojeção vetorial inicial"]
     C["Consumidores da base\ncatálogo • wiki • grafo\nbusca/chat • onboarding\nimpacto • investigação"]
     M["Modelo/provedor\nopcional"]
 
@@ -119,11 +193,11 @@ flowchart LR
 
 | Contêiner | Papel no desenho inicial |
 | --- | --- |
-| `Manu Agent` | Executa conectores, descoberta e jobs sobre as fontes autorizadas. Devolve artefatos e resultados de análise ao núcleo sem assumir a função de fonte de verdade. |
+| `Manu Agent` | Executa descoberta e análises sobre as fontes autorizadas. Devolve artefatos e resultados em destino local; o Agent não assume a função de fonte de verdade nem abre conexão direta com o banco. |
 | `Knowledge Engine` | Recebe artefatos, faz parsing e correlação, produz observações, claims, evidências, proveniência e o `System Graph`, e coordena a transformação em conhecimento publicável. |
-| `Plataforma` | Monólito modular que oferece a superfície da aplicação, autenticação/autorização, políticas, revisão, publicação e os consumidores da base. Os módulos não mudam o fato de que o `Knowledge Engine` é o núcleo. |
-| `AI Gateway` | Porta de saída para modelos. Normaliza solicitações e respostas, aplica as políticas relevantes e permite trocar modelo, provedor ou execução local sem espalhar essa dependência pelo engine. |
-| `PostgreSQL/pgvector` | Armazenamento inicial para conhecimento e busca vetorial. O detalhe físico pode evoluir atrás de uma fronteira de persistência; não define o vocabulário do domínio. |
+| `Plataforma` | Monólito modular que já oferece, no corte local, migrações, API versionada, persistência canônica, projeções e clientes CLI. O modo servidor sem autenticação fica restrito a uma `Organization` e loopback; revisão, publicação editorial e consumidores de produto ainda não são superfícies implementadas. |
+| `AI Gateway` | Fronteira de saída com portas independentes `Embedder` e `Generator` e adaptadores explícitos. Normaliza solicitações e respostas sem espalhar tipos de provedor pelo engine; o modo simulado não usa rede e chamadas externas exigem política, configuração e orçamento. |
+| `PostgreSQL/pgvector` | PostgreSQL é a fonte de verdade operacional do primeiro corte local; pgvector é a projeção vetorial inicial reconstruível. O detalhe físico pode evoluir atrás dessa fronteira e não define o vocabulário do domínio. |
 | Consumidores da base | Catálogo, wiki, grafo, busca, chat, onboarding, análise de impacto e investigação leem conhecimento já produzido e devolvem sinais de uso ou pedidos de revisão. |
 
 As setas não implicam que toda análise precise de IA, que cada consumidor tenha
@@ -187,6 +261,21 @@ Source autorizada
   → resposta gerada, citações e abstinência
 ```
 
+No protocolo executável local, o bundle estendido é um diretório versionado
+com `manifest.json`, `artifacts.ndjson`, `contributions.ndjson` e,
+quando disponível, `evidence.ndjson`. O cliente `manu ingest` transmite essas
+partes para `POST /api/v1/ingestions`; ele não envia a raiz da fonte, um
+repositório remoto ou um arquivo compactado. A API limita o corpo e cada
+sequência, valida digest, contagens, referências e a `Organization`, cria um
+job idempotente e expõe o estado por `GET /api/v1/ingestions/{id}`. O executor
+deve persistir o canônico antes de materializar projeções e ativar o snapshot.
+
+O comando público `manu analyze --output-mode bundle --organization-id <id>` é
+a forma suportada de produzir esse bundle; não existe uma conversão separada a
+executar. O modo legado permanece disponível como padrão para compatibilidade.
+O executor no `manu serve` consome o staging durável e recupera jobs pendentes
+conforme o registro operacional citado acima.
+
 ### Descoberta, fallback e composição de analisadores
 
 1. **Registro e descoberta:** a fonte é registrada com sua autorização,
@@ -208,10 +297,10 @@ Source autorizada
    O corte pode aprofundar Java/Quarkus e manter cobertura declarativa para
    WSO2 e inventário para Python/Frappe sem prometer a mesma profundidade.
 
-O resultado factual e sua proveniência são preservados antes de qualquer
-projeção. A arquitetura não cria um modelo físico independente por analisador;
-um único fluxo correlaciona as contribuições e mantém resultados parciais
-utilizáveis quando uma dimensão falha.
+O resultado factual e sua proveniência devem ser preservados em PostgreSQL
+antes de qualquer projeção. A arquitetura não cria um modelo físico
+independente por analisador; um único fluxo correlaciona as contribuições e
+mantém resultados parciais utilizáveis quando uma dimensão falha.
 
 ### Projeções e recuperação híbrida
 
@@ -224,27 +313,40 @@ O conhecimento comum pode ser projetado em três visões recuperáveis:
 - **vetorial:** embeddings ligados ao conteúdo, à revisão e à proveniência que
   os originaram para busca por similaridade.
 
-Essas projeções são reconstruíveis e não são a fonte de verdade. A recuperação
-híbrida combina termos exatos, similaridade semântica e relações sustentadas,
-ordena os sinais de modo reproduzível e limita o orçamento de contexto. Se
-embeddings estiverem indisponíveis, proibidos ou incompletos, inventário,
-conteúdo textual, relações e evidências já produzidos continuam utilizáveis;
-a limitação da recuperação semântica permanece visível.
+Essas projeções são reconstruíveis e não são a fonte de verdade: PostgreSQL
+preserva os fatos canônicos e pgvector materializa somente a visão vetorial
+inicial. A recuperação híbrida combina termos exatos, similaridade semântica e
+relações sustentadas, ordena os sinais de modo reproduzível e limita o
+orçamento de contexto. Se embeddings estiverem indisponíveis, proibidos ou
+incompletos, inventário, conteúdo textual, relações e evidências já produzidos
+continuam utilizáveis; a limitação da recuperação semântica permanece visível.
+
+No corte atual não existe uma subcomanda de rebuild nem uma operação de
+reindexação pública. A reconstrução é uma responsabilidade do pipeline e das
+interfaces internas de projeção, partindo dos fatos canônicos e das unidades de
+evidência autorizadas. Um perfil de embedding é imutável: trocar provedor,
+modelo, dimensão ou normalização cria uma projeção incompatível, que deve ser
+reconstruída sem misturar vetores nem alterar a proveniência original.
 
 ### Pacote de evidências e resposta assistida
 
-Uma consulta valida primeiro `Organization`, usuário, `Source` e a política
-de transferência. Só então monta um pacote limitado com trechos, entidades,
-relações, localizações, `Evidence`, `Provenance`, cobertura e lacunas
-autorizadas. O pacote é a única entrada da etapa de resposta; o modelo não
-consulta a fonte diretamente nem pode contornar as permissões do índice.
+Uma consulta deverá validar primeiro a `Organization` configurada, a `Source`
+e as políticas de instalação e conteúdo aplicáveis. No modo sem autenticação
+previsto para este corte, o escopo será uma única `Organization` em loopback;
+isso não substitui uma futura autenticação/autorização. Só então monta um
+pacote limitado com trechos, entidades, relações, localizações, `Evidence`,
+`Provenance`, cobertura e lacunas autorizadas. O pacote é a única entrada da
+etapa de resposta; o modelo não consulta a fonte diretamente nem pode
+contornar as permissões do índice.
 
-O `AI Gateway` mantém portas conceituais separadas para embeddings e geração.
-Para o experimento inicial, a OpenAI API é o adaptador externo autorizado,
-substituível atrás dessa fronteira; identificadores de modelo, parâmetros,
-tokens, custo estimado, latência e estado pertencem ao registro da execução,
-não ao contrato do domínio. A credencial é fornecida externamente ao processo
-e nunca deve aparecer em manifesto, documento, saída, log ou fixture.
+O `AI Gateway` mantém portas independentes para embeddings e geração. Os
+adaptadores explícitos da API nativa da OpenAI e do protocolo
+`OpenAI-compatible` (validado inicialmente com OpenRouter) ficam atrás dessa
+fronteira; nenhum DTO ou protocolo de fornecedor se torna contrato do domínio,
+e diferenças de capacidade devem ser declaradas. Identificadores de modelo,
+parâmetros, tokens, custo estimado, latência e estado pertencem ao registro da
+execução. Credenciais são fornecidas externamente ao processo e nunca devem
+aparecer em manifesto, documento, saída, log ou fixture.
 
 Quando autorizada, a resposta é `Generated knowledge`, referencia as
 evidências usadas, separa observações de inferências e declara lacunas. Se o
@@ -256,23 +358,31 @@ disponíveis conforme as políticas já descritas.
 
 ### Superfície operacional inicial por CLI
 
-A superfície inicial é uma CLI, escolhida como o caminho operacional mais
-curto para o experimento e para automação. Suas intenções conceituais são:
+A superfície inicial combina o Agent e clientes locais da API:
 
 ```text
-source register   registrar uma fonte e suas políticas
-analyze           criar um Analysis Snapshot
-status            consultar progresso, cobertura, falhas e lacunas
-ask               recuperar evidências e solicitar uma resposta
-evidence          inspecionar o suporte de uma resposta ou relação
-eval              executar perguntas de competência
-benchmark         medir ingestão, consulta, recursos e custo
+version           mostrar a versão do binário
+analyze           analisar uma raiz local; legacy por padrão ou bundle estendido
+                  com --output-mode bundle --organization-id
+inspect           inspecionar resultado, cobertura, lacunas e falhas
+benchmark         medir análise inicial, repetição e atualização localizada
+migrate           aplicar migrações PostgreSQL embarcadas
+serve             iniciar a API local
+ingest            transmitir um Analysis Bundle estendido
+ingestion         consultar o estado de uma ingestão
+ask               criar uma consulta versionada
+evidence          inspecionar uma Evidence Unit
+eval              executar avaliação simulada (live é opt-in)
+ready             verificar readiness local do servidor
 ```
 
-Os nomes finais podem evoluir na implementação, mas cada operação deve ter
-uma saída legível por pessoa e uma representação estruturada para automação.
-Falha parcial, ausência de IA e abstinência devem ser estados distinguíveis
-de uma falha técnica total.
+`source register` e `status` são intenções conceituais, não subcomandos
+disponíveis neste corte. Cada comando existente oferece saída humana e, quando
+aplicável, `--json`; falha parcial, ausência de IA e abstinência são estados
+distinguíveis de falha técnica. `ask` exige um `kind` explícito
+(`inventory`, `possible_flow`, `observed_execution` ou `business_intent`). Uma
+pergunta sobre execução ocorrida não é respondida como fato quando só existe
+um caminho estático.
 
 ## Fronteira de benchmark e escolha posterior de stack
 
@@ -293,12 +403,14 @@ O benchmark deve medir, no mínimo:
 - latência, tokens e custo externo quando a IA for usada.
 
 As medições registram ambiente, configuração e limitações e servem como linha
-de base experimental, não como SLA ou promessa comercial. O adaptador OpenAI
-do experimento não fixa o provedor de produção, e uma projeção inicial como
-PostgreSQL/pgvector não transforma a fronteira do benchmark em modelo físico
-obrigatório. A escolha posterior deve considerar conjuntamente desempenho,
-consumo, maturidade e segurança das bibliotecas e velocidade de evolução,
-usando operações e corpus reais do corte.
+de base experimental, não como SLA, promessa comercial ou prova de uma
+implantação de produção. PostgreSQL é a fonte de verdade operacional do
+primeiro corte e pgvector sua projeção vetorial inicial; isso não transforma a
+fronteira do benchmark no modelo físico do domínio. Os adaptadores previstos
+para OpenAI e OpenRouter também não são capacidades disponíveis sem
+configuração e política explícitas. Qualquer evolução deve considerar
+conjuntamente desempenho, consumo, maturidade e segurança das bibliotecas e
+velocidade de evolução, usando operações e corpus reais do corte.
 
 ## Contrato universal de compreensão
 
@@ -450,23 +562,26 @@ provisionamento sem obrigar o MVP a ter um plano de controle.
                               ▲
                               │ recorte inicial
                     uma Organization por instalação
-                         Docker Compose / VPS
+                         Docker Compose local
 ```
 
 - **SaaS compartilhado — opção futura:** várias `Organization`s podem ocupar
   uma célula compartilhada, com isolamento lógico, políticas e auditoria por
   organização. Operar esse modo, incluindo seus controles de capacidade e
   atualização, não faz parte do MVP.
-- **SaaS dedicado — opção disponível no destino:** o Manu opera uma célula
-  dedicada para uma organização, por exemplo em uma VPS. No recorte inicial,
-  essa é uma instalação de uma organização.
-- **Self-hosted — opção disponível no destino:** a mesma célula é executada no
-  ambiente do cliente, sob a operação e as políticas de sua organização.
+- **SaaS dedicado — opção futura de implantação:** o Manu poderá operar uma
+  célula dedicada para uma organização, por exemplo em uma VPS. O recorte
+  inicial fornece somente a célula local experimental.
+- **Self-hosted — modo de destino ainda não validado:** a mesma célula poderá
+  ser executada no ambiente do cliente, sob a operação e as políticas de sua
+  organização, mas o suporte operacional completo não está implementado.
 
-O **recorte inicial aceito** é uma `Organization` por instalação em Docker
-Compose/VPS, seja uma VPS operada pelo Manu ou pelo cliente. Isso não elimina a
-fronteira organizacional: dados, documentos, busca, jobs, segredos, Agents,
-políticas, IA e auditoria continuam conceitualmente escopados.
+O **recorte inicial aceito** é uma `Organization` por célula local em Docker
+Compose. Uma execução em VPS ou no ambiente de um cliente é uma possibilidade
+de implantação a validar, não uma garantia de operação SaaS ou self-hosted.
+Isso não elimina a fronteira organizacional: dados, documentos, busca, jobs,
+segredos, Agents, políticas, IA e auditoria continuam conceitualmente
+escopados.
 
 Um `Control Plane` é uma **opção futura** para provisionar, licenciar e
 atualizar células. Ele não deve precisar acessar o conhecimento do cliente, e
@@ -520,12 +635,15 @@ não substitui evidência técnica.
 O desenho mantém portas conceituais entre fontes, `Knowledge Engine`,
 persistência, plataforma e `AI Gateway`:
 
-- nenhuma cloud é obrigatória; Docker Compose/VPS é suficiente para a forma
-  inicial;
-- nenhum provedor ou modelo de IA é obrigatório. Um adaptador pode apontar para
-  um serviço externo permitido ou para execução local, sujeito às políticas;
-- PostgreSQL/pgvector é a infraestrutura inicial considerada, mas o domínio
-  não depende de tabelas, extensões ou vetores como conceitos públicos;
+- nenhuma cloud é obrigatória; Docker Compose local é suficiente para a forma
+  inicial deste corte;
+- nenhum provedor ou modelo de IA é contrato obrigatório. Os adaptadores
+  explícitos do primeiro corte são opcionais e sujeitos às políticas; execução
+  local de IA permanece uma opção futura, não uma capacidade deste corte;
+- PostgreSQL/pgvector é a infraestrutura inicial aceita: PostgreSQL preserva a
+  fonte de verdade operacional e pgvector materializa a projeção vetorial
+  reconstruível, mas o domínio não depende de tabelas, extensões ou vetores
+  como conceitos públicos;
 - fontes e consumidores são conectados por contratos conceituais, permitindo
   trocar conectores, analisadores, modelos e mecanismos de busca sem mudar a
   narrativa do conhecimento;
@@ -548,6 +666,9 @@ suportar todos os adaptadores desde o primeiro incremento.
   curadoria silenciosamente.
 - `Organization` é uma fronteira transversal obrigatória, inclusive na
   instalação de uma única organização.
+- PostgreSQL é a fonte de verdade operacional do primeiro corte e pgvector é
+  uma projeção vetorial inicial reconstruível; nenhuma projeção substitui os
+  fatos, relações ou evidências canônicos.
 - As políticas de instalação, fonte e usuário permanecem separadas.
 - Analisadores especializados contribuem para um contrato universal de
   compreensão, com cobertura parcial explícita — produzida, incompleta, não
@@ -556,7 +677,10 @@ suportar todos os adaptadores desde o primeiro incremento.
 - A IA pode apoiar síntese, explicação, classificação ou consulta quando
   autorizada, mas sua saída não é evidência técnica autossuficiente e não é
   condição para a disponibilidade de resultados não dependentes dela.
-- A forma inicial é uma célula de uma organização em Docker Compose/VPS e o
+- O `AI Gateway` separa `Embedder` e `Generator`, mantém DTOs de provedor nos
+  adaptadores explícitos e não trata `OpenAI-compatible` como contrato de
+  domínio.
+- A forma inicial é uma célula de uma organização em Docker Compose local e o
   desenho não exige cloud ou fornecedor de IA.
 
 Esses invariantes são aceitos como parte da fundação documental. Uma decisão
@@ -564,7 +688,9 @@ de implementação que seja difícil de reverter e dependa de trade-offs
 específicos deve ser registrada como ADR segundo
 [docs/decisions/README.md](docs/decisions/README.md). O contrato universal de
 compreensão está registrado no [ADR 0001 — Contrato universal de compreensão](docs/decisions/0001-contrato-universal-de-compreensao.md);
-decisões posteriores sobre mecanismos físicos ou operacionais devem seguir a
+a persistência e as projeções iniciais estão no [ADR 0003 — PostgreSQL e pgvector](docs/decisions/0003-postgresql-fonte-de-verdade-pgvector-projecao.md),
+e o gateway no [ADR 0004 — AI Gateway](docs/decisions/0004-ai-gateway-independente-de-provedor.md).
+Decisões posteriores sobre mecanismos físicos ou operacionais devem seguir a
 mesma política.
 
 ### Hipóteses a validar

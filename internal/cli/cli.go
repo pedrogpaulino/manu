@@ -22,6 +22,7 @@ import (
 	"github.com/pedrogpaulino/manu/internal/benchmark"
 	"github.com/pedrogpaulino/manu/internal/buildinfo"
 	"github.com/pedrogpaulino/manu/internal/contract"
+	"github.com/pedrogpaulino/manu/internal/evidence"
 	"github.com/pedrogpaulino/manu/internal/source"
 )
 
@@ -37,7 +38,7 @@ const (
 	// dimensions, or partial failures.
 	ExitPartial = 3
 
-	usage = "usage: manu <version|analyze|inspect|benchmark>"
+	usage = "usage: manu <version|analyze|inspect|benchmark|migrate|serve|ready|eval|ingest|ingestion|ask|evidence>"
 )
 
 // Run executes a Manu command and returns a Unix-style exit code. Output is
@@ -82,6 +83,22 @@ func RunContext(ctx context.Context, signals <-chan os.Signal, args []string, st
 		return runInspect(args[1:], stdout, stderr)
 	case "benchmark":
 		return runBenchmark(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
+	case "migrate":
+		return runMigrate(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
+	case "serve":
+		return runServe(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
+	case "ready":
+		return runReady(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
+	case "eval":
+		return runEval(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
+	case "ingest":
+		return runIngest(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
+	case "ingestion", "ingestion-status":
+		return runIngestionStatus(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
+	case "ask", "query":
+		return runAsk(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
+	case "evidence":
+		return runEvidence(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "manu: unknown command %q\n", args[0])
 		writeUsage(stderr)
@@ -128,6 +145,8 @@ func runAnalyze(runContext analysis.RunContext, args []string, stdout, stderr io
 	flagSet := newFlagSet("analyze", stderr)
 	root := flagSet.String("root", "", "authorized source root")
 	output := flagSet.String("output", "", "result output directory")
+	outputMode := flagSet.String("output-mode", "legacy", "result output mode: legacy or bundle")
+	organizationID := flagSet.String("organization-id", "", "explicit organization boundary (required for bundle mode)")
 	format := flagSet.String("format", "human", "output format: human or json")
 	jsonOutput := flagSet.Bool("json", false, "emit the result summary as JSON")
 	revision := flagSet.String("revision", "", "known source revision")
@@ -148,6 +167,9 @@ func runAnalyze(runContext analysis.RunContext, args []string, stdout, stderr io
 	maxArchiveMemberBytes := flagSet.Int64("max-archive-member-bytes", 0, "maximum expanded bytes per archive member")
 	maxArchiveCompressedBytes := flagSet.Int64("max-archive-compressed-bytes", 0, "maximum compressed archive bytes")
 	maxExpansionRatio := flagSet.Float64("max-expansion-ratio", 0, "maximum archive expansion ratio")
+	maxEvidenceUnitsPerArtifact := flagSet.Int("max-evidence-units-per-artifact", 0, "maximum retained evidence units per artifact")
+	maxEvidenceBytesPerUnit := flagSet.Int64("max-evidence-bytes-per-unit", 0, "maximum retained evidence bytes per unit")
+	maxEvidenceCharactersPerUnit := flagSet.Int64("max-evidence-characters-per-unit", 0, "maximum retained evidence characters per unit")
 	if err := flagSet.Parse(args); err != nil {
 		return ExitUsage
 	}
@@ -161,6 +183,31 @@ func runAnalyze(runContext analysis.RunContext, args []string, stdout, stderr io
 	if strings.TrimSpace(*root) == "" || strings.TrimSpace(*output) == "" {
 		fmt.Fprintln(stderr, "manu analyze: --root and --output are required")
 		return ExitUsage
+	}
+	mode, err := analyzeOutputMode(*outputMode)
+	if err != nil {
+		fmt.Fprintln(stderr, "manu analyze:", err)
+		return ExitUsage
+	}
+	evidenceLimits := analysis.EvidenceLimits{
+		MaxUnitsPerArtifact:  *maxEvidenceUnitsPerArtifact,
+		MaxBytesPerUnit:      *maxEvidenceBytesPerUnit,
+		MaxCharactersPerUnit: *maxEvidenceCharactersPerUnit,
+	}
+	evidenceConfig := analysis.EvidenceConfig{
+		OrganizationID: strings.TrimSpace(*organizationID),
+		Limits:         evidenceLimits,
+		Policy:         evidence.DefaultPolicy(),
+	}
+	if mode == analyzeOutputBundle {
+		if strings.TrimSpace(*organizationID) == "" {
+			fmt.Fprintln(stderr, "manu analyze: --organization-id is required with --output-mode bundle")
+			return ExitUsage
+		}
+		if err := evidenceConfig.Validate(); err != nil {
+			fmt.Fprintln(stderr, "manu analyze:", err)
+			return ExitUsage
+		}
 	}
 	selectedFormat, err := outputFormat(*format, *jsonOutput)
 	if err != nil {
@@ -207,10 +254,12 @@ func runAnalyze(runContext analysis.RunContext, args []string, stdout, stderr io
 	}
 	analysisCtx, stop := contextWithSignals(runContext)
 	defer stop()
-	result, runErr := runner.Run(analysisCtx, analysis.Config{
+	config := analysis.Config{
 		Source:           sourceInfo,
 		Root:             absoluteRoot,
 		Output:           *output,
+		OrganizationID:   strings.TrimSpace(*organizationID),
+		EvidenceLimits:   evidenceLimits,
 		Includes:         includes.Values(),
 		Excludes:         excludes.Values(),
 		IncludeSensitive: *includeSensitive,
@@ -230,7 +279,16 @@ func runAnalyze(runContext analysis.RunContext, args []string, stdout, stderr io
 		},
 		RunID:       fmt.Sprintf("run-%d", now.UnixNano()),
 		ToolVersion: buildinfo.Current().Version,
-	})
+	}
+	var result contract.Result
+	var evidenceResult analysis.AnalysisResult
+	var runErr error
+	if mode == analyzeOutputBundle {
+		evidenceResult, runErr = runner.RunWithEvidence(analysisCtx, config, evidenceConfig)
+		result = evidenceResult.Result
+	} else {
+		result, runErr = runner.Run(analysisCtx, config)
+	}
 	if err := result.Validate(); err != nil {
 		if runErr != nil {
 			fmt.Fprintln(stderr, "manu analyze:", runErr)
@@ -238,13 +296,29 @@ func runAnalyze(runContext analysis.RunContext, args []string, stdout, stderr io
 		fmt.Fprintln(stderr, "manu analyze: invalid result:", err)
 		return ExitTechnical
 	}
-	if err := contract.WriteResult(context.WithoutCancel(analysisCtx), *output, result); err != nil {
-		fmt.Fprintln(stderr, "manu analyze:", err)
-		return ExitTechnical
+	writeContext := context.WithoutCancel(analysisCtx)
+	if mode == analyzeOutputBundle {
+		if err := writeAnalysisBundle(writeContext, *output, evidenceResult, *organizationID); err != nil {
+			fmt.Fprintln(stderr, "manu analyze:", err)
+			return ExitTechnical
+		}
+	} else {
+		if err := contract.WriteResult(writeContext, *output, result); err != nil {
+			fmt.Fprintln(stderr, "manu analyze:", err)
+			return ExitTechnical
+		}
 	}
 	exitCode := resultExitCode(result)
 	if runErr != nil && len(result.Artifacts) == 0 && len(result.Manifest.Failures) > 0 {
 		exitCode = ExitTechnical
+	}
+	if mode == analyzeOutputBundle {
+		// Bundle mode is a portable boundary: both human and machine-readable
+		// summaries must not re-expose the Agent-local source root that was
+		// removed from the persisted envelope above. Mutate the value used by
+		// every output branch so future summary formats cannot accidentally
+		// serialize the private root through the legacy result envelope.
+		result.Manifest.Source.Root = ""
 	}
 	if selectedFormat == "json" {
 		if err := writeJSON(stdout, cliResult{ContractVersion: contract.Version, Result: result}); err != nil {
@@ -631,6 +705,14 @@ func writeHelp(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  analyze  create a deterministic analysis snapshot")
 	_, _ = fmt.Fprintln(w, "  inspect  summarize a stored result and its coverage")
 	_, _ = fmt.Fprintln(w, "  benchmark run first, repeat, and localized-update measurements")
+	_, _ = fmt.Fprintln(w, "  migrate  apply the embedded PostgreSQL schema migrations")
+	_, _ = fmt.Fprintln(w, "  serve    start the local-only HTTP API")
+	_, _ = fmt.Fprintln(w, "  ready    probe the local HTTP readiness contract")
+	_, _ = fmt.Fprintln(w, "  eval     run the deterministic local evaluation")
+	_, _ = fmt.Fprintln(w, "  ingest   send an Analysis Bundle to the local HTTP API")
+	_, _ = fmt.Fprintln(w, "  ingestion query the status of an ingestion job")
+	_, _ = fmt.Fprintln(w, "  ask      ask a question through the local HTTP API")
+	_, _ = fmt.Fprintln(w, "  evidence inspect one persisted Evidence Unit")
 }
 
 // IsUsageError reports whether a CLI exit code represents invalid input.

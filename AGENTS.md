@@ -2,15 +2,27 @@
 
 ## Escopo
 
-O Manu ainda está em descoberta, mas este repositório já contém o primeiro
-microcorte executável do projeto: um módulo Go, a CLI como primeiro modo do
-Manu Agent e uma imagem Docker Linux multi-stage. O microcorte é local,
-determinístico e limitado; ele não constitui o produto completo e não inclui,
-neste escopo, daemon, IA local, banco principal, API HTTP ou serviço de cloud.
-Os comandos canônicos para construir, executar e verificar esse recorte estão
-em [`README.md`](README.md). Não invente capacidades, comandos, diretórios,
-ferramentas ou decisões para preencher lacunas além do que estiver especificado
-nas mudanças OpenSpec em escopo.
+O Manu ainda está em descoberta, mas este repositório já contém um primeiro
+corte executável em Go: a CLI como modo do `Manu Agent`, uma API HTTP local e
+uma imagem Docker Linux multi-stage. O Agent continua local, determinístico e
+limitado; a plataforma local acrescenta `manu migrate`, `manu serve`, clientes
+de ingestão/consulta, PostgreSQL como fonte de verdade e projeções
+reconstruíveis. O corte não constitui o produto completo: não inclui
+autenticação, daemon remoto, IA local, UI, SaaS compartilhado ou operação de
+produção. A integração operacional Agent → bundle estendido → ingestão no
+processo servidor foi verificada na célula local Linux; o registro está em
+[`docs/verification/10-3-local-cell.md`](docs/verification/10-3-local-cell.md).
+O staging durável e a recuperação após reinício estão cobertos nessa
+verificação. Isso não amplia o corte para autenticação, operação remota ou
+produção.
+
+Os comandos canônicos para construir, executar e verificar os limites atuais
+estão em [`README.md`](README.md), [`docs/cli-http.md`](docs/cli-http.md),
+[`docs/compose.md`](docs/compose.md) e
+[`docs/configuration.md`](docs/configuration.md). Não invente capacidades,
+comandos, diretórios, ferramentas ou decisões para preencher lacunas além do
+que estiver especificado nas mudanças OpenSpec em escopo; se um comando ou
+integração ainda não existir, documente a ausência.
 
 ## Ordem de leitura
 
@@ -35,14 +47,17 @@ nas mudanças OpenSpec em escopo.
 
 Leia os artefatos da mudança antes de editar e mantenha a implementação
 limitada às tarefas previstas. Para uma mudança ativa, as verificações atuais
-incluem formatação, análise estática, testes, builds estáticos e integridade do
-módulo:
+incluem formatação, análise estática, testes, builds estáticos, integridade do
+módulo e, quando a célula local for afetada, validação estrutural do Compose:
 
 ```text
 gofmt -d <arquivos Go>
 go vet ./...
 go test ./... -count=1
 go mod verify
+go test ./docs
+git diff --check
+docker compose config --quiet
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o <saída> ./cmd/manu
 GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o <saída> ./cmd/manu
 openspec validate <change> --strict

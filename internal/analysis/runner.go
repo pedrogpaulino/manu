@@ -16,6 +16,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	"github.com/pedrogpaulino/manu/internal/contract"
 	"github.com/pedrogpaulino/manu/internal/source"
@@ -38,6 +39,12 @@ const (
 type Config struct {
 	Source contract.Source
 	Root   string
+	// OrganizationID is required by RunWithEvidence. It is deliberately not
+	// inferred from Root or Source so evidence scope remains explicit.
+	OrganizationID string `json:"organization_id,omitempty"`
+	// EvidenceLimits are used by the two-argument RunWithEvidence convenience
+	// form. Run continues to ignore these fields.
+	EvidenceLimits EvidenceLimits `json:"evidence_limits,omitempty"`
 	// Output is an optional directory outside Root where reconstructible
 	// state is stored. The runner never writes state into the source root.
 	Output string
@@ -55,6 +62,10 @@ type Config struct {
 	// needs to report how this run was measured. It is optional so normal
 	// analysis callers do not pay for an observer they do not use.
 	Metrics *RunMetrics
+
+	// evidenceCapture is populated only by RunWithEvidence. Keeping it
+	// private prevents callers from smuggling source content through Config.
+	evidenceCapture *evidenceCapture
 }
 
 // RunMetrics contains measurements collected at the analysis boundary. The
@@ -163,6 +174,12 @@ func (r *Runner) Run(ctx context.Context, config Config) (contract.Result, error
 	var outputStore *state.Store
 	var previousState state.Snapshot
 	stateLimitations := make([]string, 0, 4)
+	if config.evidenceCapture != nil && outputDirectory != "" {
+		// Evidence drafts are intentionally reprocessed instead of restored from
+		// legacy state entries, which do not contain drafts. Keep that choice
+		// observable rather than silently returning an incomplete evidence set.
+		stateLimitations = append(stateLimitations, "evidence_reprocessed_without_cache")
+	}
 	stateUsable := true
 	if outputDirectory != "" {
 		stateLimitations = append(stateLimitations,
@@ -230,6 +247,10 @@ func (r *Runner) Run(ctx context.Context, config Config) (contract.Result, error
 			SourceArtifact: discoveredArtifact,
 			Limits:         limits,
 			RootHandle:     rootHandle,
+			Evidence: EvidenceInput{
+				Enabled: config.evidenceCapture != nil,
+				Limits:  evidenceLimits(config),
+			},
 		})
 	}
 	sort.SliceStable(inputs, func(i, j int) bool {
@@ -261,9 +282,10 @@ func (r *Runner) Run(ctx context.Context, config Config) (contract.Result, error
 
 	analysisStarted := time.Now()
 	collected, runStats, runErr := r.runAnalyzers(runCtx, inputs, limits.MaxConcurrency, runOptions{
-		stateIndex:  previousIndex,
-		cache:       cacheEnabled,
-		invalidated: invalidated,
+		stateIndex:     previousIndex,
+		cache:          cacheEnabled,
+		invalidated:    invalidated,
+		forceReprocess: config.evidenceCapture != nil,
 	})
 	if config.Metrics != nil {
 		config.Metrics.AnalysisDuration = time.Since(analysisStarted)
@@ -272,6 +294,9 @@ func (r *Runner) Run(ctx context.Context, config Config) (contract.Result, error
 	contributions = append(contributions, collected.contributions...)
 	coverage = append(coverage, collected.coverage...)
 	gaps = append(gaps, collected.gaps...)
+	if config.evidenceCapture != nil {
+		config.evidenceCapture.drafts = append(config.evidenceCapture.drafts[:0], collected.evidence...)
+	}
 	failures = append(failures, collected.failures...)
 	if runErr != nil && !errors.Is(runErr, context.Canceled) &&
 		!errors.Is(runErr, context.DeadlineExceeded) {
@@ -400,12 +425,14 @@ type collectedOutput struct {
 	coverage      []contract.Coverage
 	gaps          []contract.Gap
 	failures      []contract.Failure
+	evidence      []EvidenceDraft
 }
 
 type runOptions struct {
-	stateIndex  stateIndex
-	cache       bool
-	invalidated map[string]bool
+	stateIndex     stateIndex
+	cache          bool
+	invalidated    map[string]bool
+	forceReprocess bool
 }
 
 // stateIndex is an immutable, per-run view of a validated state snapshot.
@@ -495,6 +522,7 @@ func (r *Runner) runAnalyzers(ctx context.Context, inputs []ArtifactInput, concu
 		coverage:      make([]contract.Coverage, 0),
 		gaps:          make([]contract.Gap, 0),
 		failures:      make([]contract.Failure, 0),
+		evidence:      make([]EvidenceDraft, 0),
 	}
 	stats := runStats{entries: make([]state.Entry, 0), maxConcurrent: int(maxActive.Load())}
 	for output := range results {
@@ -502,6 +530,7 @@ func (r *Runner) runAnalyzers(ctx context.Context, inputs []ArtifactInput, concu
 		combined.coverage = append(combined.coverage, output.coverage...)
 		combined.gaps = append(combined.gaps, output.gaps...)
 		combined.failures = append(combined.failures, output.failures...)
+		combined.evidence = append(combined.evidence, output.evidence...)
 		if output.reused {
 			stats.reusedArtifacts++
 		}
@@ -530,6 +559,7 @@ func (r *Runner) runArtifact(ctx context.Context, input ArtifactInput, options r
 		coverage:      make([]contract.Coverage, 0),
 		gaps:          make([]contract.Gap, 0),
 		failures:      make([]contract.Failure, 0),
+		evidence:      make([]EvidenceDraft, 0),
 	}, entries: make([]state.Entry, 0)}
 	selected := r.registry.Select(input)
 	if len(selected) == 0 {
@@ -556,7 +586,7 @@ func (r *Runner) runArtifact(ctx context.Context, input ArtifactInput, options r
 		}
 		descriptor := analyzer.Descriptor()
 		key := state.NewKey(input.SourceID, input.Artifact.Path, input.Artifact.Hash, descriptor.ContractVersion, descriptor.ID, descriptor.Version, descriptor.Method)
-		if options.cache && !options.invalidated[input.Artifact.Path] {
+		if options.cache && !options.forceReprocess && !options.invalidated[input.Artifact.Path] {
 			if entry, ok := lookupStateEntry(options.stateIndex, key, input); ok {
 				output.contributions = append(output.contributions, entry.Contributions...)
 				output.coverage = append(output.coverage, entry.Coverage...)
@@ -573,6 +603,7 @@ func (r *Runner) runArtifact(ctx context.Context, input ArtifactInput, options r
 		output.coverage = append(output.coverage, normalized.coverage...)
 		output.gaps = append(output.gaps, normalized.gaps...)
 		output.failures = append(output.failures, normalized.failures...)
+		output.evidence = append(output.evidence, normalized.evidence...)
 		if err != nil {
 			output.failures = append(output.failures, analyzerFailure(input, descriptor, err, failureCodeAnalyzer))
 			continue
@@ -596,6 +627,7 @@ func (r *Runner) runArtifact(ctx context.Context, input ArtifactInput, options r
 			output.contributions = output.contributions[:0]
 			output.coverage = output.coverage[:0]
 			output.gaps = output.gaps[:0]
+			output.evidence = output.evidence[:0]
 			message := "source changed during analysis; analyzer observations were discarded"
 			if revalidationErr != nil {
 				message = "source could not be revalidated after analysis; analyzer observations were discarded"
@@ -643,12 +675,14 @@ func normalizeOutput(input ArtifactInput, descriptor Descriptor, output Output) 
 		coverage:      make([]contract.Coverage, 0, len(output.Coverage)),
 		gaps:          make([]contract.Gap, 0, len(output.Gaps)),
 		failures:      make([]contract.Failure, 0),
+		evidence:      make([]EvidenceDraft, 0, len(output.Evidence)),
 	}
 	contributions := append([]contract.Contribution{}, output.Contributions...)
 	sort.SliceStable(contributions, func(i, j int) bool {
 		return contributionKey(contributions[i]) < contributionKey(contributions[j])
 	})
 	seenContributions := make(map[string]int, len(contributions))
+	normalizedByReference := make(map[string]string, len(contributions)*2)
 	for index, contribution := range contributions {
 		if contribution.ArtifactID != "" && contribution.ArtifactID != input.Artifact.ID {
 			result.failures = append(result.failures, analyzerFailure(input, descriptor, fmt.Errorf("contribution %d references another artifact", index), failureCodeInvalidOutput))
@@ -680,6 +714,9 @@ func normalizeOutput(input ArtifactInput, descriptor Descriptor, output Output) 
 		if contribution.Method == "" {
 			contribution.Method = descriptor.Method
 		}
+		if input.Evidence.Enabled {
+			contribution.Method = evidenceSafeMethod(contribution.Method)
+		}
 		if contribution.Locator.SourceID == "" {
 			contribution.Locator.SourceID = input.SourceID
 		}
@@ -698,6 +735,7 @@ func normalizeOutput(input ArtifactInput, descriptor Descriptor, output Output) 
 			continue
 		}
 		baseMethod := contribution.Method
+		originalID := contribution.ID
 		identity := contract.ContributionID(
 			contribution.ArtifactID,
 			contribution.AnalyzerID,
@@ -722,6 +760,48 @@ func normalizeOutput(input ArtifactInput, descriptor Descriptor, output Output) 
 			continue
 		}
 		result.contributions = append(result.contributions, contribution)
+		normalizedByReference[contribution.ID] = contribution.ID
+		if originalID != "" {
+			// Analyzer drafts are allowed to refer to the contribution identity
+			// created before runner normalization. Preserve that reference when
+			// duplicate methods receive a deterministic suffix.
+			normalizedByReference[originalID] = contribution.ID
+		}
+	}
+
+	for index, draft := range output.Evidence {
+		if !input.Evidence.Enabled {
+			continue
+		}
+		if draft.ContributionID == "" {
+			result.failures = append(result.failures, analyzerFailure(input, descriptor, fmt.Errorf("evidence draft %d has no contribution reference", index), failureCodeInvalidOutput))
+			continue
+		}
+		if normalizedID, ok := normalizedByReference[draft.ContributionID]; ok {
+			draft.ContributionID = normalizedID
+		} else {
+			found := false
+			for _, candidate := range result.contributions {
+				if candidate.ID == draft.ContributionID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				result.failures = append(result.failures, analyzerFailure(input, descriptor, fmt.Errorf("evidence draft %d references an unknown contribution", index), failureCodeInvalidOutput))
+				continue
+			}
+		}
+		if !locatorMatchesInput(draft.Locator, input) {
+			result.failures = append(result.failures, analyzerFailure(input, descriptor, fmt.Errorf("evidence draft %d locator is outside the artifact", index), failureCodeInvalidOutput))
+			continue
+		}
+		draft.Locator = *completeLocator(&draft.Locator, input)
+		if err := draft.Locator.Validate(); err != nil {
+			result.failures = append(result.failures, analyzerFailure(input, descriptor, fmt.Errorf("evidence draft %d locator is invalid", index), failureCodeInvalidOutput))
+			continue
+		}
+		result.evidence = append(result.evidence, draft)
 	}
 
 	for _, coverage := range output.Coverage {
@@ -847,6 +927,16 @@ func contributionKey(contribution contract.Contribution) string {
 		fmt.Sprint(contribution.Locator.StartLine),
 		string(value),
 	}, "\x00")
+}
+
+func evidenceSafeMethod(value string) string {
+	value = strings.TrimSpace(value)
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) || unicode.IsControl(r) {
+			return '_'
+		}
+		return r
+	}, value)
 }
 
 func analyzerFailure(input ArtifactInput, descriptor Descriptor, err error, code string) contract.Failure {

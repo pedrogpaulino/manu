@@ -18,14 +18,14 @@ WORKDIR /src
 ENV CGO_ENABLED=0 \
     GOTOOLCHAIN=local
 
-COPY go.mod ./
+COPY go.mod go.sum ./
 COPY cmd ./cmd
 COPY internal ./internal
 
 # Os diretórios são preparados com o mesmo UID/GID do processo final para
 # permitir um volume de saída gravável sem adicionar utilitários à imagem.
-RUN mkdir -p /runtime/source /runtime/output \
-    && chown 65532:65532 /runtime/source /runtime/output
+RUN mkdir -p /runtime/source /runtime/output /runtime/ingestions /runtime/default-ingestions \
+	&& chown 65532:65532 /runtime/source /runtime/output /runtime/ingestions /runtime/default-ingestions
 
 RUN GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" CGO_ENABLED=0 \
     go build \
@@ -40,12 +40,14 @@ FROM scratch
 COPY --from=build --chown=65532:65532 /out/manu /manu
 COPY --from=build --chown=65532:65532 /runtime/source /source
 COPY --from=build --chown=65532:65532 /runtime/output /output
+COPY --from=build --chown=65532:65532 /runtime/ingestions /var/lib/manu/ingestions
+COPY --from=build --chown=65532:65532 /runtime/default-ingestions /tmp/manu/ingestions
 
 USER 65532:65532
 WORKDIR /output
 
 # Em runtime, monte /source como somente leitura (:ro) e /output como volume
 # gravável separado.
-VOLUME ["/source", "/output"]
+VOLUME ["/source", "/output", "/var/lib/manu/ingestions"]
 
 ENTRYPOINT ["/manu"]

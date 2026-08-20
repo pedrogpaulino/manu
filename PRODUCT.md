@@ -334,6 +334,11 @@ uma tentativa de entregar o catálogo, a wiki, o grafo, a busca, o chat, o
 onboarding, o impacto e a investigação como produtos independentes e
 completos.
 
+Neste momento, o microcorte executável implementa somente a fundação local de
+ingestão, consulta e evidências. Catálogo, wiki, edição, publicação e as demais
+experiências acima continuam sendo objetivos do produto a validar; não devem
+ser tratados como capacidades já entregues por este microcorte.
+
 ### Hipóteses e sinais do recorte
 
 Cada parte do MVP deve produzir aprendizado verificável:
@@ -366,10 +371,10 @@ generalizado para todo o portfólio sem nova validação.
   autorizados dentro dessa fronteira. A organização é uma unidade de
   conhecimento e colaboração; detalhes de isolamento físico pertencem à
   arquitetura.
-- Essa instalação poderá operar desde o MVP em dois modos: hospedada pelo
-  Manu como SaaS dedicado em uma VPS, ou self-hosted no ambiente do cliente.
-  Ambos são modos iniciais do mesmo recorte de uma organização por instalação,
-  não opções futuras de implantação.
+- O microcorte executável opera hoje como uma célula local em Docker Compose,
+  com uma organização por instalação. SaaS dedicado em uma VPS e self-hosted
+  no ambiente do cliente permanecem opções de implantação a validar; não são
+  modos suportados nem promessas do recorte atual.
 - Evidências, proveniência, temporalidade, estado de revisão e autoria humana
   são necessários para interpretar conhecimento relevante.
 - As fontes do MVP são selecionadas para provar o fluxo com duas a quatro

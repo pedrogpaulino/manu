@@ -12,6 +12,7 @@ import (
 
 	"github.com/pedrogpaulino/manu/internal/analysis"
 	"github.com/pedrogpaulino/manu/internal/contract"
+	"github.com/pedrogpaulino/manu/internal/evidence"
 	"github.com/pedrogpaulino/manu/internal/source"
 )
 
@@ -126,12 +127,25 @@ func (a *Analyzer) Analyze(ctx context.Context, input analysis.ArtifactInput) (a
 				StartLine: observation.Line,
 				EndLine:   observation.EndLine,
 			},
-			observation.Value,
+			sanitizeObservationValue(observation.Value),
 		)
 		if contributionErr != nil {
 			return analysis.Output{}, contributionErr
 		}
 		output.Contributions = append(output.Contributions, contribution)
+		if input.Evidence.Enabled {
+			snippet, snippetTruncated := lineSnippet(text.Content, observation.Line, observation.EndLine)
+			draft := analysis.EvidenceDraft{
+				ContributionID: contribution.ID,
+				Locator:        contribution.Locator,
+				Content:        snippet,
+				Truncated:      text.Truncated || snippetTruncated,
+			}
+			if snippet == "" {
+				draft.State = evidence.ContentStateOmitted
+			}
+			output.Evidence = append(output.Evidence, draft)
+		}
 	}
 	for _, coverage := range parsed.coverage {
 		line := 0
@@ -158,6 +172,53 @@ func (a *Analyzer) Analyze(ctx context.Context, input analysis.ArtifactInput) (a
 		Locator:   locatorPointer(input),
 	})
 	return output, nil
+}
+
+func sanitizeObservationValue(value map[string]any) map[string]any {
+	if len(value) == 0 {
+		return value
+	}
+	sanitized := make(map[string]any, len(value))
+	for key, raw := range value {
+		text, ok := raw.(string)
+		if !ok {
+			sanitized[key] = raw
+			continue
+		}
+		clean := analysis.SanitizeEvidenceContent(text)
+		if clean.Redacted {
+			sanitized[key] = "[redacted]"
+		} else {
+			sanitized[key] = clean.Content
+		}
+	}
+	return sanitized
+}
+
+// lineSnippet retains only the source line(s) that support one lexical
+// observation. It never copies the complete Java artifact into a draft.
+func lineSnippet(content string, startLine, endLine int) (string, bool) {
+	if startLine <= 0 {
+		return "", false
+	}
+	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
+	start := startLine - 1
+	if start >= len(lines) {
+		return "", false
+	}
+	end := endLine
+	if end <= startLine {
+		end = startLine
+	}
+	if end > len(lines) {
+		end = len(lines)
+	}
+	const maxLines = 3
+	if end-start > maxLines {
+		end = start + maxLines
+		return strings.Join(lines[start:end], "\n"), true
+	}
+	return strings.Join(lines[start:end], "\n"), false
 }
 
 type observation struct {

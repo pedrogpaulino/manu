@@ -16,3 +16,10 @@ coverage.out
 /corpus/
 /external/
 /external-corpus/
+
+# Configuração local e material sensível nunca entram no contexto de build.
+.env
+.env.*
+!.env.example
+/secrets/
+/config/secrets/

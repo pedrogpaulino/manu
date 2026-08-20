@@ -1,0 +1,406 @@
+{
+  "version": "v1alpha1",
+  "baseline_id": "first-vertical-slice-9-5-20260820",
+  "recorded_on": "2026-08-20",
+  "source_run": {
+    "run_id": "real-9-4-ticketmaster-20260820",
+    "mode": "simulated",
+    "cases_version": "v1alpha1",
+    "engine_version": "evaluation-real-extractor-v1",
+    "bundle_version": "v1alpha1",
+    "contract_version": "v1alpha1",
+    "runner_reproducibility_digest": "a93d11940cbd7b29ddc3b25825806e2cea5f2e607f76516eb3b6d1f15193b818"
+  },
+  "environment": {
+    "go_version": "go1.26.6",
+    "goos": "linux",
+    "goarch": "amd64",
+    "cpu_model": "AMD Ryzen 9 5900X 12-Core Processor",
+    "num_cpu": 24,
+    "gomaxprocs": 24
+  },
+  "configuration": {
+    "top_k": 5,
+    "repeat": true,
+    "organization_id": "evaluation-local-20260820",
+    "policy": {
+      "persist": "allow",
+      "external_transfer": "deny",
+      "sensitive_persist": "redact",
+      "sensitive_external_transfer": "deny",
+      "prompt_injection_external_transfer": "deny",
+      "binary_persist": "deny",
+      "binary_external_transfer": "deny"
+    },
+    "source_limits": {
+      "max_files": 10000,
+      "max_bytes": 1073741824,
+      "max_file_bytes": 268435456,
+      "max_concurrency": 4,
+      "max_probe_bytes": 8192,
+      "max_extraction_bytes": 1048576,
+      "max_archive_members": 10000,
+      "max_archive_bytes": 1073741824,
+      "max_archive_member_bytes": 268435456,
+      "max_archive_compressed_bytes": 1073741824,
+      "max_expansion_ratio": 1000
+    },
+    "evidence_limits": {
+      "max_units_per_artifact": 8,
+      "max_bytes_per_unit": 4096,
+      "max_characters_per_unit": 2048
+    },
+    "corpora": [
+      {
+        "corpus_id": "first-vertical-slice",
+        "corpus_revision": "2026-08-17",
+        "source_id": "ticketmaster-java-quarkus",
+        "source_revision": "88cab04c59c58e745a94302e5c9e856830c4c902",
+        "source_role": "reference",
+        "configuration_id": "evaluation-real-ticketmaster-java-quarkus",
+        "includes": [
+          "app/src/main/java/**",
+          "app/src/main/resources/**",
+          "app/pom.xml"
+        ]
+      },
+      {
+        "corpus_id": "first-vertical-slice",
+        "corpus_revision": "2026-08-17",
+        "source_id": "wso2-car-sample",
+        "source_revision": "23eca6b8f6efdb9e8e671678953c983d6f911d614ca539f5d397c545452a3943",
+        "source_role": "heterogeneity",
+        "configuration_id": "evaluation-real-wso2-car-sample",
+        "includes": [
+          "ERPProxyServiceCompositeApplication_1.0.0.car",
+          "FIESCArchitectureConfigApplication_1.0.0.car",
+          "FIESCArchitectureRegistryApplication_1.0.0.car",
+          "DocumentosIntegradosDSSApplication_1.0.0.car",
+          "EcommerceSESICompositeApplication_1.0.0.car",
+          "NotaFiscalCompositeApplication_2.0.0.car"
+        ],
+        "artifact_hashes": {
+          "ERPProxyServiceCompositeApplication_1.0.0.car": "f23368236afe6890b76544be3978b17862c99a140aff467f881887569460720f",
+          "FIESCArchitectureConfigApplication_1.0.0.car": "7c14d81238d42cf9635b3d01721de5f7114ba2c4ef4312f2f6394ccd413db61b",
+          "FIESCArchitectureRegistryApplication_1.0.0.car": "ca58026fdf610cf97d8340f2737f01828433eaa418247b933d55cc78f3f13048",
+          "DocumentosIntegradosDSSApplication_1.0.0.car": "d8eb71542b09ef81e06238aaffec7b6eed13bc09e31c35023f9604607069a937",
+          "EcommerceSESICompositeApplication_1.0.0.car": "0ce305204456bf258c7f3a6417ddf80eb3a8c91991cffc672f292c43de2fc63f",
+          "NotaFiscalCompositeApplication_2.0.0.car": "9d54deef4bf306cbee9ca0f49b848b5f28b7c83d28acd684089ae8444fe58999"
+        }
+      },
+      {
+        "corpus_id": "first-vertical-slice",
+        "corpus_revision": "2026-08-17",
+        "source_id": "erpnext-inventory",
+        "source_revision": "1f839061899c019b9a326b960fc5d10b4b34c761",
+        "source_role": "scale",
+        "configuration_id": "evaluation-real-erpnext-inventory",
+        "includes": ["erpnext/**"]
+      }
+    ]
+  },
+  "analyzers": [
+    {"id": "generic", "version": "1", "method": "inventory-text-v1", "fallback": true},
+    {"id": "java", "version": "1", "method": "lexical-java-v1", "fallback": false},
+    {"id": "wso2", "version": "1", "method": "declarative-wso2-v1", "fallback": false}
+  ],
+  "profiles": {
+    "embedding": {
+      "provider": "simulated",
+      "model": "evaluation-embedding",
+      "version": "v1alpha1",
+      "dimension": 8,
+      "normalize": false,
+      "max_batch_size": 128,
+      "real_corpus_state": "disabled_by_external_transfer_policy"
+    },
+    "generation": {
+      "provider": "simulated",
+      "model": "evaluation-generator",
+      "version": "v1alpha1",
+      "protocol": "chat_completions",
+      "max_output_bytes": 4096,
+      "real_corpus_state": "not_called_due_to_abstention"
+    },
+    "external": []
+  },
+  "metrics": {
+    "summary": {
+      "cases": 4,
+      "completed": 0,
+      "failed": 4,
+      "expected_abstentions": 1,
+      "correct_abstentions": 1,
+      "evidence_recall_at_k_mean": 0,
+      "evidence_precision_at_k_mean": 0,
+      "valid_claims": 4,
+      "valid_citations": 0,
+      "content_bytes": 108472,
+      "evidence_reused": 1696,
+      "evidence_reprocessed": 1696
+    },
+    "cases": [
+      {
+        "case_id": "TM-ABS-01",
+        "kind": "abstention",
+        "expected_abstention": true,
+        "abstained": true,
+        "abstention_correct": true,
+        "outcome": "partial",
+        "failure_stage": "retrieval",
+        "failure_code": "evidence_recall_below_expected",
+        "extraction_status": "completed",
+        "ingestion_status": "completed",
+        "retrieval_status": "completed",
+        "policy_status": "limited",
+        "policy_code": "transfer_not_authorized",
+        "policy_blocked_units": 424,
+        "expected_evidence": 1,
+        "retrieved_evidence": 5,
+        "relevant_at_k": 0,
+        "evidence_recall_at_k": 0,
+        "evidence_precision_at_k": 0,
+        "first_evidence_position": -1,
+        "identity_provenance_valid": 5,
+        "embedding_available": false,
+        "degradation_reasons": ["vector_unavailable"],
+        "valid_claims": 1,
+        "valid_citations": 0,
+        "content_bytes": 27118,
+        "evidence_reused": 424,
+        "evidence_reprocessed": 424,
+        "embeddings_reused": 0,
+        "embeddings_reprocessed": 0
+      },
+      {
+        "case_id": "TM-FLOW-01",
+        "kind": "possible_flow",
+        "expected_abstention": false,
+        "abstained": true,
+        "abstention_correct": false,
+        "outcome": "partial",
+        "failure_stage": "retrieval",
+        "failure_code": "evidence_recall_below_expected",
+        "extraction_status": "completed",
+        "ingestion_status": "completed",
+        "retrieval_status": "completed",
+        "policy_status": "limited",
+        "policy_code": "transfer_not_authorized",
+        "policy_blocked_units": 424,
+        "expected_evidence": 3,
+        "retrieved_evidence": 5,
+        "relevant_at_k": 0,
+        "evidence_recall_at_k": 0,
+        "evidence_precision_at_k": 0,
+        "first_evidence_position": -1,
+        "identity_provenance_valid": 5,
+        "embedding_available": false,
+        "degradation_reasons": ["vector_unavailable"],
+        "valid_claims": 1,
+        "valid_citations": 0,
+        "content_bytes": 27118,
+        "evidence_reused": 424,
+        "evidence_reprocessed": 424,
+        "embeddings_reused": 0,
+        "embeddings_reprocessed": 0
+      },
+      {
+        "case_id": "TM-INV-01",
+        "kind": "inventory",
+        "expected_abstention": false,
+        "abstained": true,
+        "abstention_correct": false,
+        "outcome": "partial",
+        "failure_stage": "retrieval",
+        "failure_code": "evidence_recall_below_expected",
+        "extraction_status": "completed",
+        "ingestion_status": "completed",
+        "retrieval_status": "completed",
+        "policy_status": "limited",
+        "policy_code": "transfer_not_authorized",
+        "policy_blocked_units": 424,
+        "expected_evidence": 2,
+        "retrieved_evidence": 5,
+        "relevant_at_k": 0,
+        "evidence_recall_at_k": 0,
+        "evidence_precision_at_k": 0,
+        "first_evidence_position": -1,
+        "identity_provenance_valid": 5,
+        "embedding_available": false,
+        "degradation_reasons": ["vector_unavailable"],
+        "valid_claims": 1,
+        "valid_citations": 0,
+        "content_bytes": 27118,
+        "evidence_reused": 424,
+        "evidence_reprocessed": 424,
+        "embeddings_reused": 0,
+        "embeddings_reprocessed": 0
+      },
+      {
+        "case_id": "TM-PROV-01",
+        "kind": "provenance",
+        "expected_abstention": false,
+        "abstained": true,
+        "abstention_correct": false,
+        "outcome": "partial",
+        "failure_stage": "retrieval",
+        "failure_code": "evidence_recall_below_expected",
+        "extraction_status": "completed",
+        "ingestion_status": "completed",
+        "retrieval_status": "completed",
+        "policy_status": "limited",
+        "policy_code": "transfer_not_authorized",
+        "policy_blocked_units": 424,
+        "expected_evidence": 3,
+        "retrieved_evidence": 5,
+        "relevant_at_k": 0,
+        "evidence_recall_at_k": 0,
+        "evidence_precision_at_k": 0,
+        "first_evidence_position": -1,
+        "identity_provenance_valid": 5,
+        "embedding_available": false,
+        "degradation_reasons": ["vector_unavailable"],
+        "valid_claims": 1,
+        "valid_citations": 0,
+        "content_bytes": 27118,
+        "evidence_reused": 424,
+        "evidence_reprocessed": 424,
+        "embeddings_reused": 0,
+        "embeddings_reprocessed": 0
+      }
+    ],
+    "corpus_measurements": [
+      {
+        "source_id": "ticketmaster-java-quarkus",
+        "source_revision": "88cab04c59c58e745a94302e5c9e856830c4c902",
+        "source_role": "reference",
+        "extraction_status": "limited",
+        "extraction_error_code": "source_limits_reached",
+        "artifacts": 65,
+        "contributions": 1086,
+        "evidence_units": 424,
+        "content_bytes": 27118,
+        "coverage": {"produced": 320, "incomplete": 91},
+        "gap_count": 113,
+        "failure_count": 0,
+        "bytes_read": 70004,
+        "effective_concurrency": 4,
+        "factual_digest": "8a31aaa1f9dee2c4b12db96a1361d33c511f41363e2962a5cf1cf3be2e01a16b",
+        "execution_limitations": ["evidence_limits_reached", "evidence_redacted"],
+        "non_applicable_stages": ["ingestion", "retrieval", "generation", "policy"]
+      },
+      {
+        "source_id": "wso2-car-sample",
+        "source_revision": "23eca6b8f6efdb9e8e671678953c983d6f911d614ca539f5d397c545452a3943",
+        "source_role": "heterogeneity",
+        "extraction_status": "limited",
+        "extraction_error_code": "source_limits_reached",
+        "artifacts": 6,
+        "contributions": 644,
+        "evidence_units": 38,
+        "content_bytes": 1054,
+        "coverage": {"produced": 46, "incomplete": 6, "failed": 1, "not_applicable": 6},
+        "gap_count": 13,
+        "failure_count": 0,
+        "bytes_read": 75115,
+        "effective_concurrency": 4,
+        "factual_digest": "7a9c3f5e72092fe1293f9dc3abe60aa845f3e77bb309c653d0439ad7a79c2cae",
+        "execution_limitations": ["evidence_limits_reached"],
+        "non_applicable_stages": ["ingestion", "retrieval", "generation", "policy"]
+      },
+      {
+        "source_id": "erpnext-inventory",
+        "source_revision": "1f839061899c019b9a326b960fc5d10b4b34c761",
+        "source_role": "scale",
+        "extraction_status": "limited",
+        "extraction_error_code": "source_limits_reached",
+        "artifacts": 5316,
+        "contributions": 10582,
+        "evidence_units": 5319,
+        "content_bytes": 1043377,
+        "coverage": {"produced": 10991, "incomplete": 4905, "not_applicable": 53},
+        "gap_count": 4906,
+        "failure_count": 0,
+        "bytes_read": 142119855,
+        "effective_concurrency": 4,
+        "factual_digest": "34e967ba0dda1a3b710d6658cc001a525efa5d162700a4d0ce384980cf2d35e6",
+        "execution_limitations": ["evidence_limits_reached"],
+        "non_applicable_stages": ["ingestion", "retrieval", "generation", "policy"]
+      }
+    ],
+    "timing_observations_ms": {
+      "integrity": "excluded_from_reproducibility_digest",
+      "ticketmaster_cases": {
+        "TM-ABS-01": {"extraction": 134.964541, "ingestion": 38.916383, "retrieval": 2.878799},
+        "TM-FLOW-01": {"extraction": 126.585744, "ingestion": 35.622785, "retrieval": 2.270199},
+        "TM-INV-01": {"extraction": 120.672447, "ingestion": 35.008884, "retrieval": 3.571199},
+        "TM-PROV-01": {"extraction": 119.986946, "ingestion": 34.360984, "retrieval": 2.495599}
+      },
+      "corpus_measurements": {
+        "ticketmaster-java-quarkus": 100.999855,
+        "wso2-car-sample": 42.98688,
+        "erpnext-inventory": 1811.763509
+      }
+    }
+  },
+  "content_transfer": {
+    "policy": "deny",
+    "external_provider_calls": 0,
+    "transferred_evidence": [],
+    "transferred_content_hashes": [],
+    "secret_present": false,
+    "raw_content_recorded": false
+  },
+  "costs": {
+    "external_provider": {
+      "status": "not_applicable",
+      "calls": 0,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "reason": "modo simulado, sem chamada externa e sem tabela de preços aplicada"
+    },
+    "local_simulation": {
+      "status": "local_only",
+      "embedding_calls": 0,
+      "generation_calls": 0,
+      "provider_cost_usd": null,
+      "reason": "custo de máquina local não foi medido nesta baseline"
+    }
+  },
+  "limitations": [
+    "a execução não usou rede, OpenAI API, OpenRouter ou outro provedor",
+    "external_transfer=deny tornou a projeção vetorial indisponível nos corpora reais",
+    "Ticketmaster percorreu o pipeline real, mas teve recall textual zero para os locadores dos quatro casos",
+    "WSO2 representa somente os seis CARs selecionados de 132 e não cobre semântica profunda ou runtime",
+    "ERPNext foi medido sob limites bounded e não comprova inventário integral de uma árvore de aproximadamente 1,9 GiB",
+    "as etapas posteriores de WSO2 e ERPNext são não aplicáveis nesta execução sem casos de competência",
+    "a extração limitada e as unidades redigidas/omitidas não devem ser interpretadas como ausência no corpus",
+    "os tempos observados são locais e não constituem SLA, capacidade comercial ou promessa de desempenho"
+  ],
+  "comparability": {
+    "status": "single_baseline",
+    "model_comparison": "not_performed",
+    "external_models": [],
+    "valid_comparison_requires": [
+      "mesmas revisões de corpus",
+      "mesma seleção e limites",
+      "mesma versão de casos, engine, bundle e contrato",
+      "mesma política de transferência",
+      "mesmo ambiente e modo de execução"
+    ],
+    "invalid_comparisons_explicitly_excluded": [
+      "modelo externo versus provider simulado",
+      "revisão ou seleção de corpus diferente",
+      "execução com política de transferência diferente",
+      "tempo desta máquina comunicado como SLA"
+    ]
+  },
+  "integrity": {
+    "runner_reproducibility_digest": "a93d11940cbd7b29ddc3b25825806e2cea5f2e607f76516eb3b6d1f15193b818",
+    "stable_identity_fields": ["source_run", "configuration", "analyzers", "profiles", "metrics_without_timing_observations", "content_transfer", "costs", "limitations", "comparability"],
+    "volatile_fields_excluded": ["stage durations", "first evidence latency", "wall clock timestamps", "host name", "private paths"],
+    "raw_source_content_included": false,
+    "credentials_included": false
+  }
+}
