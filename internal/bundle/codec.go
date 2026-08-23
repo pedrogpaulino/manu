@@ -16,6 +16,7 @@ import (
 
 	"github.com/pedrogpaulino/manu/internal/contract"
 	"github.com/pedrogpaulino/manu/internal/evidence"
+	"github.com/pedrogpaulino/manu/internal/fact"
 )
 
 const (
@@ -34,6 +35,12 @@ const (
 	DefaultMaxContributions int64 = 100_000
 	// DefaultMaxEvidenceUnits matches the local configuration default.
 	DefaultMaxEvidenceUnits int64 = 10_000
+	// DefaultMaxFrontendManifests, DefaultMaxCanonicalFacts, and
+	// DefaultMaxExtensions bound the additional v1alpha2 sequences when no
+	// deployment-specific limits are supplied.
+	DefaultMaxFrontendManifests int64 = 10_000
+	DefaultMaxCanonicalFacts    int64 = 100_000
+	DefaultMaxExtensions        int64 = 100_000
 )
 
 // Options controls bundle reads. Limits are applied in addition to the
@@ -96,7 +103,7 @@ func WriteBundle(ctx context.Context, directory string, input Bundle) error {
 		}
 	}()
 
-	stats := make(map[string]sequenceStats, 3)
+	stats := make(map[string]sequenceStats, 6)
 	writeSequence := func(name string, values any) error {
 		finalPath := filepath.Join(directory, name)
 		file, sequence, writeErr := writeSequenceTemp(ctx, directory, finalPath, values)
@@ -118,8 +125,23 @@ func WriteBundle(ctx context.Context, directory string, input Bundle) error {
 			return fmt.Errorf("writing %s: %w", EvidenceFileName, err)
 		}
 	}
+	if working.Manifest.Version == VersionV1Alpha2 {
+		if err := writeSequence(FrontendManifestsFileName, working.FrontendManifests); err != nil {
+			return fmt.Errorf("writing %s: %w", FrontendManifestsFileName, err)
+		}
+		if err := writeSequence(CanonicalFactsFileName, working.Facts); err != nil {
+			return fmt.Errorf("writing %s: %w", CanonicalFactsFileName, err)
+		}
+		if err := writeSequence(ExtensionsFileName, working.Extensions); err != nil {
+			return fmt.Errorf("writing %s: %w", ExtensionsFileName, err)
+		}
+	}
 
-	working.Manifest.Files = manifestFiles(stats, working.Manifest.Evidence.State == EvidenceStateAvailable)
+	if working.Manifest.Version == VersionV1Alpha2 {
+		working.Manifest.Files = manifestFilesV2(stats, working.Manifest.Evidence.State == EvidenceStateAvailable)
+	} else {
+		working.Manifest.Files = manifestFiles(stats, working.Manifest.Evidence.State == EvidenceStateAvailable)
+	}
 	if err := working.Manifest.Validate(); err != nil {
 		return fmt.Errorf("validating written manifest: %w", err)
 	}
@@ -245,8 +267,11 @@ func prepareBundleForWrite(input Bundle) (Bundle, error) {
 	if working.Manifest.Version == "" {
 		working.Manifest.Version = Version
 	}
-	if working.Manifest.Version != Version {
-		return Bundle{}, fmt.Errorf("%w: got %q, want %q", ErrUnsupportedVersion, working.Manifest.Version, Version)
+	if working.Manifest.Version != VersionV1Alpha1 && working.Manifest.Version != VersionV1Alpha2 {
+		return Bundle{}, fmt.Errorf("%w: got %q", ErrUnsupportedVersion, working.Manifest.Version)
+	}
+	if err := rejectV2DataForV1(working); err != nil {
+		return Bundle{}, err
 	}
 	if working.Manifest.Organization.ID == "" {
 		return Bundle{}, fmt.Errorf("%w: organization id is required", ErrInvalid)
@@ -273,7 +298,39 @@ func prepareBundleForWrite(input Bundle) (Bundle, error) {
 		ContributionCount: int64(len(working.Contributions)),
 		EvidenceUnitCount: int64(len(working.Evidence)),
 	}
-	working.Manifest.Limits = defaultLimits(working.Manifest.Limits)
+	if working.Manifest.Version == VersionV1Alpha2 {
+		working.Manifest.Counts.FrontendManifestCount = int64(len(working.FrontendManifests))
+		working.Manifest.Counts.CanonicalFactCount = int64(len(working.Facts))
+		working.Manifest.Counts.ExtensionCount = int64(len(working.Extensions))
+		working.Manifest.Limits = defaultLimitsV2(working.Manifest.Limits)
+		for index := range working.FrontendManifests {
+			working.FrontendManifests[index] = canonicalFrontendManifestValue(working.FrontendManifests[index])
+		}
+		sort.SliceStable(working.FrontendManifests, func(left, right int) bool {
+			return frontendManifestKey(working.FrontendManifests[left]) < frontendManifestKey(working.FrontendManifests[right])
+		})
+		sort.SliceStable(working.Facts, func(left, right int) bool {
+			return working.Facts[left].ID < working.Facts[right].ID
+		})
+		for index := range working.Facts {
+			canonicalBytes, err := fact.CanonicalBytes(working.Facts[index])
+			if err != nil {
+				return Bundle{}, fmt.Errorf("canonicalizing fact %d: %w", index, err)
+			}
+			var canonicalFact fact.CanonicalFact
+			if err := json.Unmarshal(canonicalBytes, &canonicalFact); err != nil {
+				return Bundle{}, fmt.Errorf("canonicalizing fact %d: %w", index, err)
+			}
+			working.Facts[index] = canonicalFact
+		}
+		canonicalExtensions, err := canonicalExtensionsForDigest(working.Extensions)
+		if err != nil {
+			return Bundle{}, err
+		}
+		working.Extensions = canonicalExtensions
+	} else {
+		working.Manifest.Limits = defaultLimits(working.Manifest.Limits)
+	}
 	if err := working.Manifest.Limits.Validate(); err != nil {
 		return Bundle{}, err
 	}
@@ -315,12 +372,17 @@ func prepareBundleForWrite(input Bundle) (Bundle, error) {
 	if err := validateEvidenceUnits(working.Manifest, working.Artifacts, working.Contributions, working.Evidence); err != nil {
 		return Bundle{}, err
 	}
+	if working.Manifest.Version == VersionV1Alpha2 {
+		if err := validateV2Sequences(working.Manifest, working.FrontendManifests, working.Facts, working.Extensions); err != nil {
+			return Bundle{}, err
+		}
+	}
 	legacy = contract.Result{
 		Manifest:      working.Manifest.Manifest,
 		Artifacts:     working.Artifacts,
 		Contributions: working.Contributions,
 	}
-	digest, err := FactualDigest(legacy, working.Evidence)
+	digest, err := working.FactualDigest()
 	if err != nil {
 		return Bundle{}, err
 	}
@@ -334,6 +396,9 @@ func cloneBundle(input Bundle) Bundle {
 	output.Artifacts = append([]contract.Artifact(nil), input.Artifacts...)
 	output.Contributions = append([]contract.Contribution(nil), input.Contributions...)
 	output.Evidence = append([]evidence.EvidenceUnit(nil), input.Evidence...)
+	output.FrontendManifests = cloneFrontendManifests(input.FrontendManifests)
+	output.Facts = cloneCanonicalFacts(input.Facts)
+	output.Extensions = cloneExtensions(input.Extensions)
 	output.Manifest.Coverage = append([]contract.Coverage(nil), input.Manifest.Coverage...)
 	output.Manifest.Gaps = append([]contract.Gap(nil), input.Manifest.Gaps...)
 	output.Manifest.Failures = append([]contract.Failure(nil), input.Manifest.Failures...)
@@ -360,6 +425,50 @@ func cloneBundle(input Bundle) Bundle {
 	}
 	// Evidence is immutable by value, and all its fields are value types.
 	return output
+}
+
+func cloneFrontendManifests(manifests []fact.FrontendManifest) []fact.FrontendManifest {
+	result := append([]fact.FrontendManifest(nil), manifests...)
+	for index := range result {
+		result[index].SourceTypes = append([]string(nil), manifests[index].SourceTypes...)
+		result[index].Families = append([]string(nil), manifests[index].Families...)
+		result[index].Versions = append([]string(nil), manifests[index].Versions...)
+		result[index].Capabilities = append([]contract.Dimension(nil), manifests[index].Capabilities...)
+		result[index].Limitations = append([]string(nil), manifests[index].Limitations...)
+		result[index].Predicates = append([]fact.Predicate(nil), manifests[index].Predicates...)
+		result[index].Extensions = append([]fact.ExtensionSchema(nil), manifests[index].Extensions...)
+	}
+	return result
+}
+
+func cloneCanonicalFacts(facts []fact.CanonicalFact) []fact.CanonicalFact {
+	result := append([]fact.CanonicalFact(nil), facts...)
+	for index := range result {
+		if facts[index].Object != nil {
+			object := *facts[index].Object
+			result[index].Object = &object
+		}
+		if facts[index].Value != nil {
+			value := *facts[index].Value
+			result[index].Value = &value
+		}
+		result[index].Qualifiers = append([]fact.Qualifier(nil), facts[index].Qualifiers...)
+		result[index].Evidence = append([]fact.EvidenceRef(nil), facts[index].Evidence...)
+		if facts[index].Lineage != nil {
+			lineage := *facts[index].Lineage
+			lineage.InputFactIDs = append([]string(nil), facts[index].Lineage.InputFactIDs...)
+			result[index].Lineage = &lineage
+		}
+	}
+	return result
+}
+
+func cloneExtensions(extensions []json.RawMessage) []json.RawMessage {
+	result := make([]json.RawMessage, len(extensions))
+	for index := range extensions {
+		result[index] = append(json.RawMessage(nil), extensions[index]...)
+	}
+	return result
 }
 
 func preparePublication(ctx context.Context, directory string, files []bundleTemp, removeAfterCommit []string) (*bundlePublication, error) {
@@ -535,6 +644,27 @@ func writeSequenceTemp(ctx context.Context, directory, finalPath string, values 
 				return bundleTemp{}, sequenceStats{}, err
 			}
 		}
+	case []fact.FrontendManifest:
+		for index := range typed {
+			if err := writeValue(typed[index], int64(index)); err != nil {
+				return bundleTemp{}, sequenceStats{}, err
+			}
+		}
+	case []fact.CanonicalFact:
+		for index := range typed {
+			if err := writeValue(typed[index], int64(index)); err != nil {
+				return bundleTemp{}, sequenceStats{}, err
+			}
+		}
+	case []json.RawMessage:
+		for index := range typed {
+			if len(typed[index]) == 0 || !json.Valid(typed[index]) {
+				return bundleTemp{}, sequenceStats{}, fmt.Errorf("%w: extension %d", ErrInvalidExtension, index)
+			}
+			if err := writeValue(typed[index], int64(index)); err != nil {
+				return bundleTemp{}, sequenceStats{}, err
+			}
+		}
 	default:
 		return bundleTemp{}, sequenceStats{}, fmt.Errorf("%w: unsupported sequence type %T", ErrInvalid, values)
 	}
@@ -621,6 +751,16 @@ func manifestFiles(stats map[string]sequenceStats, evidenceAvailable bool) []Fil
 	if evidenceAvailable {
 		files = append(files, statsFile(EvidenceFileName, stats[EvidenceFileName]))
 	}
+	return files
+}
+
+func manifestFilesV2(stats map[string]sequenceStats, evidenceAvailable bool) []File {
+	files := manifestFiles(stats, evidenceAvailable)
+	files = append(files,
+		statsFile(FrontendManifestsFileName, stats[FrontendManifestsFileName]),
+		statsFile(CanonicalFactsFileName, stats[CanonicalFactsFileName]),
+		statsFile(ExtensionsFileName, stats[ExtensionsFileName]),
+	)
 	return files
 }
 
@@ -719,6 +859,9 @@ func readExtendedBundle(ctx context.Context, directory string, raw []byte, manif
 	if err := json.Unmarshal(raw, &manifest); err != nil {
 		return Bundle{}, fmt.Errorf("decoding extended manifest: %w: %v", ErrInvalid, err)
 	}
+	if manifest.Version == VersionV1Alpha2 {
+		return readExtendedBundleV2(ctx, directory, manifest, manifestBytes, options)
+	}
 	if manifest.Version != Version {
 		return Bundle{}, fmt.Errorf("%w: got %q, want %q", ErrUnsupportedVersion, manifest.Version, Version)
 	}
@@ -795,6 +938,130 @@ func readExtendedBundle(ctx context.Context, directory string, raw []byte, manif
 	result := Bundle{Manifest: manifest, Artifacts: artifacts, Contributions: contributions, Evidence: units}
 	if err := result.Validate(); err != nil {
 		return Bundle{}, fmt.Errorf("validating extended bundle: %w", err)
+	}
+	return result, nil
+}
+
+func readExtendedBundleV2(ctx context.Context, directory string, manifest Manifest, manifestBytes int64, options Options) (Bundle, error) {
+	if manifest.Limits.MaxManifestBytes > 0 && manifestBytes > manifest.Limits.MaxManifestBytes {
+		return Bundle{}, fmt.Errorf("manifest: %w", ErrLimitExceeded)
+	}
+	effective := stricterLimits(manifest.Limits, options.Limits)
+	effective = defaultLimitsV2(effective)
+	if effective.MaxManifestBytes > 0 && manifestBytes > effective.MaxManifestBytes {
+		return Bundle{}, fmt.Errorf("manifest: %w", ErrLimitExceeded)
+	}
+	validation := manifest
+	validation.Limits = effective
+	if err := validation.Validate(); err != nil {
+		return Bundle{}, fmt.Errorf("validating v1alpha2 manifest: %w", err)
+	}
+	manifest.Limits = effective
+	organization, err := optionOrganization(options)
+	if err != nil {
+		return Bundle{}, err
+	}
+	if organization.ID != "" && organization.ID != manifest.Organization.ID {
+		return Bundle{}, fmt.Errorf("%w: option organization differs from manifest", ErrScopeMismatch)
+	}
+	if options.Analysis.ConfigurationID != "" && options.Analysis.ConfigurationID != manifest.Analysis.ConfigurationID {
+		return Bundle{}, fmt.Errorf("%w: option analysis configuration differs from manifest", ErrScopeMismatch)
+	}
+	files := filesByName(manifest.Files)
+	artifacts := make([]contract.Artifact, 0)
+	artifactStats, err := readSequenceFile(ctx, filepath.Join(directory, ArtifactsFileName), files[ArtifactsFileName], effective.MaxBundleBytes, func(value contract.Artifact) error {
+		if err := value.Validate(); err != nil {
+			return err
+		}
+		artifacts = append(artifacts, value)
+		return nil
+	})
+	if err != nil {
+		return Bundle{}, fmt.Errorf("reading %s: %w", ArtifactsFileName, err)
+	}
+	if err := verifySequenceStats(ArtifactsFileName, files[ArtifactsFileName], artifactStats); err != nil {
+		return Bundle{}, err
+	}
+	contributions := make([]contract.Contribution, 0)
+	contributionStats, err := readSequenceFile(ctx, filepath.Join(directory, ContributionsFileName), files[ContributionsFileName], effective.MaxBundleBytes, func(value contract.Contribution) error {
+		if err := value.Validate(); err != nil {
+			return err
+		}
+		contributions = append(contributions, value)
+		return nil
+	})
+	if err != nil {
+		return Bundle{}, fmt.Errorf("reading %s: %w", ContributionsFileName, err)
+	}
+	if err := verifySequenceStats(ContributionsFileName, files[ContributionsFileName], contributionStats); err != nil {
+		return Bundle{}, err
+	}
+
+	var units []evidence.EvidenceUnit
+	if manifest.EffectiveEvidenceState() == EvidenceStateAvailable {
+		units = make([]evidence.EvidenceUnit, 0)
+		evidenceStats, readErr := readSequenceFile(ctx, filepath.Join(directory, EvidenceFileName), files[EvidenceFileName], effective.MaxEvidenceBytes, func(value evidence.EvidenceUnit) error {
+			if err := value.Validate(); err != nil {
+				return err
+			}
+			units = append(units, value)
+			return nil
+		})
+		if readErr != nil {
+			return Bundle{}, fmt.Errorf("reading %s: %w", EvidenceFileName, readErr)
+		}
+		if err := verifySequenceStats(EvidenceFileName, files[EvidenceFileName], evidenceStats); err != nil {
+			return Bundle{}, err
+		}
+	}
+
+	frontendManifests := make([]fact.FrontendManifest, 0)
+	frontendStats, err := readSequenceFile(ctx, filepath.Join(directory, FrontendManifestsFileName), files[FrontendManifestsFileName], effective.MaxBundleBytes, func(value fact.FrontendManifest) error {
+		frontendManifests = append(frontendManifests, value)
+		return nil
+	})
+	if err != nil {
+		return Bundle{}, fmt.Errorf("reading %s: %w", FrontendManifestsFileName, err)
+	}
+	if err := verifySequenceStats(FrontendManifestsFileName, files[FrontendManifestsFileName], frontendStats); err != nil {
+		return Bundle{}, err
+	}
+	facts := make([]fact.CanonicalFact, 0)
+	factsStats, err := readSequenceFile(ctx, filepath.Join(directory, CanonicalFactsFileName), files[CanonicalFactsFileName], effective.MaxBundleBytes, func(value fact.CanonicalFact) error {
+		facts = append(facts, value)
+		return nil
+	})
+	if err != nil {
+		return Bundle{}, fmt.Errorf("reading %s: %w", CanonicalFactsFileName, err)
+	}
+	if err := verifySequenceStats(CanonicalFactsFileName, files[CanonicalFactsFileName], factsStats); err != nil {
+		return Bundle{}, err
+	}
+	extensions := make([]json.RawMessage, 0)
+	extensionsStats, err := readSequenceFile(ctx, filepath.Join(directory, ExtensionsFileName), files[ExtensionsFileName], effective.MaxBundleBytes, func(value json.RawMessage) error {
+		if len(value) == 0 || !json.Valid(value) {
+			return ErrInvalidExtension
+		}
+		extensions = append(extensions, append(json.RawMessage(nil), value...))
+		return nil
+	})
+	if err != nil {
+		return Bundle{}, fmt.Errorf("reading %s: %w", ExtensionsFileName, err)
+	}
+	if err := verifySequenceStats(ExtensionsFileName, files[ExtensionsFileName], extensionsStats); err != nil {
+		return Bundle{}, err
+	}
+	result := Bundle{
+		Manifest:          manifest,
+		Artifacts:         artifacts,
+		Contributions:     contributions,
+		Evidence:          units,
+		FrontendManifests: frontendManifests,
+		Facts:             facts,
+		Extensions:        extensions,
+	}
+	if err := result.Validate(); err != nil {
+		return Bundle{}, fmt.Errorf("validating v1alpha2 bundle: %w", err)
 	}
 	return result, nil
 }
@@ -1000,12 +1267,15 @@ func filesByName(files []File) map[string]File {
 
 func stricterLimits(declared, configured Limits) Limits {
 	return Limits{
-		MaxBundleBytes:   stricterPositive(declared.MaxBundleBytes, configured.MaxBundleBytes),
-		MaxManifestBytes: stricterPositive(declared.MaxManifestBytes, configured.MaxManifestBytes),
-		MaxEvidenceBytes: stricterPositive(declared.MaxEvidenceBytes, configured.MaxEvidenceBytes),
-		MaxArtifacts:     stricterPositive(declared.MaxArtifacts, configured.MaxArtifacts),
-		MaxContributions: stricterPositive(declared.MaxContributions, configured.MaxContributions),
-		MaxEvidenceUnits: stricterPositive(declared.MaxEvidenceUnits, configured.MaxEvidenceUnits),
+		MaxBundleBytes:       stricterPositive(declared.MaxBundleBytes, configured.MaxBundleBytes),
+		MaxManifestBytes:     stricterPositive(declared.MaxManifestBytes, configured.MaxManifestBytes),
+		MaxEvidenceBytes:     stricterPositive(declared.MaxEvidenceBytes, configured.MaxEvidenceBytes),
+		MaxArtifacts:         stricterPositive(declared.MaxArtifacts, configured.MaxArtifacts),
+		MaxContributions:     stricterPositive(declared.MaxContributions, configured.MaxContributions),
+		MaxEvidenceUnits:     stricterPositive(declared.MaxEvidenceUnits, configured.MaxEvidenceUnits),
+		MaxFrontendManifests: stricterPositive(declared.MaxFrontendManifests, configured.MaxFrontendManifests),
+		MaxCanonicalFacts:    stricterPositive(declared.MaxCanonicalFacts, configured.MaxCanonicalFacts),
+		MaxExtensions:        stricterPositive(declared.MaxExtensions, configured.MaxExtensions),
 	}
 }
 
@@ -1031,6 +1301,20 @@ func defaultLimits(limits Limits) Limits {
 	return limits
 }
 
+func defaultLimitsV2(limits Limits) Limits {
+	limits = defaultLimits(limits)
+	if limits.MaxFrontendManifests == 0 {
+		limits.MaxFrontendManifests = DefaultMaxFrontendManifests
+	}
+	if limits.MaxCanonicalFacts == 0 {
+		limits.MaxCanonicalFacts = DefaultMaxCanonicalFacts
+	}
+	if limits.MaxExtensions == 0 {
+		limits.MaxExtensions = DefaultMaxExtensions
+	}
+	return limits
+}
+
 func firstBundleOnlyField(fields map[string]json.RawMessage) string {
 	for _, field := range []string{
 		"organization",
@@ -1040,6 +1324,9 @@ func firstBundleOnlyField(fields map[string]json.RawMessage) string {
 		"counts",
 		"evidence",
 		"limits",
+		"frontend_manifests",
+		"facts",
+		"extensions",
 	} {
 		if _, exists := fields[field]; exists {
 			return field

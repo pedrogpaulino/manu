@@ -3,6 +3,7 @@ package bundle
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -11,21 +12,34 @@ import (
 
 	"github.com/pedrogpaulino/manu/internal/contract"
 	"github.com/pedrogpaulino/manu/internal/evidence"
+	"github.com/pedrogpaulino/manu/internal/fact"
 )
 
 const (
-	// Version is the version of the Analysis Bundle manifest representation.
-	Version = "v1alpha1"
+	// VersionV1Alpha1 is the original Analysis Bundle representation. Version
+	// remains an alias for this value so existing callers and fixtures retain
+	// their v1alpha1 behavior byte for byte.
+	VersionV1Alpha1 = "v1alpha1"
+	// VersionV1Alpha2 is the additive envelope carrying frontend manifests,
+	// canonical facts, and opaque extension records as separate sequences.
+	VersionV1Alpha2 = "v1alpha2"
+	// Version is the legacy spelling retained for v1alpha1 callers.
+	Version = VersionV1Alpha1
 
 	// ContractVersion is the result contract version carried by a bundle.
 	ContractVersion = contract.Version
 
-	// Canonical file names are shared with the legacy result contract. Evidence
-	// is the only new sequence introduced by the bundle manifest.
-	ManifestFileName      = contract.ManifestFileName
-	ArtifactsFileName     = contract.ArtifactsFileName
-	ContributionsFileName = contract.ContributionsFileName
-	EvidenceFileName      = "evidence.ndjson"
+	// Canonical file names are shared with the legacy result contract. v1alpha2
+	// adds independent sequences rather than changing the old files.
+	ManifestFileName          = contract.ManifestFileName
+	ArtifactsFileName         = contract.ArtifactsFileName
+	ContributionsFileName     = contract.ContributionsFileName
+	EvidenceFileName          = "evidence.ndjson"
+	FrontendManifestsFileName = "frontend_manifests.ndjson"
+	CanonicalFactsFileName    = "facts.ndjson"
+	ExtensionsFileName        = "extensions.ndjson"
+	FrontendManifestFileName  = FrontendManifestsFileName
+	FactsFileName             = CanonicalFactsFileName
 )
 
 var (
@@ -57,6 +71,9 @@ var (
 	// ErrMissingRevision identifies a source snapshot without a revision or
 	// content hash.
 	ErrMissingRevision = errors.New("bundle: missing revision or hash")
+	// ErrInvalidExtension identifies an extension record that is not valid JSON
+	// at the transport boundary. Schema-specific validation belongs to task 2.5.
+	ErrInvalidExtension = errors.New("bundle: invalid extension")
 )
 
 // Organization is the organization boundary recorded by an Analysis Bundle.
@@ -125,9 +142,12 @@ type FileDescriptor = File
 // and contribution counts also remain in the embedded legacy manifest and
 // must agree with these values.
 type Counts struct {
-	ArtifactCount     int64 `json:"artifact_count"`
-	ContributionCount int64 `json:"contribution_count"`
-	EvidenceUnitCount int64 `json:"evidence_unit_count"`
+	ArtifactCount         int64 `json:"artifact_count"`
+	ContributionCount     int64 `json:"contribution_count"`
+	EvidenceUnitCount     int64 `json:"evidence_unit_count"`
+	FrontendManifestCount int64 `json:"frontend_manifest_count,omitempty"`
+	CanonicalFactCount    int64 `json:"canonical_fact_count,omitempty"`
+	ExtensionCount        int64 `json:"extension_count,omitempty"`
 }
 
 // Limits bounds the manifest and external sequences. A zero value means that
@@ -136,12 +156,15 @@ type Counts struct {
 // applies to the manifest transport part and is intentionally not checked
 // against a self-referential File descriptor.
 type Limits struct {
-	MaxBundleBytes   int64 `json:"max_bundle_bytes,omitempty"`
-	MaxManifestBytes int64 `json:"max_manifest_bytes,omitempty"`
-	MaxEvidenceBytes int64 `json:"max_evidence_bytes,omitempty"`
-	MaxArtifacts     int64 `json:"max_artifacts,omitempty"`
-	MaxContributions int64 `json:"max_contributions,omitempty"`
-	MaxEvidenceUnits int64 `json:"max_evidence_units,omitempty"`
+	MaxBundleBytes       int64 `json:"max_bundle_bytes,omitempty"`
+	MaxManifestBytes     int64 `json:"max_manifest_bytes,omitempty"`
+	MaxEvidenceBytes     int64 `json:"max_evidence_bytes,omitempty"`
+	MaxArtifacts         int64 `json:"max_artifacts,omitempty"`
+	MaxContributions     int64 `json:"max_contributions,omitempty"`
+	MaxEvidenceUnits     int64 `json:"max_evidence_units,omitempty"`
+	MaxFrontendManifests int64 `json:"max_frontend_manifests,omitempty"`
+	MaxCanonicalFacts    int64 `json:"max_canonical_facts,omitempty"`
+	MaxExtensions        int64 `json:"max_extensions,omitempty"`
 }
 
 // Manifest extends the current result manifest without copying its source,
@@ -163,18 +186,58 @@ type Manifest struct {
 // sequences. It does not read, write, or stream files; codec work belongs to a
 // later task.
 type Bundle struct {
-	Manifest      Manifest                `json:"manifest"`
-	Artifacts     []contract.Artifact     `json:"artifacts"`
-	Contributions []contract.Contribution `json:"contributions"`
-	Evidence      []evidence.EvidenceUnit `json:"evidence,omitempty"`
+	Manifest          Manifest                `json:"manifest"`
+	Artifacts         []contract.Artifact     `json:"artifacts"`
+	Contributions     []contract.Contribution `json:"contributions"`
+	Evidence          []evidence.EvidenceUnit `json:"evidence,omitempty"`
+	FrontendManifests []fact.FrontendManifest `json:"frontend_manifests,omitempty"`
+	Facts             []fact.CanonicalFact    `json:"facts,omitempty"`
+	Extensions        []json.RawMessage       `json:"extensions,omitempty"`
+}
+
+func (m Manifest) rejectV2FieldsForV1() error {
+	if m.Version != VersionV1Alpha1 {
+		return nil
+	}
+	if m.Counts.FrontendManifestCount != 0 || m.Counts.CanonicalFactCount != 0 || m.Counts.ExtensionCount != 0 {
+		return fmt.Errorf("%w: v1alpha1 manifest contains v1alpha2 counts", ErrUnsupportedVersion)
+	}
+	if m.Limits.MaxFrontendManifests != 0 || m.Limits.MaxCanonicalFacts != 0 || m.Limits.MaxExtensions != 0 {
+		return fmt.Errorf("%w: v1alpha1 manifest contains v1alpha2 limits", ErrUnsupportedVersion)
+	}
+	for _, file := range m.Files {
+		switch file.Name {
+		case FrontendManifestsFileName, CanonicalFactsFileName, ExtensionsFileName:
+			return fmt.Errorf("%w: v1alpha1 manifest contains %q", ErrUnsupportedVersion, file.Name)
+		}
+	}
+	return nil
+}
+
+func rejectV2DataForV1(b Bundle) error {
+	if b.Manifest.Version != VersionV1Alpha1 {
+		return nil
+	}
+	if err := b.Manifest.rejectV2FieldsForV1(); err != nil {
+		return err
+	}
+	if len(b.FrontendManifests) != 0 || len(b.Facts) != 0 || len(b.Extensions) != 0 {
+		return fmt.Errorf("%w: v1alpha1 bundle contains v1alpha2 sequences", ErrUnsupportedVersion)
+	}
+	return nil
 }
 
 // Validate checks the manifest fields that are independent of sequence
 // contents. Use Bundle.Validate to check references, counts, and factual
 // digest against the legacy result and Evidence Units.
 func (m Manifest) Validate() error {
-	if m.Version != Version {
-		return fmt.Errorf("%w: got %q, want %q", ErrUnsupportedVersion, m.Version, Version)
+	switch m.Version {
+	case VersionV1Alpha1, VersionV1Alpha2:
+	default:
+		return fmt.Errorf("%w: got %q", ErrUnsupportedVersion, m.Version)
+	}
+	if err := m.rejectV2FieldsForV1(); err != nil {
+		return err
 	}
 	if err := validateOrganization(m.Organization); err != nil {
 		return err
@@ -209,7 +272,7 @@ func (m Manifest) Validate() error {
 	if err := validateCountLimits(m.Counts, m.Limits); err != nil {
 		return err
 	}
-	files, err := validateFiles(m.Files, m.Counts, m.Limits)
+	files, err := validateManifestFiles(m.Version, m.Files, m.Counts, m.Limits)
 	if err != nil {
 		return err
 	}
@@ -259,6 +322,9 @@ func (m Manifest) EvidenceLimited() bool {
 // Validate checks the full in-memory bundle, including legacy result
 // coherence and Evidence Unit references. It performs no I/O.
 func (b Bundle) Validate() error {
+	if err := rejectV2DataForV1(b); err != nil {
+		return err
+	}
 	if err := b.Manifest.Validate(); err != nil {
 		return err
 	}
@@ -279,7 +345,12 @@ func (b Bundle) Validate() error {
 	if err := validateEvidenceUnits(b.Manifest, b.Artifacts, b.Contributions, b.Evidence); err != nil {
 		return err
 	}
-	actualDigest, err := FactualDigest(result, b.Evidence)
+	if b.Manifest.Version == VersionV1Alpha2 {
+		if err := validateV2Sequences(b.Manifest, b.FrontendManifests, b.Facts, b.Extensions); err != nil {
+			return err
+		}
+	}
+	actualDigest, err := b.FactualDigest()
 	if err != nil {
 		return fmt.Errorf("%w: factual digest: %v", ErrInvalid, err)
 	}
@@ -306,7 +377,8 @@ func (m Manifest) ValidateBundle(
 
 // Validate checks that count limits are non-negative and internally usable.
 func (c Counts) Validate() error {
-	if c.ArtifactCount < 0 || c.ContributionCount < 0 || c.EvidenceUnitCount < 0 {
+	if c.ArtifactCount < 0 || c.ContributionCount < 0 || c.EvidenceUnitCount < 0 ||
+		c.FrontendManifestCount < 0 || c.CanonicalFactCount < 0 || c.ExtensionCount < 0 {
 		return fmt.Errorf("%w: counts must not be negative", ErrLimitExceeded)
 	}
 	return nil
@@ -324,6 +396,9 @@ func (l Limits) Validate() error {
 		{name: "max_artifacts", value: l.MaxArtifacts},
 		{name: "max_contributions", value: l.MaxContributions},
 		{name: "max_evidence_units", value: l.MaxEvidenceUnits},
+		{name: "max_frontend_manifests", value: l.MaxFrontendManifests},
+		{name: "max_canonical_facts", value: l.MaxCanonicalFacts},
+		{name: "max_extensions", value: l.MaxExtensions},
 	}
 	for _, value := range values {
 		if value.value < 0 {
@@ -342,6 +417,9 @@ func validateCountLimits(counts Counts, limits Limits) error {
 		{name: "artifacts", count: counts.ArtifactCount, limit: limits.MaxArtifacts},
 		{name: "contributions", count: counts.ContributionCount, limit: limits.MaxContributions},
 		{name: "evidence units", count: counts.EvidenceUnitCount, limit: limits.MaxEvidenceUnits},
+		{name: "frontend manifests", count: counts.FrontendManifestCount, limit: limits.MaxFrontendManifests},
+		{name: "canonical facts", count: counts.CanonicalFactCount, limit: limits.MaxCanonicalFacts},
+		{name: "extensions", count: counts.ExtensionCount, limit: limits.MaxExtensions},
 	}
 	for _, value := range values {
 		if value.limit > 0 && value.count > value.limit {
@@ -409,6 +487,10 @@ func validateAnalysis(analysis Analysis, legacyConfigurationID string) error {
 }
 
 func validateFiles(files []File, counts Counts, limits Limits) (map[string]File, error) {
+	return validateManifestFiles(VersionV1Alpha1, files, counts, limits)
+}
+
+func validateManifestFiles(version string, files []File, counts Counts, limits Limits) (map[string]File, error) {
 	if len(files) == 0 {
 		return nil, fmt.Errorf("%w: no sequence descriptors", ErrInvalidFile)
 	}
@@ -416,6 +498,11 @@ func validateFiles(files []File, counts Counts, limits Limits) (map[string]File,
 		ArtifactsFileName:     {},
 		ContributionsFileName: {},
 		EvidenceFileName:      {},
+	}
+	if version == VersionV1Alpha2 {
+		knownNames[FrontendManifestsFileName] = struct{}{}
+		knownNames[CanonicalFactsFileName] = struct{}{}
+		knownNames[ExtensionsFileName] = struct{}{}
 	}
 	seen := make(map[string]struct{}, len(files))
 	byName := make(map[string]File, len(files))
@@ -434,8 +521,17 @@ func validateFiles(files []File, counts Counts, limits Limits) (map[string]File,
 		if !isSHA256Digest(file.Digest) {
 			return nil, fmt.Errorf("%w: file %q digest", ErrInvalidDigest, file.Name)
 		}
-		if file.Name == EvidenceFileName && limits.MaxEvidenceBytes > 0 && file.Bytes > limits.MaxEvidenceBytes {
-			return nil, fmt.Errorf("%w: evidence bytes %d exceed %d", ErrLimitExceeded, file.Bytes, limits.MaxEvidenceBytes)
+		fileLimit := int64(0)
+		switch file.Name {
+		case EvidenceFileName:
+			fileLimit = limits.MaxEvidenceBytes
+		case FrontendManifestsFileName:
+			fileLimit = limits.MaxBundleBytes
+		case CanonicalFactsFileName, ExtensionsFileName:
+			fileLimit = limits.MaxBundleBytes
+		}
+		if fileLimit > 0 && file.Bytes > fileLimit {
+			return nil, fmt.Errorf("%w: %s bytes %d exceed %d", ErrLimitExceeded, file.Name, file.Bytes, fileLimit)
 		}
 		if totalBytes > math.MaxInt64-file.Bytes {
 			return nil, fmt.Errorf("%w: total file bytes overflow", ErrLimitExceeded)
@@ -443,7 +539,11 @@ func validateFiles(files []File, counts Counts, limits Limits) (map[string]File,
 		totalBytes += file.Bytes
 		byName[file.Name] = file
 	}
-	for _, required := range []string{ArtifactsFileName, ContributionsFileName} {
+	requiredFiles := []string{ArtifactsFileName, ContributionsFileName}
+	if version == VersionV1Alpha2 {
+		requiredFiles = append(requiredFiles, FrontendManifestsFileName, CanonicalFactsFileName, ExtensionsFileName)
+	}
+	for _, required := range requiredFiles {
 		if _, exists := byName[required]; !exists {
 			return nil, fmt.Errorf("%w: required file %q is missing", ErrInvalidFile, required)
 		}
@@ -460,7 +560,69 @@ func validateFiles(files []File, counts Counts, limits Limits) (map[string]File,
 	if file := byName[ContributionsFileName]; file.Count != counts.ContributionCount {
 		return nil, fmt.Errorf("%w: contribution file count %d does not match manifest count %d", ErrCountMismatch, file.Count, counts.ContributionCount)
 	}
+	if version == VersionV1Alpha2 {
+		for _, sequence := range []struct {
+			name  string
+			count int64
+		}{
+			{name: FrontendManifestsFileName, count: counts.FrontendManifestCount},
+			{name: CanonicalFactsFileName, count: counts.CanonicalFactCount},
+			{name: ExtensionsFileName, count: counts.ExtensionCount},
+		} {
+			if file := byName[sequence.name]; file.Count != sequence.count {
+				return nil, fmt.Errorf("%w: %s file count %d does not match manifest count %d", ErrCountMismatch, sequence.name, file.Count, sequence.count)
+			}
+		}
+	}
 	return byName, nil
+}
+
+func validateV2Sequences(
+	manifest Manifest,
+	frontendManifests []fact.FrontendManifest,
+	facts []fact.CanonicalFact,
+	extensions []json.RawMessage,
+) error {
+	if int64(len(frontendManifests)) != manifest.Counts.FrontendManifestCount ||
+		int64(len(facts)) != manifest.Counts.CanonicalFactCount ||
+		int64(len(extensions)) != manifest.Counts.ExtensionCount {
+		return fmt.Errorf("%w: v1alpha2 sequence lengths do not match manifest counts", ErrCountMismatch)
+	}
+	if manifest.Limits.MaxFrontendManifests > 0 && int64(len(frontendManifests)) > manifest.Limits.MaxFrontendManifests {
+		return fmt.Errorf("%w: frontend manifests exceed configured limit", ErrLimitExceeded)
+	}
+	if manifest.Limits.MaxCanonicalFacts > 0 && int64(len(facts)) > manifest.Limits.MaxCanonicalFacts {
+		return fmt.Errorf("%w: canonical facts exceed configured limit", ErrLimitExceeded)
+	}
+	if manifest.Limits.MaxExtensions > 0 && int64(len(extensions)) > manifest.Limits.MaxExtensions {
+		return fmt.Errorf("%w: extensions exceed configured limit", ErrLimitExceeded)
+	}
+	manifestIDs := make(map[string]struct{}, len(frontendManifests))
+	for index, frontendManifest := range frontendManifests {
+		if err := frontendManifest.Validate(); err != nil {
+			return fmt.Errorf("%w: frontend manifest %d: %v", ErrInvalid, index, err)
+		}
+		if _, exists := manifestIDs[frontendManifest.ID]; exists {
+			return fmt.Errorf("%w: frontend manifest %q", ErrDuplicate, frontendManifest.ID)
+		}
+		manifestIDs[frontendManifest.ID] = struct{}{}
+	}
+	factIDs := make(map[string]struct{}, len(facts))
+	for index, canonicalFact := range facts {
+		if err := canonicalFact.Validate(); err != nil {
+			return fmt.Errorf("%w: canonical fact %d: %v", ErrInvalid, index, err)
+		}
+		if _, exists := factIDs[canonicalFact.ID]; exists {
+			return fmt.Errorf("%w: canonical fact %q", ErrDuplicate, canonicalFact.ID)
+		}
+		factIDs[canonicalFact.ID] = struct{}{}
+	}
+	for index, extension := range extensions {
+		if len(extension) == 0 || !json.Valid(extension) {
+			return fmt.Errorf("%w: extension %d", ErrInvalidExtension, index)
+		}
+	}
+	return nil
 }
 
 func validateEvidenceMetadata(state EvidenceState, files map[string]File, count int64) error {
