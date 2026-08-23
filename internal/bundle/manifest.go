@@ -71,8 +71,8 @@ var (
 	// ErrMissingRevision identifies a source snapshot without a revision or
 	// content hash.
 	ErrMissingRevision = errors.New("bundle: missing revision or hash")
-	// ErrInvalidExtension identifies an extension record that is not valid JSON
-	// at the transport boundary. Schema-specific validation belongs to task 2.5.
+	// ErrInvalidExtension identifies an extension record that is malformed or
+	// does not match a schema declared by a frontend manifest.
 	ErrInvalidExtension = errors.New("bundle: invalid extension")
 )
 
@@ -347,6 +347,17 @@ func (b Bundle) Validate() error {
 	}
 	if b.Manifest.Version == VersionV1Alpha2 {
 		if err := validateV2Sequences(b.Manifest, b.FrontendManifests, b.Facts, b.Extensions); err != nil {
+			return err
+		}
+		if err := validateImportedV2Data(
+			b.Manifest,
+			b.Artifacts,
+			b.Contributions,
+			b.Evidence,
+			b.FrontendManifests,
+			b.Facts,
+			b.Extensions,
+		); err != nil {
 			return err
 		}
 	}

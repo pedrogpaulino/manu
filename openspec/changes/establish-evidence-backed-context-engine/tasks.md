@@ -12,7 +12,7 @@
 - [x] 2.2 Implementar codificação canônica e identidade determinística de fatos, verificando por testes que ordenação de maps, concorrência e repetição não alterem o digest e que produtores distintos permaneçam distinguíveis.
 - [x] 2.3 Implementar manifesto versionado de frontend com famílias, versões, capacidades, limitações, predicados, perfil de execução e schemas de extensão identificados por versão e digest, verificando seleção suportada e cobertura explícita para versões desconhecidas.
 - [x] 2.4 Estender o `Analysis Bundle` aditivamente para `v1alpha2`, mantendo `contract_version=v1alpha1` e sequências separadas de manifestos, fatos e extensões, verificando round-trip, leitura de fixtures `v1alpha1` e preservação byte a byte do digest factual anterior.
-- [ ] 2.5 Implementar validação de contribuições importadas por bundle, incluindo limites, snapshot, locadores, produtor e identidade, versão e digest do schema de extensão, verificando rejeição sem efeitos parciais de índices incompatíveis ou fora do escopo.
+- [x] 2.5 Implementar validação de contribuições importadas por bundle, incluindo limites, snapshot, locadores, produtor e identidade, versão e digest do schema de extensão, verificando rejeição sem efeitos parciais de índices incompatíveis ou fora do escopo.
 - [ ] 2.6 Acrescentar golden `v1alpha2` e fixtures `v1alpha1` congeladas, corrupção, extensibilidade e payload excedente, verificando compatibilidade e que erros não ecoem conteúdo negado, segredos ou dados sem limite.
 
 ## 3. Persistência factual e ingestão

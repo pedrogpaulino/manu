@@ -205,23 +205,7 @@ func canonicalFactsForDigest(facts []fact.CanonicalFact) ([]json.RawMessage, err
 func canonicalExtensionsForDigest(extensions []json.RawMessage) ([]json.RawMessage, error) {
 	result := make([]json.RawMessage, 0, len(extensions))
 	for index, extension := range extensions {
-		if len(extension) == 0 {
-			return nil, fmt.Errorf("%w: extension %d", ErrInvalidExtension, index)
-		}
-		decoder := json.NewDecoder(bytes.NewReader(extension))
-		decoder.UseNumber()
-		var value any
-		if err := decoder.Decode(&value); err != nil {
-			return nil, fmt.Errorf("%w: extension %d: %v", ErrInvalidExtension, index, err)
-		}
-		var trailing any
-		if err := decoder.Decode(&trailing); err != io.EOF {
-			if err == nil {
-				return nil, fmt.Errorf("%w: extension %d contains trailing JSON", ErrInvalidExtension, index)
-			}
-			return nil, fmt.Errorf("%w: extension %d has trailing data: %v", ErrInvalidExtension, index, err)
-		}
-		canonical, err := json.Marshal(value)
+		canonical, err := canonicalExtensionJSON(extension)
 		if err != nil {
 			return nil, fmt.Errorf("%w: extension %d: %v", ErrInvalidExtension, index, err)
 		}
@@ -229,6 +213,31 @@ func canonicalExtensionsForDigest(extensions []json.RawMessage) ([]json.RawMessa
 	}
 	sort.Slice(result, func(left, right int) bool { return string(result[left]) < string(result[right]) })
 	return result, nil
+}
+
+// canonicalExtensionJSON decodes one extension as JSON with numbers retained
+// lexically, rejects trailing data, and re-encodes it with the standard
+// deterministic object-key ordering. It is shared by digesting and imported
+// extension validation so the bytes that are checked are the bytes that are
+// written and hashed.
+func canonicalExtensionJSON(extension []byte) ([]byte, error) {
+	if len(extension) == 0 {
+		return nil, fmt.Errorf("empty extension")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(extension))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return nil, err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return nil, fmt.Errorf("extension contains trailing JSON")
+		}
+		return nil, fmt.Errorf("extension has trailing data: %v", err)
+	}
+	return json.Marshal(value)
 }
 
 func sortedStrings(values []string) []string {

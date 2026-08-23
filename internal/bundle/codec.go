@@ -53,6 +53,11 @@ const (
 type Options struct {
 	Limits Limits
 
+	// ImportExpectation is applied only by ReadImportedBundle. It is kept out
+	// of the ordinary ReadBundle contract so callers must opt into the
+	// explicit authorization boundary.
+	ImportExpectation *ImportExpectation `json:"-"`
+
 	// Organization is the explicit organization boundary for legacy result
 	// directories. Extended manifests carry this value themselves.
 	Organization Organization
@@ -75,19 +80,39 @@ var ErrSizeMismatch = errors.New("bundle: size mismatch")
 // files. The manifest is renamed last, after all sequence descriptors and the
 // factual digest have been calculated from the bytes actually written.
 func WriteBundle(ctx context.Context, directory string, input Bundle) error {
+	return writeBundle(ctx, directory, input, nil)
+}
+
+// WriteImportedBundle writes a bundle only after validating it against the
+// caller-provided import expectation. Invalid input is rejected before the
+// destination directory is created or any existing bundle is touched.
+func WriteImportedBundle(ctx context.Context, directory string, input Bundle, expectation ImportExpectation) error {
+	if err := expectation.Validate(); err != nil {
+		return err
+	}
+	return writeBundle(ctx, directory, input, &expectation)
+}
+
+func writeBundle(ctx context.Context, directory string, input Bundle, expectation *ImportExpectation) error {
 	if err := contextError(ctx); err != nil {
 		return err
 	}
 	if strings.TrimSpace(directory) == "" {
 		return fmt.Errorf("writing bundle: %w: output directory is required", ErrInvalid)
 	}
-	if err := os.MkdirAll(directory, 0o755); err != nil {
-		return fmt.Errorf("creating bundle directory %q: %w", directory, err)
-	}
 
 	working, err := prepareBundleForWrite(input)
 	if err != nil {
 		return fmt.Errorf("preparing bundle: %w", err)
+	}
+	if expectation != nil {
+		working.Manifest.Limits = stricterLimits(defaultLimitsV2(working.Manifest.Limits), defaultLimitsV2(expectation.Limits))
+		if err := validateImportExpectationBeforeWrite(working, *expectation); err != nil {
+			return fmt.Errorf("validating imported bundle: %w", err)
+		}
+	}
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		return fmt.Errorf("creating bundle directory %q: %w", directory, err)
 	}
 
 	temporary := make([]bundleTemp, 0, 4)
@@ -374,6 +399,17 @@ func prepareBundleForWrite(input Bundle) (Bundle, error) {
 	}
 	if working.Manifest.Version == VersionV1Alpha2 {
 		if err := validateV2Sequences(working.Manifest, working.FrontendManifests, working.Facts, working.Extensions); err != nil {
+			return Bundle{}, err
+		}
+		if err := validateImportedV2Data(
+			working.Manifest,
+			working.Artifacts,
+			working.Contributions,
+			working.Evidence,
+			working.FrontendManifests,
+			working.Facts,
+			working.Extensions,
+		); err != nil {
 			return Bundle{}, err
 		}
 	}
@@ -877,6 +913,11 @@ func readExtendedBundle(ctx context.Context, directory string, raw []byte, manif
 	if err := validation.Validate(); err != nil {
 		return Bundle{}, fmt.Errorf("validating extended manifest: %w", err)
 	}
+	if options.ImportExpectation != nil {
+		if err := validateExpectedManifest(manifest, *options.ImportExpectation); err != nil {
+			return Bundle{}, err
+		}
+	}
 	manifest.Limits = effective
 	organization, err := optionOrganization(options)
 	if err != nil {
@@ -939,6 +980,11 @@ func readExtendedBundle(ctx context.Context, directory string, raw []byte, manif
 	if err := result.Validate(); err != nil {
 		return Bundle{}, fmt.Errorf("validating extended bundle: %w", err)
 	}
+	if options.ImportExpectation != nil {
+		if err := validateImportExpectation(result, *options.ImportExpectation); err != nil {
+			return Bundle{}, fmt.Errorf("validating imported bundle: %w", err)
+		}
+	}
 	return result, nil
 }
 
@@ -955,6 +1001,11 @@ func readExtendedBundleV2(ctx context.Context, directory string, manifest Manife
 	validation.Limits = effective
 	if err := validation.Validate(); err != nil {
 		return Bundle{}, fmt.Errorf("validating v1alpha2 manifest: %w", err)
+	}
+	if options.ImportExpectation != nil {
+		if err := validateExpectedManifest(manifest, *options.ImportExpectation); err != nil {
+			return Bundle{}, err
+		}
 	}
 	manifest.Limits = effective
 	organization, err := optionOrganization(options)
@@ -1063,6 +1114,11 @@ func readExtendedBundleV2(ctx context.Context, directory string, manifest Manife
 	if err := result.Validate(); err != nil {
 		return Bundle{}, fmt.Errorf("validating v1alpha2 bundle: %w", err)
 	}
+	if options.ImportExpectation != nil {
+		if err := validateImportExpectation(result, *options.ImportExpectation); err != nil {
+			return Bundle{}, fmt.Errorf("validating imported bundle: %w", err)
+		}
+	}
 	return result, nil
 }
 
@@ -1156,7 +1212,13 @@ func readLegacyBundle(ctx context.Context, directory string, raw []byte, manifes
 	}
 	// The limited conversion deliberately validates the legacy contract above
 	// rather than applying stricter extended hash rules to an old manifest.
-	return Bundle{Manifest: manifest, Artifacts: artifacts, Contributions: contributions}, nil
+	bundleResult := Bundle{Manifest: manifest, Artifacts: artifacts, Contributions: contributions}
+	if options.ImportExpectation != nil {
+		if err := validateImportExpectation(bundleResult, *options.ImportExpectation); err != nil {
+			return Bundle{}, fmt.Errorf("validating imported bundle: %w", err)
+		}
+	}
+	return bundleResult, nil
 }
 
 func readSequenceFile[T any](ctx context.Context, path string, descriptor File, maxBytes int64, visit func(T) error) (sequenceStats, error) {

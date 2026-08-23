@@ -1,6 +1,7 @@
 package bundle_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -59,15 +60,7 @@ func TestV1Alpha2BundleRoundTrip(t *testing.T) {
 	}
 	expectedExtensions := make([]json.RawMessage, 0, len(want.Extensions))
 	for _, extension := range want.Extensions {
-		var compacted []byte
-		var buffer json.RawMessage
-		if err := json.Unmarshal(extension, &buffer); err != nil {
-			t.Fatalf("decode expected extension: %v", err)
-		}
-		compacted, err = json.Marshal(buffer)
-		if err != nil {
-			t.Fatalf("encode expected extension: %v", err)
-		}
+		compacted := canonicalJSONForTest(extension)
 		expectedExtensions = append(expectedExtensions, compacted)
 	}
 	if !reflect.DeepEqual(got.Extensions, expectedExtensions) {
@@ -247,10 +240,12 @@ func TestV1Alpha2CanonicalizesEquivalentExtensionJSON(t *testing.T) {
 	left.Extensions = []json.RawMessage{
 		json.RawMessage(`{"z":90071992547409931234567890,"a":{"y":2,"x":1}}`),
 	}
+	setV2ExtensionSchemas(&left)
 	right := left
 	right.Extensions = []json.RawMessage{
 		json.RawMessage(` { "a": { "x": 1, "y": 2 }, "z": 90071992547409931234567890 } `),
 	}
+	setV2ExtensionSchemas(&right)
 	leftDigest, err := left.FactualDigest()
 	if err != nil {
 		t.Fatalf("FactualDigest(left) error = %v", err)
@@ -337,7 +332,7 @@ func validV2Bundle() bundle.Bundle {
 			Scope:     fact.Scope{OrganizationID: input.Manifest.Organization.ID, SourceID: input.Manifest.Source.ID, SnapshotID: input.Manifest.Snapshot.ID},
 			Predicate: fact.PredicateDefinition,
 			Subject:   fact.Participant{Kind: fact.ParticipantSymbol, ID: subjectID},
-			Producer:  fact.Producer{ID: "java", Version: "1", Method: "symbols"},
+			Producer:  fact.Producer{ID: "java-frontend", Version: "1", Method: "symbols"},
 			Evidence:  []fact.EvidenceRef{{ID: input.Evidence[0].ID, Locator: input.Evidence[0].Locator}},
 		}
 		id, err := fact.FactID(facts[index])
@@ -352,5 +347,50 @@ func validV2Bundle() bundle.Bundle {
 		json.RawMessage(`{"kind":"annotation","value":"one"}`),
 		json.RawMessage(` { "kind": "annotation", "value": "two" } `),
 	}
+	setV2ExtensionSchemas(&input)
 	return input
+}
+
+func setV2ExtensionSchemas(input *bundle.Bundle) {
+	if len(input.FrontendManifests) < 2 {
+		return
+	}
+	schema := canonicalJSONForTest(json.RawMessage(`{"type":"object","properties":{"kind":{"type":"string"},"value":{"type":"string"}}}`))
+	schemaID := "annotation"
+	schemaVersion := "1"
+	input.FrontendManifests[1].Extensions = []fact.ExtensionSchema{{
+		ID:      schemaID,
+		Version: schemaVersion,
+		Digest:  fact.ExtensionDigest(schema),
+	}}
+	envelopes := make([]json.RawMessage, 0, len(input.Extensions))
+	for _, extension := range input.Extensions {
+		canonicalPayload := canonicalJSONForTest(extension)
+		envelope, err := json.Marshal(bundle.ExtensionRecord{
+			SchemaID:      schemaID,
+			SchemaVersion: schemaVersion,
+			SchemaDigest:  input.FrontendManifests[1].Extensions[0].Digest,
+			Schema:        schema,
+			Payload:       canonicalPayload,
+		})
+		if err != nil {
+			panic(err)
+		}
+		envelopes = append(envelopes, envelope)
+	}
+	input.Extensions = envelopes
+}
+
+func canonicalJSONForTest(raw []byte) []byte {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		panic(err)
+	}
+	canonical, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	return canonical
 }
