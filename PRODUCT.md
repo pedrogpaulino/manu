@@ -7,10 +7,14 @@ ambientes empresariais grandes e legados em uma base de conhecimento viva.
 Seu núcleo é o **Knowledge Engine**: ele descobre, correlaciona e explica o
 que existe nas fontes, mantendo evidências e proveniência para que o
 conhecimento possa ser consultado, revisado e enriquecido ao longo do tempo.
+Ele também pode produzir contexto estruturado e limitado para agentes
+autorizados, sempre como uma experiência derivada dessa base.
 
 Catálogo, documentação/wiki, grafo, busca, chat, onboarding, análise de
-impacto e orientação de investigação são experiências construídas sobre esse
-núcleo. Nenhuma delas, isoladamente, define o produto.
+impacto, orientação de investigação e contexto para agentes são experiências
+construídas sobre esse núcleo. MCP, grafo e chat são superfícies ou formas de
+consumo; nenhum deles, isoladamente, define o produto ou substitui o
+`Knowledge Engine`.
 
 ## Como ler a visão
 
@@ -197,6 +201,11 @@ presença nesta visão não significa que todas serão entregues ao mesmo tempo.
   produto inteiro.
 - **Busca e chat:** consulta textual ou conversacional que retorna contexto e
   links para evidências, deixando separadas observações, sínteses e lacunas.
+- **Contexto para agentes:** pacote estruturado, verificável e limitado por
+  orçamento que orienta um agente autorizado para entidades, relações,
+  evidências, locadores, cobertura e lacunas. A interface MCP prevista é um
+  adaptador somente leitura dessa experiência; ela não concede acesso direto
+  à fonte ou à persistência.
 - **Onboarding:** percurso guiado para que uma pessoa nova entenda uma
   aplicação ou domínio e encontre documentação relevante.
 - **Análise de impacto:** apoio para identificar o que pode ser afetado por
@@ -218,6 +227,28 @@ afirmações de que o MVP já os garante:
 | Tornar mudanças mais previsíveis. | Número de relações de impacto encontradas e verificadas em um cenário de alteração, com as fontes que sustentam cada caminho. |
 | Capturar e preservar conhecimento especialista. | Quantidade de páginas revisadas, corrigidas ou enriquecidas; nenhuma revisão curada perdida silenciosamente após uma nova análise. |
 | Demonstrar valor para o comprador. | Decisão de continuar o uso com base em resultados observados, usuários recorrentes e uma métrica de custo, tempo ou risco escolhida com o time. |
+
+### Hipótese mensurável: contexto para agentes
+
+**Hipótese:** para tarefas autorizadas de localização, explicação ou impacto,
+um `Context Package` limitado e sustentado por evidências pode reduzir a
+exploração e o consumo de contexto do agente em comparação com acesso direto à
+fonte ou somente recuperação textual, sem reduzir correção, cobertura,
+validade das citações, segurança ou abstinência apropriada.
+
+Essa hipótese será testada em tarefas, corpus, revisões, políticas e
+configurações fixados. O indicador principal será custo ou esforço por tarefa
+corretamente concluída e sustentada. Tokens, chamadas, arquivos, bytes e
+latência serão sinais secundários; tokens estimados e tokens medidos pelo
+provedor permanecerão separados. O relatório também deverá registrar
+`evidence_recall_at_k`, `evidence_precision_at_k`, validade das citações,
+lacunas e abstinência, além de configuração e digests suficientes para repetir
+a comparação.
+
+Uma economia observada só poderá ser comunicada com o corpus, a tarefa, a
+linha de base, a amostra, a dispersão e as limitações correspondentes. Não há
+percentual de economia, superioridade geral ou SLA implícito nesta hipótese;
+uma execução incorreta ou sem evidência não conta como ganho de eficiência.
 
 ## Perguntas de competência e critério de compreensão
 

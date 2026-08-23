@@ -36,6 +36,9 @@ de implementação temporários ou uma lista de ideias.
 - [`0004-ai-gateway-independente-de-provedor.md`](0004-ai-gateway-independente-de-provedor.md)
   — decisão `Accepted` sobre o `AI Gateway` com portas independentes de
   embedding e geração e adaptadores explícitos por provedor/protocolo.
+- [`0005-kernel-factual-frontends-substituiveis-e-intercambio.md`](0005-kernel-factual-frontends-substituiveis-e-intercambio.md)
+  — decisão `Accepted` sobre o kernel factual, frontends substituíveis,
+  derivação com linhagem e o `Analysis Bundle` como fronteira de intercâmbio.
 
 ## Estados
 

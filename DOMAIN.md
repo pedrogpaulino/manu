@@ -66,6 +66,11 @@ Source ──► Specialized Analyzer ──► Analysis
                                       └── Understanding Dimension
 
 Competence Question ──► referência revisável ──► avaliação do conhecimento
+
+Context Consumer ──► Context Request ──► Context Package
+                                      ├── Entity / Relationship
+                                      ├── Evidence / Provenance
+                                      └── Coverage / Explicit Gap
 ```
 
 Uma `Analysis` pode contribuir para apenas parte das dimensões e correlacionar
@@ -338,6 +343,53 @@ Os dois usos da palavra “relatório” permanecem distinguíveis pela origem,
 proveniência e responsabilidade: o primeiro é recurso do ambiente, o segundo é
 resultado produzido pelo Manu.
 
+### `Context Consumer`
+
+Consumidor de contexto é uma pessoa, experiência, API ou agente autorizado que
+recebe uma representação limitada e verificável do conhecimento para realizar
+uma tarefa. O consumidor não recebe, por esse papel, acesso direto à `Source`,
+à persistência ou a operações administrativas. Um agente pode consumir o
+pacote sem um `Generator`; quando houver geração, o resultado continua sendo
+`Generated knowledge`.
+
+### `Context Request`
+
+Solicitação de contexto é o pedido explícito de um `Context Consumer` para uma
+intenção de entendimento, como localizar uma entidade, explorar uma relação,
+investigar impacto possível ou inspecionar uma `Evidence`. Ela identifica a
+`Organization`, a `Source`, o `Analysis Snapshot` ou uma resolução permitida,
+além dos limites positivos e das políticas aplicáveis. Não é uma mensagem de
+um protocolo específico nem autoriza ampliar o escopo solicitado.
+
+### `Context Package`
+
+Pacote de contexto é uma composição versionada, autorizada e limitada do
+conhecimento da base para atender a um `Context Request`. Ele pode reunir
+`Entity`s, `Relationship`s, `Knowledge Claim`s e unidades de `Evidence` com
+seus locadores e `Provenance`, além de cobertura, `Explicit Gap`s,
+degradações, revisão do snapshot, estimativa de custo e indicação de
+continuação. O pacote mantém distinguíveis conhecimento observado, gerado e
+curado; fatos e relações produzidos tecnicamente por derivação permanecem
+identificáveis por sua linhagem, sem constituir um estado epistemológico
+adicional. O pacote não é a `Source`, não substitui a evidência original e não
+deve apresentar uma relação sem o suporte necessário.
+
+### `Context Item`
+
+Item de contexto é uma unidade selecionada para um `Context Package`, como uma
+entidade, relação, claim ou evidência com o suporte e o locator permitidos.
+Cada item conserva seu escopo, origem, revisão e condição de disponibilidade.
+Um item excluído, truncado ou redigido não pode ser tratado pelo consumidor
+como se tivesse sido examinado integralmente.
+
+### `Context Continuation`
+
+Continuação de contexto é uma referência opaca para obter a próxima parte
+determinística de um pacote que excedeu seus limites. Ela permanece vinculada
+ao mesmo consumidor autorizado, `Organization`, `Source`, snapshot, intenção,
+política e ordenação; não concede autorização nova e deixa de ser válida quando
+esses contextos forem incompatíveis.
+
 ## Núcleo, experiências e colaboração
 
 O `Knowledge Engine` é o núcleo que descobre, interpreta e relaciona
@@ -361,6 +413,8 @@ As experiências consomem o mesmo núcleo:
   evidências;
 - busca e chat recuperam e explicam conhecimento, mostrando a proveniência
   apropriada;
+- contexto para agentes organiza `Context Request`s em `Context Package`s para
+  consumidores autorizados, com evidências, locadores, cobertura e lacunas;
 - onboarding, análise de impacto e orientação de investigação aplicam o
   conhecimento a uma tarefa, sem transformá-la no significado inteiro do
   Manu.
@@ -553,6 +607,17 @@ automaticamente de outra.
     uma resposta é avaliada por correção, cobertura, rastreabilidade,
     atualidade, incerteza e abstinência apropriada, não pelo volume de
     documentação gerada.
+13. Um `Context Request` deve declarar organização, fonte, snapshot, intenção e
+    limites; ausência ou ambiguidade de escopo não é resolvida combinando
+    revisões silenciosamente.
+14. Um `Context Package` é uma representação limitada e autorizada para um
+    `Context Consumer`; ele preserva evidências, proveniência, cobertura,
+    lacunas e as origens epistemológicas dos itens que apresenta.
+15. Cada `Context Item` deve permanecer sujeito à autorização e à política
+    aplicáveis no momento do consumo. Redaction ou indisponibilidade não pode
+    ser convertida em fato ou suporte implícito.
+16. Uma `Context Continuation` não amplia escopo nem autorização e não troca
+    silenciosamente o snapshot solicitado por uma revisão posterior.
 
 ## Questões abertas
 

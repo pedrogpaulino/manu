@@ -136,6 +136,27 @@ o modo simulado é o padrão e não há autenticação, IA local ou suporte de
 produção. A decisão e seus trade-offs estão no
 [ADR 0004 — AI Gateway](docs/decisions/0004-ai-gateway-independente-de-provedor.md).
 
+### Decisão aceita: kernel factual e frontends substituíveis
+
+O pipeline adota um kernel factual técnico entre as contribuições de frontend
+e as projeções de consulta. A contribuição bruta, a normalização sustentada,
+os fatos observados, a derivação com linhagem e a recuperação são estágios
+distintos. Frontends declaram capacidades, limitações, versões e perfil de
+execução; suas contribuições são aditivas e permanecem distinguíveis por
+produtor, método, evidência e cobertura.
+
+O `Analysis Bundle` é a fronteira de intercâmbio versionada para contribuições
+locais ou importadas. O perfil `safe-static` é o padrão do Agent; compiladores
+ou indexadores externos só podem atuar em `semantic-isolated`, e índices
+produzidos previamente entram por `imported-index`, sempre com validação de
+escopo, locadores, produtor, versão e limites. Tree-sitter, SCIP e Joern
+continuam opções externas sem dependência obrigatória, conforme a
+[comparação registrada](docs/verification/1-5-frontend-comparison.md).
+
+O porquê, os trade-offs, a derivação determinística e a não promoção de
+dependências opcionais estão no
+[ADR 0005 — Kernel factual, frontends substituíveis e intercâmbio](docs/decisions/0005-kernel-factual-frontends-substituiveis-e-intercambio.md).
+
 ## Visão C4 simplificada
 
 A visão abaixo usa C4 apenas para tornar os limites compreensíveis. Os nomes
@@ -194,11 +215,11 @@ flowchart LR
 | Contêiner | Papel no desenho inicial |
 | --- | --- |
 | `Manu Agent` | Executa descoberta e análises sobre as fontes autorizadas. Devolve artefatos e resultados em destino local; o Agent não assume a função de fonte de verdade nem abre conexão direta com o banco. |
-| `Knowledge Engine` | Recebe artefatos, faz parsing e correlação, produz observações, claims, evidências, proveniência e o `System Graph`, e coordena a transformação em conhecimento publicável. |
+| `Knowledge Engine` | Recebe contribuições de frontends, normaliza fatos sustentados, preserva evidências e cobertura, deriva relações com linhagem, atualiza projeções e coordena a transformação em conhecimento publicável e `Context Package`s. |
 | `Plataforma` | Monólito modular que já oferece, no corte local, migrações, API versionada, persistência canônica, projeções e clientes CLI. O modo servidor sem autenticação fica restrito a uma `Organization` e loopback; revisão, publicação editorial e consumidores de produto ainda não são superfícies implementadas. |
 | `AI Gateway` | Fronteira de saída com portas independentes `Embedder` e `Generator` e adaptadores explícitos. Normaliza solicitações e respostas sem espalhar tipos de provedor pelo engine; o modo simulado não usa rede e chamadas externas exigem política, configuração e orçamento. |
 | `PostgreSQL/pgvector` | PostgreSQL é a fonte de verdade operacional do primeiro corte local; pgvector é a projeção vetorial inicial reconstruível. O detalhe físico pode evoluir atrás dessa fronteira e não define o vocabulário do domínio. |
-| Consumidores da base | Catálogo, wiki, grafo, busca, chat, onboarding, análise de impacto e investigação leem conhecimento já produzido e devolvem sinais de uso ou pedidos de revisão. |
+| Consumidores da base | Catálogo, wiki, grafo, busca, chat, onboarding, análise de impacto, investigação e consumidores de contexto leem conhecimento já produzido e devolvem sinais de uso ou pedidos de revisão. MCP, quando habilitado, é apenas um adaptador de leitura dessa porta. |
 
 As setas não implicam que toda análise precise de IA, que cada consumidor tenha
 um banco próprio ou que os contêineres sejam implantados separadamente. Essas
@@ -252,13 +273,14 @@ comum é:
 ```text
 Source autorizada
   → descoberta e Analysis Snapshot
-  → fallback genérico + analisadores especializados compostos
-  → observações, relações, evidências, cobertura e lacunas
+  → contribuições de fallback e frontends especializados
+  → normalização factual sustentada
+  → fatos observados + evidências, cobertura e lacunas
+  → derivação versionada com linhagem
   → projeções relacional, textual e vetorial reconstruíveis
-  → recuperação híbrida
-  → pacote limitado de evidências autorizado
-  → AI Gateway
-  → resposta gerada, citações e abstinência
+  → solicitação escopada + recuperação híbrida
+  → Context Package limitado e autorizado
+  → consumidores: pessoas, API, MCP ou AI Gateway
 ```
 
 No protocolo executável local, o bundle estendido é um diretório versionado
@@ -276,6 +298,30 @@ executar. O modo legado permanece disponível como padrão para compatibilidade.
 O executor no `manu serve` consome o staging durável e recupera jobs pendentes
 conforme o registro operacional citado acima.
 
+### Estágios factuais e derivação
+
+Os estágios abaixo são responsabilidades separadas, mesmo quando executados no
+mesmo processo:
+
+1. **Contribuição:** um frontend produz observações, extensões, evidências,
+   cobertura e lacunas para um `Analysis Snapshot`, identificando produtor,
+   método e versão. A contribuição não é ainda uma afirmação universal.
+2. **Normalização:** um normalizador projeta somente predicados, participantes
+   e qualificadores sustentados no kernel factual. Detalhes sem equivalente
+   seguro continuam em extensões versionadas, sem conversão silenciosa.
+3. **Fato observado:** a identidade técnica inclui organização, fonte,
+   snapshot, conteúdo factual, produtor, qualificadores e evidências. Fatos de
+   produtores diferentes permanecem distinguíveis; uma nova contribuição não
+   apaga a anterior nem resolve conflito sem regra ou curadoria.
+4. **Derivação:** regras monotônicas versionadas recebem fatos ordenados,
+   produzem relações adicionais até um ponto fixo ou limite e registram cada
+   fato de entrada e a versão da regra. Limites de iteração, fatos e fanout
+   produzem lacuna controlada quando atingidos.
+5. **Atualização:** hashes, versões de frontend, schema e regra determinam o
+   que pode ser reutilizado. Fatos alterados e o fanout reverso das derivações
+   são reprocessados; o resultado incremental deve poder ser comparado ao
+   rebuild completo sem alterar fatos observados.
+
 ### Descoberta, fallback e composição de analisadores
 
 1. **Registro e descoberta:** a fonte é registrada com sua autorização,
@@ -283,7 +329,7 @@ conforme o registro operacional citado acima.
    `Analysis Snapshot`. A descoberta identifica os `Artifact`s e seu contexto;
    não copia bases externas para este repositório nem concede ao modelo acesso
    direto ao diretório analisado.
-2. **Fallback genérico:** toda fonte textual autorizada recebe ao menos o
+2. **Contribuição genérica:** toda fonte textual autorizada recebe ao menos o
    inventário genérico aplicável, incluindo tipo, localização, identidade,
    hash e extração textual quando possível. O fallback permanece útil para
    consulta e recuperação, mas declara como não suportadas as dimensões que
@@ -302,6 +348,33 @@ antes de qualquer projeção. A arquitetura não cria um modelo físico
 independente por analisador; um único fluxo correlaciona as contribuições e
 mantém resultados parciais utilizáveis quando uma dimensão falha.
 
+### Perfis de frontend e intercâmbio
+
+Cada frontend publica um manifesto com família, versões reconhecidas,
+predicados possíveis, capacidades, limitações, produtor, método e perfil de
+execução. O manifesto é uma declaração de cobertura, não uma prova de que
+todos os predicados foram produzidos no snapshot.
+
+- `safe-static` é o perfil padrão: parsing e extração local, sem rede, build,
+  instalação ou execução da fonte. Ele deve continuar executável sem banco e
+  sem IA e compatível com os builds estáticos do Agent.
+- `semantic-isolated` é um perfil opcional para compiladores ou indexadores
+  externos. O processo, o filesystem, a rede, o tempo, a memória e o volume
+  exportado devem ser limitados e o resultado deve retornar pelo intercâmbio
+  validado.
+- `imported-index` recebe um índice produzido previamente. A ingestão valida
+  schema, versão, organização, fonte, snapshot, locadores, produtor, limites
+  e extensões antes de aceitar qualquer contribuição, sem executar a
+  ferramenta que o produziu.
+
+O `Analysis Bundle` mantém o envelope existente e acrescenta manifestos,
+fatos e extensões de modo aditivo. Não há ABI de plugin Go obrigatória. Um
+formato externo como SCIP pode ser aceito como entrada validada, mas não se
+torna o contrato semântico da base; um parser ou CPG externo também não pode
+substituir o kernel factual. A decisão e a comparação dos candidatos estão no
+[ADR 0005](docs/decisions/0005-kernel-factual-frontends-substituiveis-e-intercambio.md)
+e no [registro de verificação 1.5](docs/verification/1-5-frontend-comparison.md).
+
 ### Projeções e recuperação híbrida
 
 O conhecimento comum pode ser projetado em três visões recuperáveis:
@@ -317,9 +390,14 @@ Essas projeções são reconstruíveis e não são a fonte de verdade: PostgreSQ
 preserva os fatos canônicos e pgvector materializa somente a visão vetorial
 inicial. A recuperação híbrida combina termos exatos, similaridade semântica e
 relações sustentadas, ordena os sinais de modo reproduzível e limita o
-orçamento de contexto. Se embeddings estiverem indisponíveis, proibidos ou
-incompletos, inventário, conteúdo textual, relações e evidências já produzidos
-continuam utilizáveis; a limitação da recuperação semântica permanece visível.
+orçamento de contexto. A solicitação informa `Organization`, `Source`,
+`Analysis Snapshot`, intenção e limites positivos; escopo ausente, ambíguo ou
+não autorizado é rejeitado antes da recuperação. O compositor prioriza
+relevância, cobertura, diversidade e suporte relacional sob limites de tokens,
+itens, caracteres e bytes, com algoritmo, ordenação e desempate versionados.
+Se embeddings estiverem indisponíveis, proibidos ou incompletos, inventário,
+conteúdo textual, relações e evidências já produzidos continuam utilizáveis; a
+limitação da recuperação semântica permanece visível.
 
 No corte atual não existe uma subcomanda de rebuild nem uma operação de
 reindexação pública. A reconstrução é uma responsabilidade do pipeline e das
@@ -334,10 +412,15 @@ Uma consulta deverá validar primeiro a `Organization` configurada, a `Source`
 e as políticas de instalação e conteúdo aplicáveis. No modo sem autenticação
 previsto para este corte, o escopo será uma única `Organization` em loopback;
 isso não substitui uma futura autenticação/autorização. Só então monta um
-pacote limitado com trechos, entidades, relações, localizações, `Evidence`,
-`Provenance`, cobertura e lacunas autorizadas. O pacote é a única entrada da
-etapa de resposta; o modelo não consulta a fonte diretamente nem pode
-contornar as permissões do índice.
+`Context Package` limitado com identidade e revisão do pacote, intenção,
+entidades, relações ou caminhos possíveis, itens de contexto, locadores,
+`Evidence`, `Provenance`, cobertura, lacunas, degradações, estimativa de tokens
+e continuação quando aplicável. O pacote distingue conhecimento observado,
+gerado e curado; fatos e relações derivados tecnicamente permanecem ligados à
+sua linhagem e não criam um estado epistemológico adicional. O pacote não
+apresenta relação sem o suporte obrigatório. O
+`AI Gateway` recebe somente uma projeção sanitizada desse pacote; o modelo não
+consulta a fonte diretamente nem pode contornar as permissões do índice.
 
 O `AI Gateway` mantém portas independentes para embeddings e geração. Os
 adaptadores explícitos da API nativa da OpenAI e do protocolo
@@ -355,6 +438,27 @@ conclusão em vez de usar conhecimento geral do modelo como evidência da
 organização. Se a IA estiver indisponível ou proibida, somente as etapas
 dependentes dela ficam limitadas; os resultados não dependentes continuam
 disponíveis conforme as políticas já descritas.
+
+### Fronteira MCP somente leitura
+
+O `manu mcp` previsto para esta mudança é um adaptador local por `stdio`, sem
+transporte remoto, sobre a mesma porta de aplicação que produz o `Context
+Package`. Ele anuncia, em ordem determinística, somente as operações
+`manu_query`, `manu_context`, `manu_impact` e `manu_evidence`. Tipos e schemas
+do protocolo ficam na borda; nenhuma chamada MCP acessa PostgreSQL, SQL,
+Cypher, o filesystem da `Source` ou ferramentas de mutação diretamente.
+
+Antes de cada recuperação e inspeção, o adaptador resolve e revalida
+`Organization`, `Source`, snapshot, permissões e política de transferência.
+Orçamento, redaction, degradação, continuação e auditoria são aplicados por
+item; erros não revelam conteúdo negado, credenciais, detalhes internos ou
+recursos fora do escopo. Uma referência histórica permanece ligada ao snapshot
+solicitado, mesmo quando existe uma revisão posterior.
+
+Essa superfície é uma forma de consumo derivada e não está presente no corte
+executável atual enquanto as tarefas de implementação MCP não forem
+concluídas. O `Context Package` continua útil sem `Generator` e sem cliente
+MCP; nenhuma dessas superfícies substitui o `Knowledge Engine`.
 
 ### Superfície operacional inicial por CLI
 
@@ -680,6 +784,19 @@ suportar todos os adaptadores desde o primeiro incremento.
 - O `AI Gateway` separa `Embedder` e `Generator`, mantém DTOs de provedor nos
   adaptadores explícitos e não trata `OpenAI-compatible` como contrato de
   domínio.
+- O kernel factual separa contribuição, normalização, fatos observados,
+  derivação com linhagem e recuperação; fatos derivados identificam regra,
+  versão e entradas e não reclassificam fatos de origem.
+- Frontends declaram capacidades e limitações, compõem contribuições de forma
+  aditiva e usam o `Analysis Bundle` como intercâmbio validado; perfis
+  `safe-static`, `semantic-isolated` e `imported-index` mantêm execução e
+  importação sob controle explícito.
+- O `Context Package` é a representação neutra, limitada e autorizada para
+  pessoas, API, MCP e `AI Gateway`; nenhum consumidor acessa a fonte ou a
+  persistência diretamente e continua possível consultar sem `Generator`.
+- O MCP, quando habilitado, é um adaptador local somente leitura por `stdio`,
+  com revalidação de escopo e política em cada chamada; não oferece SQL,
+  Cypher, mutação ou transporte remoto nesta fundação.
 - A forma inicial é uma célula de uma organização em Docker Compose local e o
   desenho não exige cloud ou fornecedor de IA.
 
@@ -689,7 +806,7 @@ específicos deve ser registrada como ADR segundo
 [docs/decisions/README.md](docs/decisions/README.md). O contrato universal de
 compreensão está registrado no [ADR 0001 — Contrato universal de compreensão](docs/decisions/0001-contrato-universal-de-compreensao.md);
 a persistência e as projeções iniciais estão no [ADR 0003 — PostgreSQL e pgvector](docs/decisions/0003-postgresql-fonte-de-verdade-pgvector-projecao.md),
-e o gateway no [ADR 0004 — AI Gateway](docs/decisions/0004-ai-gateway-independente-de-provedor.md).
+e o gateway no [ADR 0004 — AI Gateway](docs/decisions/0004-ai-gateway-independente-de-provedor.md). O kernel factual, os frontends e o intercâmbio estão no [ADR 0005](docs/decisions/0005-kernel-factual-frontends-substituiveis-e-intercambio.md).
 Decisões posteriores sobre mecanismos físicos ou operacionais devem seguir a
 mesma política.
 
@@ -701,6 +818,10 @@ mesma política.
   nas duas a quatro aplicações reais do primeiro fluxo vertical.
 - A combinação de busca textual, vetorial e relações do `System Graph` atende
   aos primeiros consumidores sem um mecanismo adicional.
+- A combinação de frontends seguros e eventuais índices importados produzirá
+  cobertura suficiente para as perguntas de competência das três famílias;
+  Tree-sitter, SCIP e Joern permanecem opções a validar, não dependências do
+  núcleo.
 
 ### Opções futuras, sem compromisso de entrega
 
