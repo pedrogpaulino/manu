@@ -1,0 +1,2 @@
+{"payload":{"kind":"annotation","value":"one"},"schema":{"properties":{"kind":{"type":"string"},"value":{"type":"string"}},"type":"object"},"schema_digest_sha256":"44efd109d3e45c058fa811293cb55bf3db8000037b9963c11e9fb11ebcdeaf1d","schema_id":"annotation","schema_version":"1"}
+{"payload":{"kind":"annotation","value":"two"},"schema":{"properties":{"kind":{"type":"string"},"value":{"type":"string"}},"type":"object"},"schema_digest_sha256":"44efd109d3e45c058fa811293cb55bf3db8000037b9963c11e9fb11ebcdeaf1d","schema_id":"annotation","schema_version":"1"}

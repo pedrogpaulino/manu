@@ -1,0 +1,96 @@
+{
+  "version": "v1alpha2",
+  "organization": {
+    "id": "organization-1",
+    "name": "Fixture organization"
+  },
+  "contract_version": "v1alpha1",
+  "result_id": "result-1",
+  "source": {
+    "id": "source-1",
+    "name": "fixture",
+    "type": "filesystem",
+    "revision": "revision-1"
+  },
+  "snapshot": {
+    "id": "snapshot-7bc99e16ac6905a0deb1ce0a44a3c03d76797036adb37e5ea2f221b9c65044ac",
+    "source_id": "source-1",
+    "revision": "revision-1",
+    "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "execution": {
+    "run_id": "run-1",
+    "configuration_id": "configuration-1"
+  },
+  "artifact_count": 1,
+  "contribution_count": 1,
+  "coverage": [],
+  "gaps": [],
+  "failures": [],
+  "analysis": {
+    "id": "analysis-1",
+    "configuration_id": "configuration-1",
+    "revision": "analysis-revision-1"
+  },
+  "factual_digest": "e1cbe31ac1b741c634c7aa920cbfa42902099e6ef36edef04ce0c7c05efc2301",
+  "files": [
+    {
+      "name": "artifacts.ndjson",
+      "bytes": 224,
+      "count": 1,
+      "digest": "2e26d89d8540d227c7f9b02b4e567edd5f122cf3a5fe0e42bbe00ff685641cb6"
+    },
+    {
+      "name": "contributions.ndjson",
+      "bytes": 429,
+      "count": 1,
+      "digest": "ac730a888e85086485223d08a10fa00882f0f46fe2c2282d423f2f05fd3157d3"
+    },
+    {
+      "name": "evidence.ndjson",
+      "bytes": 990,
+      "count": 1,
+      "digest": "880046b24e616caf1b3fdc1a5e8e7f1a98e6f733c4d43f0c958fadba025671e3"
+    },
+    {
+      "name": "frontend_manifests.ndjson",
+      "bytes": 743,
+      "count": 2,
+      "digest": "1c733a3afd4cdb63dca5e83235d7c5b0d4857f078d27454a4810909deea22ab8"
+    },
+    {
+      "name": "facts.ndjson",
+      "bytes": 1326,
+      "count": 2,
+      "digest": "cb684713d8eca1e2a1d684e436c2c83b74bb34deb17087ae2526ec797f567516"
+    },
+    {
+      "name": "extensions.ndjson",
+      "bytes": 554,
+      "count": 2,
+      "digest": "da24c57e31f95c4700ae508b85df566f452e04db1dfab3768c1ba15345e5d457"
+    }
+  ],
+  "counts": {
+    "artifact_count": 1,
+    "contribution_count": 1,
+    "evidence_unit_count": 1,
+    "frontend_manifest_count": 2,
+    "canonical_fact_count": 2,
+    "extension_count": 2
+  },
+  "limits": {
+    "max_bundle_bytes": 1048576,
+    "max_manifest_bytes": 65536,
+    "max_evidence_bytes": 65536,
+    "max_artifacts": 10,
+    "max_contributions": 10,
+    "max_evidence_units": 10,
+    "max_frontend_manifests": 10000,
+    "max_canonical_facts": 100000,
+    "max_extensions": 100000
+  },
+  "evidence": {
+    "state": "available"
+  }
+}
