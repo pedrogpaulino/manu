@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 	"strings"
 	"unicode"
 
@@ -238,6 +239,11 @@ func normalizeInclude(input normalization.Input, _ wso2Mapping) (wso2Normalizati
 	member := contributionMember(input, payload.Member)
 	subject := wso2Container(input, member)
 	targetParticipant := fact.Participant{Kind: fact.ParticipantNamedElement, ID: wso2Identity("literal", target)}
+	if sourceMember := strings.TrimSpace(input.Contribution.Locator.Member); sourceMember != "" {
+		if canonicalTarget, ok := canonicalMemberTarget(target); ok {
+			targetParticipant.ID = wso2Identity("member", input.Contribution.ArtifactID, canonicalTarget)
+		}
+	}
 	qualifiers := wso2Qualifiers(
 		stringQualifier("kind", payload.Kind),
 		stringQualifier("target", target),
@@ -569,6 +575,31 @@ func contributionMember(input normalization.Input, payloadMember string) string 
 		member = strings.TrimSpace(payloadMember)
 	}
 	return member
+}
+
+// canonicalMemberTarget returns the stable member identity path used for
+// cross-member CAR correlation. It deliberately rejects absolute paths and
+// every explicit traversal segment; an uncorrelatable target remains a
+// literal participant instead of being resolved speculatively.
+func canonicalMemberTarget(value string) (string, bool) {
+	value = strings.TrimSpace(strings.ReplaceAll(value, "\\", "/"))
+	firstSegment := value
+	if separator := strings.IndexByte(firstSegment, '/'); separator >= 0 {
+		firstSegment = firstSegment[:separator]
+	}
+	if value == "" || strings.HasPrefix(value, "/") || strings.Contains(value, "://") || strings.Contains(firstSegment, ":") {
+		return "", false
+	}
+	for _, segment := range strings.Split(value, "/") {
+		if segment == ".." {
+			return "", false
+		}
+	}
+	cleaned := path.Clean(value)
+	if cleaned == "." || cleaned == "" || cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+		return "", false
+	}
+	return cleaned, true
 }
 
 func wso2Identity(kind string, parts ...string) string {

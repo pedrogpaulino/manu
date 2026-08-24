@@ -187,6 +187,71 @@ func TestWSO2NormalizationUsesMemberContainerAndPreservesEvidenceLocator(t *test
 	}
 }
 
+func TestWSO2IncludeCorrelatesCARMemberTarget(t *testing.T) {
+	registry := wso2TestRegistry(t)
+	include := wso2TestInput(wso2IncludeContribution, "include-shared", `{"kind":"include","target":"./synapse//shared-v1.xml","path":"api"}`, "synapse/api-v1.xml")
+	sharedType := wso2TestInput(wso2TypeContribution, "shared-type", `{"kind":"sequence","name":"sharedSequence","path":"sequence"}`, "synapse/shared-v1.xml")
+
+	includeOutput, err := registry.Normalize(context.Background(), include)
+	if err != nil {
+		t.Fatalf("Normalize(include) error = %v", err)
+	}
+	sharedOutput, err := registry.Normalize(context.Background(), sharedType)
+	if err != nil {
+		t.Fatalf("Normalize(shared type) error = %v", err)
+	}
+
+	var dependency fact.CanonicalFact
+	for _, candidate := range includeOutput.Facts {
+		if candidate.Predicate == fact.PredicateDependency {
+			dependency = candidate
+		}
+	}
+	if dependency.Object == nil {
+		t.Fatalf("include dependency = %#v, want target participant", dependency)
+	}
+	wantMember := wso2Container(sharedType, "synapse/shared-v1.xml")
+	if dependency.Object.Kind != wantMember.Kind || dependency.Object.ID != wantMember.ID {
+		t.Fatalf("include target = %#v, want member container %#v", dependency.Object, wantMember)
+	}
+	if target := qualifierString(dependency, "target"); target != "./synapse//shared-v1.xml" {
+		t.Fatalf("target qualifier = %q, want original safe literal preserved", target)
+	}
+
+	var membership fact.CanonicalFact
+	for _, candidate := range sharedOutput.Facts {
+		if candidate.Predicate == fact.PredicateMembership {
+			membership = candidate
+		}
+	}
+	if membership.Subject.Kind != wantMember.Kind || membership.Subject.ID != wantMember.ID {
+		t.Fatalf("shared membership subject = %#v, want member container %#v", membership.Subject, wantMember)
+	}
+}
+
+func TestWSO2IncludeKeepsUncorrelatableCARTargetsLiteral(t *testing.T) {
+	registry := wso2TestRegistry(t)
+	for _, target := range []string{"/synapse/shared-v1.xml", "../shared-v1.xml", "synapse/../../shared-v1.xml", "https://example.test/shared-v1.xml"} {
+		t.Run(target, func(t *testing.T) {
+			input := wso2TestInput(wso2IncludeContribution, "include-"+strings.ReplaceAll(target, "/", "-"), `{"kind":"include","target":"`+target+`","path":"api"}`, "synapse/api-v1.xml")
+			output, err := registry.Normalize(context.Background(), input)
+			if err != nil {
+				t.Fatalf("Normalize() error = %v", err)
+			}
+			if len(output.Facts) != 1 || output.Facts[0].Object == nil {
+				t.Fatalf("output = %#v, want one conservative literal dependency", output)
+			}
+			want := wso2Identity("literal", target)
+			if output.Facts[0].Object.ID != want {
+				t.Fatalf("target identity = %q, want literal identity %q", output.Facts[0].Object.ID, want)
+			}
+			if got := qualifierString(output.Facts[0], "target"); got != target {
+				t.Fatalf("target qualifier = %q, want %q", got, target)
+			}
+		})
+	}
+}
+
 func TestWSO2NormalizationReturnsIncompleteCoverageForMissingEvidenceOrUnsafeLiterals(t *testing.T) {
 	registry := wso2TestRegistry(t)
 	tests := []struct {
@@ -434,4 +499,13 @@ func sameWSO2Predicates(left, right []fact.Predicate) bool {
 		}
 	}
 	return true
+}
+
+func qualifierString(candidate fact.CanonicalFact, name string) string {
+	for _, qualifier := range candidate.Qualifiers {
+		if qualifier.Name == name && qualifier.Value.Kind == fact.ValueString {
+			return qualifier.Value.String
+		}
+	}
+	return ""
 }
