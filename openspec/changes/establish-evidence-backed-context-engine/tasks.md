@@ -36,7 +36,7 @@
 ## 5. Derivação e atualização incremental
 
 - [x] 5.1 Implementar a porta e o registro versionado de regras monotônicas com fila ordenada, deduplicação e ponto fixo, verificando determinismo sob diferentes ordens de entrada.
-- [ ] 5.2 Implementar regras mínimas para pertencimento e dependência transitiva ou encadeamento de chamadas sustentado, verificando cada resultado contra os fatos de entrada e a versão da regra.
+- [x] 5.2 Implementar regras mínimas para pertencimento e dependência transitiva ou encadeamento de chamadas sustentado, verificando cada resultado contra os fatos de entrada e a versão da regra.
 - [ ] 5.3 Persistir linhagem e índice reverso de derivação, verificando inspeção completa da cadeia de suporte e rebuild após mudança de versão da regra.
 - [ ] 5.4 Aplicar limites de iteração, fatos e fanout, verificando que o limite produza cobertura incompleta e lacuna controlada sem publicar relações silenciosamente truncadas.
 - [ ] 5.5 Implementar diferença de snapshots e invalidação por hash, versão de frontend, regra e schema, verificando reutilização sem mudança e reprocessamento do fanout afetado em alteração localizada.
