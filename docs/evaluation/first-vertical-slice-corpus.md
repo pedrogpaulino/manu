@@ -15,6 +15,7 @@ registra valores de segredos.
 - [Ticketmaster — referência Java/Quarkus](#ticketmaster--referência-javaquarkus)
 - [CarbonApps — amostra declarativa WSO2](#carbonapps--amostra-declarativa-wso2)
 - [ERPNext — inventário e escala](#erpnext--inventário-e-escala)
+- [Goldens executáveis locais](#goldens-executáveis-locais)
 - [Critérios de seleção e uso](#critérios-de-seleção-e-uso)
 
 ## Formato e regras do manifesto
@@ -249,6 +250,28 @@ entregue, faturado ou pago.
 - **Exclusões:** execução do ERPNext, banco/site, caches e artefatos gerados,
   credenciais e configurações locais sensíveis; a árvore externa continua no
   seu repositório de origem.
+
+## Goldens executáveis locais
+
+Os analisadores mantêm fixtures locais pequenas para reproduzir a normalização
+factual das três famílias. Os testes vinculados decodificam os goldens com
+schema estrito, comparam a saída gerada e verificam ordenação, locadores e
+determinismo do digest sob repetição e inversão da entrada. O cenário WSO2
+monta um CAR temporário a partir dos dois XMLs; o CAR não é vendorizado.
+
+| Família | Fixtures, teste e golden | Digest factual congelado | Fatos | Cobertura agregada (`dimensão=estado: contagem`) |
+| --- | --- | --- | ---: | --- |
+| Java/Quarkus | [`BookingResource.java`](../../internal/analyzer/java/testdata/quarkus3/BookingResource.java); [`normalization_integration_test.go`](../../internal/analyzer/java/normalization_integration_test.go); [`facts.golden.json`](../../internal/analyzer/java/testdata/quarkus3/facts.golden.json) | `528a6670e30f2074548c63516046b58a61b5bca2e38ce9974e176f09c3554efb` | 32 | `configuration_variations=produced: 1`; `entities_and_relationships=produced: 7`; `flows_and_dependencies=produced: 10`; `landscape_inventory_structure=produced: 2` |
+| WSO2 | [`api-v1.xml`](../../internal/analyzer/wso2/testdata/api-v1.xml), [`shared-v1.xml`](../../internal/analyzer/wso2/testdata/shared-v1.xml); [`normalization_integration_test.go`](../../internal/analyzer/wso2/normalization_integration_test.go); [`facts.golden.json`](../../internal/analyzer/wso2/testdata/facts.golden.json) | `1861914ca608c8fca2c4add57f7d7b43e6a711703431ecb41c3d7e6fb80a86db` | 23 | `configuration_variations=produced: 2`; `entities_and_relationships=produced: 8`; `flows_and_dependencies=incomplete: 2`; `flows_and_dependencies=produced: 7` |
+| Python/Frappe | [`doctype.py`](../../internal/analyzer/python/testdata/frappe17/doctype.py), [`hooks.py`](../../internal/analyzer/python/testdata/frappe17/hooks.py); [`normalization_integration_test.go`](../../internal/analyzer/python/normalization_integration_test.go); [`facts.golden.json`](../../internal/analyzer/python/testdata/frappe17/facts.golden.json) | `9eab722a13516e68b60d097b5c425e0dc1247df6ad330a23175249cc927ef9ab` | 31 | `configuration_variations=produced: 11`; `entities_and_relationships=produced: 3`; `flows_and_dependencies=produced: 8`; `landscape_inventory_structure=produced: 2` |
+
+As contagens de cobertura são os agregados dimensão/estado registrados no
+golden e não devem ser somadas como se fossem a contagem de fatos. Esses
+fixtures locais são apenas material executável de verificação: não substituem
+o corpus externo não vendorizado descrito neste documento, não copiam o
+conteúdo das fontes e não carregam payloads, segredos ou valores dinâmicos nos
+goldens. Também não alegam completude semântica, equivalência entre famílias
+ou cobertura operacional das fontes externas.
 
 ## Critérios de seleção e uso
 
