@@ -169,23 +169,17 @@ func javaIntegrationReadFixture(t *testing.T, root *os.Root, name string) []byte
 }
 
 func javaIntegrationManifest() fact.FrontendManifest {
-	manifest := javaManifest()
-	manifest.Families = []string{"java-21", "quarkus-3"}
-	manifest.Versions = []string{"java-21", "quarkus-3"}
-	manifest.Limitations = []string{
-		"lexical-only",
-		"no-build-resolution",
-		"no-runtime-semantics",
-	}
-	return manifest
+	return Manifest()
 }
 
 func assertJavaIntegrationManifest(t *testing.T, manifest fact.FrontendManifest) {
 	t.Helper()
-	for _, value := range []string{"java-21", "quarkus-3"} {
+	for _, value := range []string{"java", "quarkus"} {
 		if !containsJavaString(manifest.Families, value) {
 			t.Fatalf("manifest families = %#v, want representative %q", manifest.Families, value)
 		}
+	}
+	for _, value := range []string{"java-21", "quarkus-3.26.4"} {
 		if !containsJavaString(manifest.Versions, value) {
 			t.Fatalf("manifest versions = %#v, want representative %q", manifest.Versions, value)
 		}

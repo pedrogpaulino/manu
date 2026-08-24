@@ -455,34 +455,7 @@ func javaRegistry(t *testing.T, manifest fact.FrontendManifest) *normalization.R
 }
 
 func javaManifest() fact.FrontendManifest {
-	return fact.FrontendManifest{
-		ManifestVersion: fact.FrontendManifestVersion,
-		ID:              AnalyzerID,
-		Version:         AnalyzerVersion,
-		Method:          AnalyzerMethod,
-		SourceTypes:     []string{"repository"},
-		Families:        []string{"jvm"},
-		Versions:        []string{"17"},
-		Capabilities: []contract.Dimension{
-			contract.DimensionLandscapeInventoryStructure,
-			contract.DimensionEntitiesAndRelationships,
-			contract.DimensionFlowsAndDependencies,
-			contract.DimensionConfigurationVariations,
-		},
-		Predicates: []fact.Predicate{
-			fact.PredicateArtifact,
-			fact.PredicateSymbol,
-			fact.PredicateNamedElement,
-			fact.PredicateDefinition,
-			fact.PredicateReference,
-			fact.PredicateCall,
-			fact.PredicateDependency,
-			fact.PredicateConfiguration,
-			fact.PredicateEndpoint,
-			fact.PredicateMembership,
-		},
-		Execution: fact.ExecutionProfileSafeStatic,
-	}
+	return Manifest()
 }
 
 func javaInput(contributionType, method string, value json.RawMessage) normalization.Input {
