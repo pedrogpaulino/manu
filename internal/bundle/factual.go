@@ -164,23 +164,14 @@ func canonicalFrontendManifests(manifests []fact.FrontendManifest) ([]json.RawMe
 }
 
 func canonicalFrontendManifestValue(manifest fact.FrontendManifest) fact.FrontendManifest {
-	manifest.SourceTypes = sortedStrings(manifest.SourceTypes)
-	manifest.Families = sortedStrings(manifest.Families)
-	manifest.Versions = sortedStrings(manifest.Versions)
-	manifest.Capabilities = append([]contract.Dimension(nil), manifest.Capabilities...)
-	sort.Slice(manifest.Capabilities, func(left, right int) bool {
-		return manifest.Capabilities[left] < manifest.Capabilities[right]
-	})
-	manifest.Limitations = sortedStrings(manifest.Limitations)
-	manifest.Predicates = append([]fact.Predicate(nil), manifest.Predicates...)
-	sort.Slice(manifest.Predicates, func(left, right int) bool {
-		return manifest.Predicates[left] < manifest.Predicates[right]
-	})
-	manifest.Extensions = append([]fact.ExtensionSchema(nil), manifest.Extensions...)
-	sort.Slice(manifest.Extensions, func(left, right int) bool {
-		return extensionSchemaKey(manifest.Extensions[left]) < extensionSchemaKey(manifest.Extensions[right])
-	})
-	return manifest
+	canonical, err := fact.CanonicalFrontendManifest(manifest)
+	if err != nil {
+		// Callers validate before reaching this helper. Preserve the original
+		// value if a future caller violates that invariant; the public digest
+		// API still returns the validation error.
+		return manifest
+	}
+	return canonical
 }
 
 func canonicalFactsForDigest(facts []fact.CanonicalFact) ([]json.RawMessage, error) {
@@ -238,12 +229,6 @@ func canonicalExtensionJSON(extension []byte) ([]byte, error) {
 		return nil, fmt.Errorf("extension has trailing data: %v", err)
 	}
 	return json.Marshal(value)
-}
-
-func sortedStrings(values []string) []string {
-	result := append([]string(nil), values...)
-	sort.Strings(result)
-	return result
 }
 
 func frontendManifestKey(manifest fact.FrontendManifest) string {
