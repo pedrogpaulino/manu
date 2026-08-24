@@ -47,7 +47,7 @@
 - [x] 6.1 Definir a porta de aplicação e os tipos versionados de intenção, `Context Request`, `Context Package`, item, relação, auditoria, degradação e continuação, verificando validação de escopo, snapshot e limites.
 - [x] 6.2 Projetar fatos e relações canônicos para busca exata, textual e relacional e integrá-los ao retriever híbrido existente, verificando identidade de evidência e degradação quando sinais opcionais faltarem.
 - [x] 6.3 Implementar a função versionada de utilidade e a seleção gulosa por ganho marginal sob limites de tokens, itens, caracteres e bytes, verificando desempate determinístico, diversidade e razões de exclusão.
-- [ ] 6.4 Implementar fechamento limitado de suporte para relações e caminhos, verificando que nenhuma relação seja entregue sem as evidências obrigatórias nem ultrapasse o orçamento silenciosamente.
+- [x] 6.4 Implementar fechamento limitado de suporte para relações e caminhos, verificando que nenhuma relação seja entregue sem as evidências obrigatórias nem ultrapasse o orçamento silenciosamente.
 - [ ] 6.5 Implementar estimativa de tokens e auditoria separada de contagens reais de provedor, verificando limites com UTF-8, conteúdo vazio, itens grandes e estimadores incompatíveis.
 - [ ] 6.6 Implementar cursor opaco vinculado a escopo, snapshot, intenção, política, algoritmo e ordenação, verificando continuação sem repetição e rejeição após incompatibilidade ou adulteração.
 - [ ] 6.7 Aplicar autorização, decisão de transferência, redaction e reinspeção a cada item do pacote, verificando que conteúdo negado não apareça no resultado, cursor, erro ou auditoria.
