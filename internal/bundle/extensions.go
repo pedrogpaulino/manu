@@ -43,6 +43,18 @@ func newExtensionSchemaIndex(manifests []fact.FrontendManifest) (extensionSchema
 	return index, nil
 }
 
+// Validate checks that the extension envelope, its canonical schema bytes and
+// its payload are valid against the complete set of declared frontend
+// manifests. Nil or empty manifests are safe inputs and simply cannot declare
+// a schema for a record.
+func (r ExtensionRecord) Validate(manifests []fact.FrontendManifest) error {
+	index, err := newExtensionSchemaIndex(manifests)
+	if err != nil {
+		return err
+	}
+	return r.validate(index)
+}
+
 func (r ExtensionRecord) validate(index extensionSchemaIndex) error {
 	if err := validateIdentifier("extension schema id", r.SchemaID); err != nil {
 		return fmt.Errorf("%w: malformed extension metadata", ErrInvalidExtension)
@@ -72,6 +84,9 @@ func (r ExtensionRecord) validate(index extensionSchemaIndex) error {
 }
 
 func validateImportedExtensions(manifests []fact.FrontendManifest, extensions []json.RawMessage) error {
+	// Validate declarations once, even when the transport carries no extension
+	// records; this preserves the bundle-level manifest validation boundary and
+	// keeps validation O(manifests + extensions).
 	index, err := newExtensionSchemaIndex(manifests)
 	if err != nil {
 		return err
