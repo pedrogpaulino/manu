@@ -17,6 +17,7 @@ import (
 	"github.com/pedrogpaulino/manu/internal/analysis"
 	"github.com/pedrogpaulino/manu/internal/analyzer/generic"
 	"github.com/pedrogpaulino/manu/internal/analyzer/java"
+	"github.com/pedrogpaulino/manu/internal/analyzer/python"
 	"github.com/pedrogpaulino/manu/internal/analyzer/wso2"
 	"github.com/pedrogpaulino/manu/internal/bundle"
 	"github.com/pedrogpaulino/manu/internal/contract"
@@ -81,7 +82,7 @@ func NewRealExtractor(configs ...RealCorpusConfig) (*RealExtractor, error) {
 	if len(configs) == 0 {
 		return nil, fmt.Errorf("%w: at least one corpus is required", ErrInvalidRealCorpus)
 	}
-	registry, err := analysis.NewRegistry(generic.New(), java.New(), wso2.New())
+	registry, err := analysis.NewRegistry(generic.New(), java.New(), python.New(), wso2.New())
 	if err != nil {
 		return nil, fmt.Errorf("%w: analyzer registry: %v", ErrInvalidRealCorpus, err)
 	}

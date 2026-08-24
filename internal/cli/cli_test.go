@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pedrogpaulino/manu/internal/analysis"
 	"github.com/pedrogpaulino/manu/internal/contract"
 )
 
@@ -80,6 +81,48 @@ func TestRunAnalyzeAndInspect(t *testing.T) {
 	}
 	if !strings.Contains(inspectOut.String(), `"contract_version": "v1alpha1"`) {
 		t.Fatalf("inspect JSON = %q, missing contract version", inspectOut.String())
+	}
+}
+
+func TestRunAnalyzeSelectsPythonWithCanonicalFallbackAndExistingAnalyzers(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "module.py"), []byte("class Invoice:\n    def total(self):\n        return 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "Sample.java"), []byte("package sample;\nclass Sample {}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "sample.xml"), []byte("<proxy name=\"InventoryProxy\"><endpoint uri=\"https://example.test/api\"/></proxy>\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(t.TempDir(), "result")
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"analyze", "--root", root, "--output", output}, &stdout, &stderr); code != ExitPartial {
+		t.Fatalf("Run(analyze) = %d, want partial; stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+
+	result, err := contract.ReadResult(context.Background(), output)
+	if err != nil {
+		t.Fatalf("ReadResult() error = %v", err)
+	}
+	pythonArtifact := false
+	for _, artifact := range result.Artifacts {
+		if artifact.Path == "module.py" {
+			pythonArtifact = artifact.Type == analysis.ArtifactTypePython
+			break
+		}
+	}
+	if !pythonArtifact {
+		t.Fatalf("Python artifact type was not persisted: %#v", result.Artifacts)
+	}
+	seenAnalyzers := make(map[string]bool)
+	for _, contribution := range result.Contributions {
+		seenAnalyzers[contribution.AnalyzerID] = true
+	}
+	for _, analyzerID := range []string{"generic", "java", "python", "wso2"} {
+		if !seenAnalyzers[analyzerID] {
+			t.Fatalf("analyzer %q did not contribute; seen = %#v", analyzerID, seenAnalyzers)
+		}
 	}
 }
 

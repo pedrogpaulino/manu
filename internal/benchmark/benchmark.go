@@ -17,6 +17,7 @@ import (
 	"github.com/pedrogpaulino/manu/internal/analysis"
 	"github.com/pedrogpaulino/manu/internal/analyzer/generic"
 	"github.com/pedrogpaulino/manu/internal/analyzer/java"
+	"github.com/pedrogpaulino/manu/internal/analyzer/python"
 	"github.com/pedrogpaulino/manu/internal/analyzer/wso2"
 	"github.com/pedrogpaulino/manu/internal/buildinfo"
 	"github.com/pedrogpaulino/manu/internal/contract"
@@ -74,7 +75,7 @@ func Run(ctx context.Context, config Config) (Report, error) {
 		report.Limitations = append(report.Limitations, "source_metadata_precheck_unavailable")
 	}
 
-	registry, err := analysis.NewRegistry(generic.New(), java.New(), wso2.New())
+	registry, err := analysis.NewRegistry(generic.New(), java.New(), python.New(), wso2.New())
 	if err != nil {
 		return report, fmt.Errorf("creating analyzer registry: %w", err)
 	}

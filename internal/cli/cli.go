@@ -18,6 +18,7 @@ import (
 	"github.com/pedrogpaulino/manu/internal/analysis"
 	"github.com/pedrogpaulino/manu/internal/analyzer/generic"
 	"github.com/pedrogpaulino/manu/internal/analyzer/java"
+	"github.com/pedrogpaulino/manu/internal/analyzer/python"
 	"github.com/pedrogpaulino/manu/internal/analyzer/wso2"
 	"github.com/pedrogpaulino/manu/internal/benchmark"
 	"github.com/pedrogpaulino/manu/internal/buildinfo"
@@ -242,7 +243,7 @@ func runAnalyze(runContext analysis.RunContext, args []string, stdout, stderr io
 		Revision: strings.TrimSpace(*revision),
 		Root:     absoluteRoot,
 	}
-	registry, err := analysis.NewRegistry(generic.New(), java.New(), wso2.New())
+	registry, err := analysis.NewRegistry(generic.New(), java.New(), python.New(), wso2.New())
 	if err != nil {
 		fmt.Fprintln(stderr, "manu analyze: creating analyzer registry:", err)
 		return ExitTechnical
