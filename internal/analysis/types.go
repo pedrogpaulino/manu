@@ -25,6 +25,8 @@ const (
 	ArtifactTypeBinary = "binary"
 	// ArtifactTypeJava identifies a Java source file.
 	ArtifactTypeJava = "java"
+	// ArtifactTypePython identifies a Python source file.
+	ArtifactTypePython = "python"
 	// ArtifactTypeXML identifies an XML document.
 	ArtifactTypeXML = "xml"
 	// ArtifactTypeCAR identifies a WSO2 CAR package.
@@ -278,6 +280,8 @@ func artifactType(artifact contract.Artifact, sourceArtifact source.Artifact) st
 	switch extension {
 	case ".java":
 		return ArtifactTypeJava
+	case ".py":
+		return ArtifactTypePython
 	case ".xml", ".wsdl", ".xsd", ".xsl", ".xslt":
 		return ArtifactTypeXML
 	case ".car":
