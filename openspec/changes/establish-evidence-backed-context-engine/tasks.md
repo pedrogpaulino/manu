@@ -30,7 +30,7 @@
 - [x] 4.3 Migrar o frontend WSO2 para produzir fatos de elementos nomeados, pertencimento, endpoints, mensagens, dependências e configuração sustentados, verificando correlação entre XML, CAR e evidências internas do pacote.
 - [x] 4.4 Implementar o frontend estrutural seguro de Python/Frappe para símbolos, definições, referências ou relações, dependências e configuração aplicáveis, verificando que não execute imports, build ou código da fonte.
 - [x] 4.5 Criar manifestos versionados das três famílias com capacidades e versões realmente testadas, verificando que uma família reconhecida não seja anunciada como semanticamente completa.
-- [ ] 4.6 Implementar detecção e preservação de fatos incompatíveis entre frontends, verificando que conflitos mantenham produtores, evidências e qualificadores separados.
+- [x] 4.6 Implementar detecção e preservação de fatos incompatíveis entre frontends, verificando que conflitos mantenham produtores, evidências e qualificadores separados.
 - [ ] 4.7 Atualizar o corpus e os goldens de Java/Quarkus, WSO2 e Python/Frappe com predicados e locadores esperados, verificando determinismo do digest factual e cobertura por família.
 
 ## 5. Derivação e atualização incremental
