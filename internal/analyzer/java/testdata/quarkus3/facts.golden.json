@@ -1,0 +1,547 @@
+{
+  "schema_version": "java-quarkus-factual-v1",
+  "family": "java/quarkus",
+  "manifest": {
+    "manifest_version": "v1alpha1",
+    "id": "java",
+    "version": "1",
+    "method": "lexical-java-v1"
+  },
+  "factual_digest": "528a6670e30f2074548c63516046b58a61b5bca2e38ce9974e176f09c3554efb",
+  "facts": [
+    {
+      "fact_id": "fact-05e07953a39bd28ea3643b8bd29a5fed9adee026517393d017be50c9ac8858fd",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-8ff0c66cc32bd4d5af489e2c0f2291c64fae682fd1e4775295bdcbd83c700d0c",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 5,
+            "end_line": 5
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-123a026736a60d95a332ad6e95e825f9394fe65e6e4eee7620e615231c843490",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-1c897305485b680b1a62bec7d7b3df4a55346abc17035f32b02edd81b0f4a8d8",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 4,
+            "end_line": 4
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-1c780c1020fb493511331a08d59de9e856ee3ce44db1df30469a9a018e9a8c25",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-985a9564193659182f7d9217fd505d869c9cce07aaa4fcac30a20ebf4e6079bf",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 8,
+            "end_line": 8
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-32f9e388b7e18c8c5e07befa295304c55e80f692ec242da45cd187e722402203",
+      "predicate": "definition",
+      "evidence": [
+        {
+          "id": "evidence-contribution-93ea108017b9f395eda1f2888433b9ed9f97b28dd08016ac3963a37ccb8d732e",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 29,
+            "end_line": 29
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-44f933ec33de5f85b253032a943d7bea939174a5209e862d09cfa805c6cd2e07",
+      "predicate": "artifact",
+      "evidence": [
+        {
+          "id": "evidence-contribution-9bdc1279c8fd22cb61753a8652ada75306fa27b80494f7d70130699aecfe4615",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 1,
+            "end_line": 1
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-69d65c84bb98b0da0d722803782b4a6707586b2188e267544b4eb0def8c29009",
+      "predicate": "symbol",
+      "evidence": [
+        {
+          "id": "evidence-contribution-93ea108017b9f395eda1f2888433b9ed9f97b28dd08016ac3963a37ccb8d732e",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 29,
+            "end_line": 29
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-6d3c5f00fad55c056a0ee7a55c6fd7684b716a904e9bfd91f47dbd595666a7f3",
+      "predicate": "symbol",
+      "evidence": [
+        {
+          "id": "evidence-contribution-2e6f0fd663d6700f712797ba560c343ed6d768ba97f22221bdf1c0296841e8e3",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 24,
+            "end_line": 24
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-6d80dd25cf34f59df75af62eab0e2e400fb12d0834d443c49780f9038c40e2a2",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-cc36164e366d9d9e61bf7f7336cb25632e8fcdf20c79e19de8611fbd8a1646d2",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 3,
+            "end_line": 3
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-6db2c7a981421dcac732dc34da11fce4a281a5fb337a0fd093e67c6c7ef813b2",
+      "predicate": "definition",
+      "evidence": [
+        {
+          "id": "evidence-contribution-4b70c82a369dd5ba941449e717231ee89f7047cce00ad1cbb6eb2b4b853201a4",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 18,
+            "end_line": 18
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-737b51a06064cfc6518362932b6b298492a658c5df3559bed7701b64e0c0d360",
+      "predicate": "endpoint",
+      "evidence": [
+        {
+          "id": "evidence-contribution-e70b898d89afaa6e2580ca8cb9c2eb8a3f7a4db808ccc960c063b10d722d138c",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 11,
+            "end_line": 18
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-7455dddf2e67b9e7d9c7e0fbcf96113da259213146e9ead04278337c9c36455a",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-a196254f2c6dfe691e5ca2eccd51c66e862b75004558c36d08f0186c6b064702",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 6,
+            "end_line": 6
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-7df7fab1a0c72ef3034d888e22648e088d2b8f26818bbe8f61bad3632e676556",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-8ebfb582286826c00f7016f35af26e8046f3fd52af931cb2beed857cf815e40b",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 9,
+            "end_line": 9
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-7e69071da5cb48dd1d77237e3d67304021f517290d54f199f3acc05425c2821f",
+      "predicate": "symbol",
+      "evidence": [
+        {
+          "id": "evidence-contribution-4b70c82a369dd5ba941449e717231ee89f7047cce00ad1cbb6eb2b4b853201a4",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 18,
+            "end_line": 18
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-7e6cf43d661e70f2c93ce5d161d33beebefe48ea471917daedc4adfcf222681b",
+      "predicate": "call",
+      "evidence": [
+        {
+          "id": "evidence-contribution-0f0dcefdb5de94c69484cee2ab434de5910f2306de97760868bcccb6d082ebc0",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 19,
+            "end_line": 19
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-90bea151e714c25f498ab3870f4e5e7b137fb48d3b25c5e1d719570d03c244db",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-8ebfb582286826c00f7016f35af26e8046f3fd52af931cb2beed857cf815e40b",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 9,
+            "end_line": 9
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-95058d36b70ba7b0eb7b4236564424dc10cc7474f1c522f2d1a58b292df02a75",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-8ff0c66cc32bd4d5af489e2c0f2291c64fae682fd1e4775295bdcbd83c700d0c",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 5,
+            "end_line": 5
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-9669416bacd4a9eeab4a7948bec94d7c6a6cddce119f9e9adaf074320883b562",
+      "predicate": "endpoint",
+      "evidence": [
+        {
+          "id": "evidence-contribution-53f1297458c4cffa851d83112bebb2cae969166200318307774629d7f3fd79b9",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 11,
+            "end_line": 24
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-9ca7ac7c0ace91bcff84a82af52cabf725e064c4e386245d292007b226f41fa2",
+      "predicate": "definition",
+      "evidence": [
+        {
+          "id": "evidence-contribution-a6a1282aff358488d7b2424d0a31828f9f884f81ee63083f3db49e8043ade8d9",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 12,
+            "end_line": 12
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-9d5663149d22f98b819e4d9140bd9fdf3466f46bf27e8c91c62b1bff2220c400",
+      "predicate": "symbol",
+      "evidence": [
+        {
+          "id": "evidence-contribution-a6a1282aff358488d7b2424d0a31828f9f884f81ee63083f3db49e8043ade8d9",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 12,
+            "end_line": 12
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-baf03f68e27f8e1c68dd3f1282bb571270bae0890115010a1d9312c17d41cafe",
+      "predicate": "definition",
+      "evidence": [
+        {
+          "id": "evidence-contribution-2e6f0fd663d6700f712797ba560c343ed6d768ba97f22221bdf1c0296841e8e3",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 24,
+            "end_line": 24
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-bb2b7d8eba57be39046979ec14b6c267279a352a5baa8ad73b6eff238b85771a",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-c6a530417d6c3769ffb4973c9563fb2f5e066bfc89a460c51e39e573f824608b",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 7,
+            "end_line": 7
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-bc1cc48bbed00c9ce7e4e77ccc94098a799f992b8912387de999539dcc08c596",
+      "predicate": "call",
+      "evidence": [
+        {
+          "id": "evidence-contribution-b2eeef69e22dbe41e52be9836c8666efdef7179689e2fa2b629c47cc25cdccf2",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 30,
+            "end_line": 30
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-c068c784927cf7678f411268f25f593f6e2b4f7d64aa35d23069c1707eacc9b2",
+      "predicate": "endpoint",
+      "evidence": [
+        {
+          "id": "evidence-contribution-0b50b6c29d731a659664eddb56083e85d38865f6bd758896a408a55f7394b8cf",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 11,
+            "end_line": 29
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-c384e291c8604f6462d1a0b854089193e1b842e22d66eaf48e4e7f86fea250a9",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-1c897305485b680b1a62bec7d7b3df4a55346abc17035f32b02edd81b0f4a8d8",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 4,
+            "end_line": 4
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-c5ecf2c18abbcf356fe363ab36af6c80d6281035c6bb6be3bfcbb8cb51dc0d89",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-985a9564193659182f7d9217fd505d869c9cce07aaa4fcac30a20ebf4e6079bf",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 8,
+            "end_line": 8
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-cc6f7090330572d92dc40b818d8555f0a10902ea3df744d78aa5ee37b6ddf996",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-c6a530417d6c3769ffb4973c9563fb2f5e066bfc89a460c51e39e573f824608b",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 7,
+            "end_line": 7
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-d32c23c2169725d8b778e702bb8ce28fd15a9ad9d49cf6a0ba9e4192d8a0c1b0",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-a196254f2c6dfe691e5ca2eccd51c66e862b75004558c36d08f0186c6b064702",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 6,
+            "end_line": 6
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-d66bea40ca24694fc3a3c42f6bf1eb92365ca47baabc93c74d97a37b5af4e8bc",
+      "predicate": "named_element",
+      "evidence": [
+        {
+          "id": "evidence-contribution-e8845642ad2993784d097b78983acd3af9a503b417f9b83f296b16f4d4c77ce3",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 1,
+            "end_line": 1
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-ea46ac9424b9184bd210d600840b74ac335458ecfb67bf5e136a1b532bfd5e7b",
+      "predicate": "call",
+      "evidence": [
+        {
+          "id": "evidence-contribution-20d62ec3b6445abe7c55fca2bd8920cec304ea672a9cd1bbc683829c6cbde58a",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 25,
+            "end_line": 25
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-ee0e0709313dd646351d9f3ed6a4267cbe9ebbb9902fa5442716871df36b9362",
+      "predicate": "membership",
+      "evidence": [
+        {
+          "id": "evidence-contribution-e8845642ad2993784d097b78983acd3af9a503b417f9b83f296b16f4d4c77ce3",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 1,
+            "end_line": 1
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-fa53b07a71c3f9d0ee827a5af14e5cd32e43a25659610b8bb4e493d01c763c54",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-cc36164e366d9d9e61bf7f7336cb25632e8fcdf20c79e19de8611fbd8a1646d2",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 3,
+            "end_line": 3
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-ff9423a9d5f5a748caafdbc0bb6f05ecbd6978bbf89a5435fcc12f1a11259958",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-163f968263692ddcead9024450bf4abb5cbf2229537fbb4c0983b2ac50436c65",
+          "locator": {
+            "source_id": "source-quarkus3",
+            "artifact_id": "artifact-9e980a489373bb1ec0d8dd6d893c8eef9c9e9e61024248a57fd2ebfcf3211617",
+            "path": "BookingResource.java",
+            "start_line": 13,
+            "end_line": 13
+          }
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "dimension": "configuration_variations",
+      "state": "produced",
+      "count": 1
+    },
+    {
+      "dimension": "entities_and_relationships",
+      "state": "produced",
+      "count": 7
+    },
+    {
+      "dimension": "flows_and_dependencies",
+      "state": "produced",
+      "count": 10
+    },
+    {
+      "dimension": "landscape_inventory_structure",
+      "state": "produced",
+      "count": 2
+    }
+  ]
+}

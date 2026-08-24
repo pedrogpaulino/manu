@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"testing"
 
 	"github.com/pedrogpaulino/manu/internal/analysis"
@@ -140,6 +142,24 @@ func TestJavaQuarkusNormalizationEndToEnd(t *testing.T) {
 	reversedDigest := javaIntegrationFactualDigest(t, analyzed, artifact, scope, manifest, reversed)
 	if firstDigest != reversedDigest {
 		t.Fatalf("factual digest changed with input order: %q != %q", firstDigest, reversedDigest)
+	}
+
+	firstSummary := javaQuarkusGoldenSummary(t, manifest, normalized, firstDigest)
+	golden := readJavaQuarkusGolden(t)
+	if !reflect.DeepEqual(firstSummary, golden) {
+		t.Fatalf("generated Java/Quarkus factual summary differs from golden\n--- got ---\n%#v\n--- want ---\n%#v", firstSummary, golden)
+	}
+	reversedSummary := javaQuarkusGoldenSummary(t, manifest, reversed, reversedDigest)
+	if !reflect.DeepEqual(firstSummary, reversedSummary) {
+		t.Fatal("Java/Quarkus factual summary changed when inputs were reversed")
+	}
+	repeatedDigest := javaIntegrationFactualDigest(t, analyzed, artifact, scope, manifest, repeated)
+	if firstDigest != repeatedDigest {
+		t.Fatalf("repeated factual digest changed: %q != %q", firstDigest, repeatedDigest)
+	}
+	repeatedSummary := javaQuarkusGoldenSummary(t, manifest, repeated, repeatedDigest)
+	if !reflect.DeepEqual(firstSummary, repeatedSummary) {
+		t.Fatal("repeated Java/Quarkus factual summary changed")
 	}
 
 	assertUnsupportedJavaObservationsHaveNoFacts(t, registry, allInputs, analyzed, contributionsByID)
@@ -450,5 +470,216 @@ func assertJavaFixtureGaps(t *testing.T, output analysis.Output) {
 	}
 	if !foundGeneralGap {
 		t.Fatalf("fixture gaps = %#v, want java_semantics_not_supported", output.Gaps)
+	}
+}
+
+const javaQuarkusGoldenSchemaVersion = "java-quarkus-factual-v1"
+
+type javaQuarkusGolden struct {
+	SchemaVersion string                      `json:"schema_version"`
+	Family        string                      `json:"family"`
+	Manifest      javaQuarkusGoldenManifest   `json:"manifest"`
+	FactualDigest string                      `json:"factual_digest"`
+	Facts         []javaQuarkusGoldenFact     `json:"facts"`
+	Coverage      []javaQuarkusGoldenCoverage `json:"coverage"`
+}
+
+type javaQuarkusGoldenManifest struct {
+	ManifestVersion string `json:"manifest_version"`
+	ID              string `json:"id"`
+	Version         string `json:"version"`
+	Method          string `json:"method"`
+}
+
+type javaQuarkusGoldenFact struct {
+	FactID    string                      `json:"fact_id"`
+	Predicate fact.Predicate              `json:"predicate"`
+	Evidence  []javaQuarkusGoldenEvidence `json:"evidence"`
+}
+
+type javaQuarkusGoldenEvidence struct {
+	ID      string           `json:"id"`
+	Locator contract.Locator `json:"locator"`
+}
+
+type javaQuarkusGoldenCoverage struct {
+	Dimension string `json:"dimension"`
+	State     string `json:"state"`
+	Count     int    `json:"count"`
+}
+
+func readJavaQuarkusGolden(t *testing.T) javaQuarkusGolden {
+	t.Helper()
+	goldenPath := filepath.Join(filepath.Dir(javaIntegrationFixturePath(t)), "facts.golden.json")
+	file, err := os.Open(goldenPath)
+	if err != nil {
+		t.Fatalf("open Java/Quarkus golden %q: %v", goldenPath, err)
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	decoder.DisallowUnknownFields()
+	var golden javaQuarkusGolden
+	if err := decoder.Decode(&golden); err != nil {
+		t.Fatalf("decode Java/Quarkus golden %q: %v", goldenPath, err)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			t.Fatalf("Java/Quarkus golden %q contains trailing JSON", goldenPath)
+		}
+		t.Fatalf("decode trailing Java/Quarkus golden data %q: %v", goldenPath, err)
+	}
+	validateJavaQuarkusGolden(t, golden)
+	return golden
+}
+
+func validateJavaQuarkusGolden(t *testing.T, golden javaQuarkusGolden) {
+	t.Helper()
+	if golden.SchemaVersion != javaQuarkusGoldenSchemaVersion {
+		t.Fatalf("golden schema_version = %q, want %q", golden.SchemaVersion, javaQuarkusGoldenSchemaVersion)
+	}
+	if golden.Family != "java/quarkus" {
+		t.Fatalf("golden family = %q, want java/quarkus", golden.Family)
+	}
+	if golden.Manifest.ManifestVersion != fact.FrontendManifestVersion {
+		t.Fatalf("golden manifest_version = %q, want %q", golden.Manifest.ManifestVersion, fact.FrontendManifestVersion)
+	}
+	if golden.Manifest.ID == "" || golden.Manifest.Version == "" || golden.Manifest.Method == "" {
+		t.Fatalf("golden manifest identity is incomplete: %#v", golden.Manifest)
+	}
+	if len(golden.FactualDigest) != sha256.Size*2 {
+		t.Fatalf("golden factual_digest length = %d, want %d", len(golden.FactualDigest), sha256.Size*2)
+	}
+	if _, err := hex.DecodeString(golden.FactualDigest); err != nil {
+		t.Fatalf("golden factual_digest is not hexadecimal: %v", err)
+	}
+	if len(golden.Facts) == 0 {
+		t.Fatal("golden facts is empty")
+	}
+	seenFacts := make(map[string]struct{}, len(golden.Facts))
+	for index, candidate := range golden.Facts {
+		if candidate.FactID == "" {
+			t.Fatalf("golden fact %d has empty fact_id", index)
+		}
+		if _, duplicate := seenFacts[candidate.FactID]; duplicate {
+			t.Fatalf("golden facts repeat fact_id %q", candidate.FactID)
+		}
+		seenFacts[candidate.FactID] = struct{}{}
+		if err := candidate.Predicate.Validate(); err != nil {
+			t.Fatalf("golden fact %q predicate is invalid: %v", candidate.FactID, err)
+		}
+		if len(candidate.Evidence) == 0 {
+			t.Fatalf("golden fact %q has no evidence", candidate.FactID)
+		}
+		seenEvidence := make(map[string]struct{}, len(candidate.Evidence))
+		for evidenceIndex, evidence := range candidate.Evidence {
+			if evidence.ID == "" {
+				t.Fatalf("golden fact %q evidence %d has empty id", candidate.FactID, evidenceIndex)
+			}
+			if _, duplicate := seenEvidence[evidence.ID]; duplicate {
+				t.Fatalf("golden fact %q repeats evidence id %q", candidate.FactID, evidence.ID)
+			}
+			seenEvidence[evidence.ID] = struct{}{}
+			if err := evidence.Locator.Validate(); err != nil {
+				t.Fatalf("golden fact %q evidence %q locator is invalid: %v", candidate.FactID, evidence.ID, err)
+			}
+			assertJavaQuarkusGoldenLocator(t, candidate.FactID, evidence.Locator)
+			if evidenceIndex > 0 && candidate.Evidence[evidenceIndex-1].ID >= evidence.ID {
+				t.Fatalf("golden evidence for fact %q is not ordered by id", candidate.FactID)
+			}
+		}
+		if index > 0 && golden.Facts[index-1].FactID >= candidate.FactID {
+			t.Fatalf("golden facts are not ordered by fact_id")
+		}
+	}
+	if len(golden.Coverage) == 0 {
+		t.Fatal("golden coverage is empty")
+	}
+	for index, coverage := range golden.Coverage {
+		if coverage.Dimension == "" || coverage.State == "" || coverage.Count <= 0 {
+			t.Fatalf("golden coverage %d is incomplete: %#v", index, coverage)
+		}
+		if index > 0 {
+			previous := golden.Coverage[index-1]
+			if previous.Dimension > coverage.Dimension || (previous.Dimension == coverage.Dimension && previous.State >= coverage.State) {
+				t.Fatalf("golden coverage is not ordered by dimension and state")
+			}
+		}
+	}
+}
+
+func assertJavaQuarkusGoldenLocator(t *testing.T, factID string, locator contract.Locator) {
+	t.Helper()
+	if locator.SourceID == "" || locator.ArtifactID == "" {
+		t.Fatalf("golden fact %q locator is incomplete: %#v", factID, locator)
+	}
+	if locator.Path != "BookingResource.java" {
+		t.Fatalf("golden fact %q locator path = %q, want BookingResource.java", factID, locator.Path)
+	}
+	if locator.StartLine <= 0 || locator.EndLine < locator.StartLine || locator.EndLine > 35 {
+		t.Fatalf("golden fact %q locator lines = %d-%d, want valid BookingResource.java lines", factID, locator.StartLine, locator.EndLine)
+	}
+}
+
+func javaQuarkusGoldenSummary(t *testing.T, manifest fact.FrontendManifest, output normalization.Output, digest string) javaQuarkusGolden {
+	t.Helper()
+	facts := make([]javaQuarkusGoldenFact, 0, len(output.Facts))
+	for _, candidate := range output.Facts {
+		if err := candidate.Validate(); err != nil {
+			t.Fatalf("generated fact %q is invalid: %v", candidate.ID, err)
+		}
+		goldenFact := javaQuarkusGoldenFact{
+			FactID:    candidate.ID,
+			Predicate: candidate.Predicate,
+			Evidence:  make([]javaQuarkusGoldenEvidence, 0, len(candidate.Evidence)),
+		}
+		for _, evidence := range candidate.Evidence {
+			if err := evidence.Validate(candidate.Scope); err != nil {
+				t.Fatalf("generated fact %q evidence %q is invalid: %v", candidate.ID, evidence.ID, err)
+			}
+			goldenFact.Evidence = append(goldenFact.Evidence, javaQuarkusGoldenEvidence{ID: evidence.ID, Locator: evidence.Locator})
+		}
+		sort.Slice(goldenFact.Evidence, func(left, right int) bool {
+			return goldenFact.Evidence[left].ID < goldenFact.Evidence[right].ID
+		})
+		facts = append(facts, goldenFact)
+	}
+	sort.Slice(facts, func(left, right int) bool { return facts[left].FactID < facts[right].FactID })
+
+	type coverageKey struct {
+		dimension string
+		state     string
+	}
+	coverageCounts := make(map[coverageKey]int, len(output.Coverage))
+	for _, coverage := range output.Coverage {
+		if err := coverage.Validate(); err != nil {
+			t.Fatalf("generated coverage is invalid: %v", err)
+		}
+		key := coverageKey{dimension: coverage.Dimension, state: string(coverage.State)}
+		coverageCounts[key]++
+	}
+	coverage := make([]javaQuarkusGoldenCoverage, 0, len(coverageCounts))
+	for key, count := range coverageCounts {
+		coverage = append(coverage, javaQuarkusGoldenCoverage{Dimension: key.dimension, State: key.state, Count: count})
+	}
+	sort.Slice(coverage, func(left, right int) bool {
+		if coverage[left].Dimension != coverage[right].Dimension {
+			return coverage[left].Dimension < coverage[right].Dimension
+		}
+		return coverage[left].State < coverage[right].State
+	})
+
+	return javaQuarkusGolden{
+		SchemaVersion: javaQuarkusGoldenSchemaVersion,
+		Family:        "java/quarkus",
+		Manifest: javaQuarkusGoldenManifest{
+			ManifestVersion: manifest.ManifestVersion,
+			ID:              manifest.ID,
+			Version:         manifest.Version,
+			Method:          manifest.Method,
+		},
+		FactualDigest: digest,
+		Facts:         facts,
+		Coverage:      coverage,
 	}
 }
