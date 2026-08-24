@@ -70,13 +70,21 @@ func (s poolTransactionStarter) Begin(ctx context.Context) (transaction, error) 
 // its context explicitly and starts its own transaction unless it is invoked
 // on a UnitOfWork.
 type Repository struct {
-	starter transactionStarter
+	starter                transactionStarter
+	factualMetricsRecorder FactualMetricsRecorder
 }
 
 // NewRepository creates a repository backed by the supplied PostgreSQL pool.
-// The pool is not opened, configured, or pinged here.
-func NewRepository(pool *pgxpool.Pool) *Repository {
-	return &Repository{starter: poolTransactionStarter{pool: pool}}
+// The pool is not opened, configured, or pinged here. Nil options are ignored
+// so existing callers can add optional configuration incrementally.
+func NewRepository(pool *pgxpool.Pool, options ...RepositoryOption) *Repository {
+	repository := &Repository{starter: poolTransactionStarter{pool: pool}}
+	for _, option := range options {
+		if option != nil {
+			option(repository)
+		}
+	}
+	return repository
 }
 
 func newRepositoryWithStarter(starter transactionStarter) *Repository {
