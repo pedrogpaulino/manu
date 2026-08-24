@@ -176,9 +176,9 @@ func (l ContextLimits) Validate() error {
 	return nil
 }
 
-// ContextContinuation is an opaque continuation handle. Binding metadata is
-// optional at this layer and is validated when supplied; signing and cursor
-// authorization belong to the later continuation implementation.
+// ContextContinuation is an opaque continuation handle. The continuation
+// codec signs its complete binding and sequence position; public metadata is
+// repeated here so a package can expose the binding without opening the token.
 type ContextContinuation struct {
 	Token            string `json:"token"`
 	Scope            *Scope `json:"scope,omitempty"`
