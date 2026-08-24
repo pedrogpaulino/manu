@@ -1,13 +1,16 @@
 package wso2
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -26,6 +29,348 @@ var wso2IntegrationDimensions = map[string]contract.Dimension{
 	wso2EndpointContribution:      contract.DimensionEntitiesAndRelationships,
 	wso2MessageContribution:       contract.DimensionFlowsAndDependencies,
 	wso2ConfigurationContribution: contract.DimensionConfigurationVariations,
+}
+
+const wso2GoldenSchemaVersion = "v1alpha1"
+
+type wso2GoldenManifestIdentity struct {
+	ManifestVersion string `json:"manifest_version"`
+	ID              string `json:"id"`
+	Version         string `json:"version"`
+	Method          string `json:"method"`
+	DigestSHA256    string `json:"digest_sha256"`
+}
+
+type wso2GoldenLocator struct {
+	URI         string `json:"uri"`
+	SourceID    string `json:"source_id"`
+	ArtifactID  string `json:"artifact_id"`
+	Path        string `json:"path"`
+	Member      string `json:"member"`
+	StartLine   int    `json:"start_line"`
+	StartColumn int    `json:"start_column"`
+	EndLine     int    `json:"end_line"`
+	EndColumn   int    `json:"end_column"`
+	ByteOffset  int64  `json:"byte_offset"`
+	ByteLength  int64  `json:"byte_length"`
+}
+
+type wso2GoldenEvidence struct {
+	ID      string            `json:"id"`
+	Locator wso2GoldenLocator `json:"locator"`
+}
+
+type wso2GoldenFact struct {
+	FactID    string               `json:"fact_id"`
+	Predicate fact.Predicate       `json:"predicate"`
+	Evidence  []wso2GoldenEvidence `json:"evidence"`
+}
+
+type wso2GoldenCoverage struct {
+	Dimension string                 `json:"dimension"`
+	State     contract.CoverageState `json:"state"`
+	Count     int                    `json:"count"`
+}
+
+type wso2GoldenSnapshot struct {
+	SchemaVersion string                     `json:"schema_version"`
+	Family        string                     `json:"family"`
+	Manifest      wso2GoldenManifestIdentity `json:"manifest"`
+	FactualDigest string                     `json:"factual_digest"`
+	Facts         []wso2GoldenFact           `json:"facts"`
+	Coverage      []wso2GoldenCoverage       `json:"coverage"`
+}
+
+type wso2IntegrationScenario struct {
+	Analyzed   analysis.Output
+	Artifact   contract.Artifact
+	Scope      fact.Scope
+	Manifest   fact.FrontendManifest
+	Inputs     []normalization.Input
+	Normalized normalization.Output
+}
+
+func TestWSO2NormalizationFactualGolden(t *testing.T) {
+	scenario := wso2GoldenScenario(t)
+	want := readWSO2Golden(t)
+	got := wso2GoldenSnapshotFor(t, scenario)
+	if !reflect.DeepEqual(got, want) {
+		gotJSON, err := json.MarshalIndent(got, "", "  ")
+		if err != nil {
+			t.Fatalf("marshal generated WSO2 golden: %v", err)
+		}
+		wantJSON, err := json.MarshalIndent(want, "", "  ")
+		if err != nil {
+			t.Fatalf("marshal expected WSO2 golden: %v", err)
+		}
+		t.Fatalf("WSO2 factual golden differs\n--- got ---\n%s\n--- want ---\n%s", gotJSON, wantJSON)
+	}
+	assertWSO2Golden(t, got)
+	assertWSO2GoldenDeterminism(t, scenario, got.FactualDigest)
+}
+
+func wso2GoldenScenario(t *testing.T) wso2IntegrationScenario {
+	t.Helper()
+	archiveBytes := makeCAR(t, map[string][]byte{
+		"synapse/api-v1.xml":    readFixture(t, "testdata/api-v1.xml"),
+		"synapse/shared-v1.xml": readFixture(t, "testdata/shared-v1.xml"),
+	})
+	rootPath := t.TempDir()
+	if err := os.WriteFile(filepath.Join(rootPath, "fixture.car"), archiveBytes, 0o600); err != nil {
+		t.Fatalf("write CAR fixture: %v", err)
+	}
+	root, err := os.OpenRoot(rootPath)
+	if err != nil {
+		t.Fatalf("open fixture root: %v", err)
+	}
+	defer root.Close()
+
+	hash := sha256.Sum256(archiveBytes)
+	artifact := contract.Artifact{
+		SourceID: "wso2-integration-source",
+		Path:     "fixture.car",
+		Type:     analysis.ArtifactTypeCAR,
+		Hash:     hex.EncodeToString(hash[:]),
+		Size:     int64(len(archiveBytes)),
+	}
+	artifact.ID = contract.ArtifactID(artifact.SourceID, artifact.Path, artifact.Hash)
+	analyzerInput := analysis.ArtifactInput{
+		SourceID:   artifact.SourceID,
+		RootHandle: root,
+		Artifact:   artifact,
+		Limits: source.Limits{
+			MaxArchiveMembers:         16,
+			MaxArchiveBytes:           1 << 20,
+			MaxArchiveMemberBytes:     1 << 20,
+			MaxArchiveCompressedBytes: 1 << 20,
+			MaxExpansionRatio:         100,
+			MaxExtractionBytes:        1 << 20,
+		},
+		Evidence: analysis.EvidenceInput{
+			Enabled: true,
+			Limits:  analysis.DefaultEvidenceLimits(),
+		},
+	}
+	analyzed, err := New().Analyze(context.Background(), analyzerInput)
+	if err != nil {
+		t.Fatalf("Analyze() error: %v", err)
+	}
+	manifest := Manifest()
+	registrations, err := NormalizerRegistrations(manifest)
+	if err != nil {
+		t.Fatalf("NormalizerRegistrations() error: %v", err)
+	}
+	registry, err := normalization.NewRegistry(registrations...)
+	if err != nil {
+		t.Fatalf("NewRegistry() error: %v", err)
+	}
+	scope := fact.Scope{
+		OrganizationID: "organization-wso2-integration",
+		SourceID:       artifact.SourceID,
+		SnapshotID:     "snapshot-wso2-integration",
+	}
+	inputs, contributionsByID, evidenceLocators := wso2IntegrationInputs(t, analyzed, scope, manifest)
+	if len(inputs) == 0 {
+		t.Fatal("Analyze() produced no mapped WSO2 contributions")
+	}
+	normalized, err := registry.NormalizeAll(context.Background(), inputs)
+	if err != nil {
+		t.Fatalf("NormalizeAll() error: %v", err)
+	}
+	assertWSO2IntegrationOutput(t, normalized, inputs, scope, manifest, evidenceLocators)
+	assertWSO2MemberIncludeCorrelation(t, normalized, inputs, contributionsByID, artifact.ID)
+	return wso2IntegrationScenario{
+		Analyzed:   analyzed,
+		Artifact:   artifact,
+		Scope:      scope,
+		Manifest:   manifest,
+		Inputs:     inputs,
+		Normalized: normalized,
+	}
+}
+
+func readWSO2Golden(t *testing.T) wso2GoldenSnapshot {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("testdata", "facts.golden.json"))
+	if err != nil {
+		t.Fatalf("read WSO2 factual golden: %v", err)
+	}
+	for _, forbidden := range []string{
+		"user:pass",
+		"tenant=fixture",
+		"#fragment",
+		"secret-value",
+		"[redacted]",
+		"${ctx.",
+	} {
+		if bytes.Contains(data, []byte(forbidden)) {
+			t.Fatalf("WSO2 factual golden retained forbidden material %q", forbidden)
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var golden wso2GoldenSnapshot
+	if err := decoder.Decode(&golden); err != nil {
+		t.Fatalf("decode WSO2 factual golden: %v", err)
+	}
+	var trailing json.RawMessage
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			t.Fatal("WSO2 factual golden contains trailing JSON")
+		}
+		t.Fatalf("decode trailing WSO2 factual golden: %v", err)
+	}
+	return golden
+}
+
+func wso2GoldenSnapshotFor(t *testing.T, scenario wso2IntegrationScenario) wso2GoldenSnapshot {
+	t.Helper()
+	manifestDigest, err := fact.FrontendManifestDigest(scenario.Manifest)
+	if err != nil {
+		t.Fatalf("FrontendManifestDigest() error: %v", err)
+	}
+	facts := make([]wso2GoldenFact, 0, len(scenario.Normalized.Facts))
+	for _, candidate := range scenario.Normalized.Facts {
+		if err := candidate.Validate(); err != nil {
+			t.Fatalf("normalized fact %q is invalid: %v", candidate.ID, err)
+		}
+		evidence := make([]wso2GoldenEvidence, 0, len(candidate.Evidence))
+		for _, reference := range candidate.Evidence {
+			evidence = append(evidence, wso2GoldenEvidence{
+				ID: reference.ID,
+				Locator: wso2GoldenLocator{
+					URI:         reference.Locator.URI,
+					SourceID:    reference.Locator.SourceID,
+					ArtifactID:  reference.Locator.ArtifactID,
+					Path:        reference.Locator.Path,
+					Member:      reference.Locator.Member,
+					StartLine:   reference.Locator.StartLine,
+					StartColumn: reference.Locator.StartColumn,
+					EndLine:     reference.Locator.EndLine,
+					EndColumn:   reference.Locator.EndColumn,
+					ByteOffset:  reference.Locator.ByteOffset,
+					ByteLength:  reference.Locator.ByteLength,
+				},
+			})
+		}
+		sort.Slice(evidence, func(left, right int) bool { return evidence[left].ID < evidence[right].ID })
+		facts = append(facts, wso2GoldenFact{
+			FactID:    candidate.ID,
+			Predicate: candidate.Predicate,
+			Evidence:  evidence,
+		})
+	}
+	sort.Slice(facts, func(left, right int) bool { return facts[left].FactID < facts[right].FactID })
+
+	coverageCounts := make(map[string]int, len(scenario.Normalized.Coverage))
+	coverageStates := make(map[string]contract.CoverageState, len(scenario.Normalized.Coverage))
+	for _, coverage := range scenario.Normalized.Coverage {
+		key := coverage.Dimension + "\x00" + string(coverage.State)
+		coverageCounts[key]++
+		coverageStates[key] = coverage.State
+	}
+	coverage := make([]wso2GoldenCoverage, 0, len(coverageCounts))
+	for key, count := range coverageCounts {
+		parts := strings.SplitN(key, "\x00", 2)
+		coverage = append(coverage, wso2GoldenCoverage{Dimension: parts[0], State: coverageStates[key], Count: count})
+	}
+	sort.Slice(coverage, func(left, right int) bool {
+		if coverage[left].Dimension != coverage[right].Dimension {
+			return coverage[left].Dimension < coverage[right].Dimension
+		}
+		return coverage[left].State < coverage[right].State
+	})
+
+	return wso2GoldenSnapshot{
+		SchemaVersion: wso2GoldenSchemaVersion,
+		Family:        "wso2",
+		Manifest: wso2GoldenManifestIdentity{
+			ManifestVersion: scenario.Manifest.ManifestVersion,
+			ID:              scenario.Manifest.ID,
+			Version:         scenario.Manifest.Version,
+			Method:          scenario.Manifest.Method,
+			DigestSHA256:    manifestDigest,
+		},
+		FactualDigest: wso2IntegrationFactualDigest(t, scenario.Analyzed, scenario.Artifact, scenario.Scope, scenario.Manifest, scenario.Normalized),
+		Facts:         facts,
+		Coverage:      coverage,
+	}
+}
+
+func assertWSO2Golden(t *testing.T, golden wso2GoldenSnapshot) {
+	t.Helper()
+	if golden.SchemaVersion != wso2GoldenSchemaVersion || golden.Family != "wso2" {
+		t.Fatalf("golden identity = %#v, want schema %q and family wso2", golden, wso2GoldenSchemaVersion)
+	}
+	if golden.Manifest.ID == "" || golden.Manifest.Version == "" || golden.Manifest.Method == "" || golden.Manifest.DigestSHA256 == "" {
+		t.Fatalf("golden manifest identity is incomplete: %#v", golden.Manifest)
+	}
+	for index, candidate := range golden.Facts {
+		if candidate.FactID == "" || candidate.Predicate == fact.PredicateUnknown || len(candidate.Evidence) == 0 {
+			t.Fatalf("golden fact %d is incomplete: %#v", index, candidate)
+		}
+		if index > 0 && golden.Facts[index-1].FactID >= candidate.FactID {
+			t.Fatalf("golden facts are not strictly ordered by fact_id at %d", index)
+		}
+		if err := candidate.Predicate.Validate(); err != nil {
+			t.Fatalf("golden fact %q predicate is invalid: %v", candidate.FactID, err)
+		}
+		for evidenceIndex, evidence := range candidate.Evidence {
+			if evidence.ID == "" || (evidenceIndex > 0 && candidate.Evidence[evidenceIndex-1].ID >= evidence.ID) {
+				t.Fatalf("golden fact %q evidence is not strictly ordered: %#v", candidate.FactID, candidate.Evidence)
+			}
+			locator := evidence.Locator
+			if locator.Member == "" {
+				t.Fatalf("golden fact %q evidence %q has empty CAR member", candidate.FactID, evidence.ID)
+			}
+			if locator.StartLine < 0 || locator.StartColumn < 0 || locator.EndLine < 0 || locator.EndColumn < 0 || locator.ByteOffset < 0 || locator.ByteLength < 0 {
+				t.Fatalf("golden fact %q evidence %q has negative locator position: %#v", candidate.FactID, evidence.ID, locator)
+			}
+			if locator.EndLine > 0 && locator.StartLine > locator.EndLine {
+				t.Fatalf("golden fact %q evidence %q has invalid line range: %#v", candidate.FactID, evidence.ID, locator)
+			}
+		}
+	}
+	for index, coverage := range golden.Coverage {
+		if coverage.Dimension == "" || coverage.State == contract.CoverageUnknown || coverage.Count <= 0 {
+			t.Fatalf("golden coverage %d is incomplete: %#v", index, coverage)
+		}
+		if index > 0 && (golden.Coverage[index-1].Dimension > coverage.Dimension || (golden.Coverage[index-1].Dimension == coverage.Dimension && golden.Coverage[index-1].State >= coverage.State)) {
+			t.Fatalf("golden coverage is not strictly ordered at %d", index)
+		}
+	}
+}
+
+func assertWSO2GoldenDeterminism(t *testing.T, scenario wso2IntegrationScenario, wantDigest string) {
+	t.Helper()
+	registrations, err := NormalizerRegistrations(scenario.Manifest)
+	if err != nil {
+		t.Fatalf("NormalizerRegistrations() for determinism check: %v", err)
+	}
+	registry, err := normalization.NewRegistry(registrations...)
+	if err != nil {
+		t.Fatalf("NewRegistry() for determinism check: %v", err)
+	}
+	reversedInputs := cloneWSO2IntegrationInputs(scenario.Inputs)
+	for left, right := 0, len(reversedInputs)-1; left < right; left, right = left+1, right-1 {
+		reversedInputs[left], reversedInputs[right] = reversedInputs[right], reversedInputs[left]
+	}
+	reversed, err := registry.NormalizeAll(context.Background(), reversedInputs)
+	if err != nil {
+		t.Fatalf("NormalizeAll(reversed) for golden: %v", err)
+	}
+	repeated, err := registry.NormalizeAll(context.Background(), scenario.Inputs)
+	if err != nil {
+		t.Fatalf("NormalizeAll(repeated) for golden: %v", err)
+	}
+	if !reflect.DeepEqual(scenario.Normalized, reversed) || !reflect.DeepEqual(scenario.Normalized, repeated) {
+		t.Fatal("WSO2 factual output changed under input inversion or repetition")
+	}
+	reversedDigest := wso2IntegrationFactualDigest(t, scenario.Analyzed, scenario.Artifact, scenario.Scope, scenario.Manifest, reversed)
+	repeatedDigest := wso2IntegrationFactualDigest(t, scenario.Analyzed, scenario.Artifact, scenario.Scope, scenario.Manifest, repeated)
+	if wantDigest == "" || wantDigest != reversedDigest || wantDigest != repeatedDigest {
+		t.Fatalf("WSO2 factual digest changed under input inversion or repetition: want=%q reversed=%q repeated=%q", wantDigest, reversedDigest, repeatedDigest)
+	}
 }
 
 func TestWSO2NormalizationEndToEndCARMemberCorrelation(t *testing.T) {

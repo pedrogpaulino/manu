@@ -1,0 +1,542 @@
+{
+  "schema_version": "v1alpha1",
+  "family": "wso2",
+  "manifest": {
+    "manifest_version": "v1alpha1",
+    "id": "wso2",
+    "version": "1",
+    "method": "declarative-wso2-v1",
+    "digest_sha256": "b8a15d9bce3ab2104acfa2479fa79d104cf0cfd48d000aa2a89c454529262ab0"
+  },
+  "factual_digest": "1861914ca608c8fca2c4add57f7d7b43e6a711703431ecb41c3d7e6fb80a86db",
+  "facts": [
+    {
+      "fact_id": "fact-01addbdf7479e92dc4551307f12c2318a4469ff24bb14e3dc16eee3b4f12f52e",
+      "predicate": "membership",
+      "evidence": [
+        {
+          "id": "evidence-contribution-53cf657ce109fc7e77d095694e58eab72840bc981f81b83c8963bc97289bd93d",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 224,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-068c6519bedb695651a1f966982e638fb976d65582ac8655b75c1beb2c2e92e7",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-6e23b06a7574e69f97b1aa675f8f48bc6ed2ef28cf691f808e04986ab5150f6c",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 111,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-123f3a65fd67f1f713921f1cecfbf23521d087729435f535f66d90e41a21d33a",
+      "predicate": "membership",
+      "evidence": [
+        {
+          "id": "evidence-contribution-c3531ca7ecb4c2996041e5c6b845354880fe0a6347f2f5195b3e2399e105163c",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 482,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-2011e0b21259e89efc06bfecb420978590ec18e39edfb959ddccda3e28804974",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-924d151fcf65d2965325bdae4a07edebb3e7244e45f8f882199be388c895eeaa",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 189,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-3b979aa03694bee280c07bf0cf040bee853978b072aea2266ed24b847e74e2c3",
+      "predicate": "membership",
+      "evidence": [
+        {
+          "id": "evidence-contribution-dcb4cce7b0ff5983b4d00387b199d46c8ffad91bb71116f524dd2e17a291fcad",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 111,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-3c08672a9e214c8baac00f736ba5680a669ef00a8cf30df1c267a7b1aa18120b",
+      "predicate": "endpoint",
+      "evidence": [
+        {
+          "id": "evidence-contribution-c6d16236b7925df106b402be1ccec2d428f4452ad72c4c7182e4852a971fdd9b",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 111,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-41e017f7ee281adbf1a1d4f5e0ed4d3fe6b4cb9a5574c680217b81e417adb013",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-924d151fcf65d2965325bdae4a07edebb3e7244e45f8f882199be388c895eeaa",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 189,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-56e2bb0cd5f84458d97ed015da6b4bd08fcad68b3f9def0b3ec6fb53891318c4",
+      "predicate": "endpoint",
+      "evidence": [
+        {
+          "id": "evidence-contribution-241efb6f86b128b3ba7488d34c8e5bfa1a8fed0822cc413d4a7dcb4a7f6740de",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 224,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-64770c68978397ce4ced158ea80ad21f2ec2e8dae7bcc0ec34e6b5fdb510dad5",
+      "predicate": "endpoint",
+      "evidence": [
+        {
+          "id": "evidence-contribution-5e0a2491d464727c67211bf45ba81b44961084e2870e3a5f49d214034e59720c",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 311,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-669a1a52ae4b09f81df95eaf6ced77ebc465a0a0a65dfd32d733499e699d692e",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-1fb2a7d0c8061c4c8e9667db17a5c999bc155db4265feb342cde82b9544d0ced",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 482,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-7f38d6af5df815fa4edf7f2990937eda0ec6a6a23adb5f8dfe1a07a16d05666c",
+      "predicate": "named_element",
+      "evidence": [
+        {
+          "id": "evidence-contribution-c3531ca7ecb4c2996041e5c6b845354880fe0a6347f2f5195b3e2399e105163c",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 482,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-84180a48cd694efd02e78d42da833cfca7952f8003915206db1fa71083f03153",
+      "predicate": "membership",
+      "evidence": [
+        {
+          "id": "evidence-contribution-6cabbd0ae8aa85ab0371ed717e8cae813e952c77ce08ada32bfa596dfc892925",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 538,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-8cab8faf07c3ff19258a124e5c522e3c0194dfaca2e6e4063bd33232658df936",
+      "predicate": "named_element",
+      "evidence": [
+        {
+          "id": "evidence-contribution-3e3f725f36b7765fa321da6370957dabafaca99c696aedd44b55642ab041dd6c",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/shared-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 99,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-8e47bbc31d0ff7007749f638cffe67f31b0bce505b343719daf5f7f6dee4375d",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-ff4d24bde00cf2e170d1ab5116a9befdc8ea85adfb6c6d803810118f3ce1e8cf",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/shared-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 223,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-933ab1585e145cdb6607e51a0e1f3ddb4644d3098e402be5b03a53d71d78befb",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-0f431dea4cef88a1f6791d3c5f507146b4f963b70ba73ddea47e7f2efd38ee46",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/shared-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 99,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-9e656e7221de8f3d570f68dfffd0add830e75b9555fda20a1390b55e152f0799",
+      "predicate": "message",
+      "evidence": [
+        {
+          "id": "evidence-contribution-dbd3f6a1164782f14ab590ddc398c5daf4378b884fec68b26273e0207b8ad23e",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/shared-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 124,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-9eb3c91a45dfe38955487267dc08c8f1e86d0f567c7ea15150ae82d54655f189",
+      "predicate": "membership",
+      "evidence": [
+        {
+          "id": "evidence-contribution-3e3f725f36b7765fa321da6370957dabafaca99c696aedd44b55642ab041dd6c",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/shared-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 99,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-aac1c43ba3a2be8b6b6d162f88f8eff0b7b678e11ce793550560fe657481656f",
+      "predicate": "named_element",
+      "evidence": [
+        {
+          "id": "evidence-contribution-dcb4cce7b0ff5983b4d00387b199d46c8ffad91bb71116f524dd2e17a291fcad",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 111,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-b0f2c7c5a278a7029942257626a0cde5db4a344247a6a7e85ae565bd0526798f",
+      "predicate": "named_element",
+      "evidence": [
+        {
+          "id": "evidence-contribution-6cabbd0ae8aa85ab0371ed717e8cae813e952c77ce08ada32bfa596dfc892925",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 538,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-c0c68d4eda3222bfcee93759192e0eeb5426b8a1beb13055b04cc516f71413ba",
+      "predicate": "message",
+      "evidence": [
+        {
+          "id": "evidence-contribution-85cc21341acb95a9adfec829403c13741a846a5d54105d71398f9ace3c558f86",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/shared-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 162,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-f6ae250bc09c0c8a15d460f56ee673319039c44c0e1349558d3649a3d3b1443d",
+      "predicate": "message",
+      "evidence": [
+        {
+          "id": "evidence-contribution-347d31300c3a046a1ca71c706a9a1f9f404351713d1195f04f10090984197c0b",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 362,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-fb9e0b679dadcf5eb5e455d987aa250c461a3ca3843b8bd31d2109a7dba3a7a1",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-47b25d3a190600a81cd19d6e0b82cf6f22419eed8a6469b33360307e6a126a77",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 482,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-fc5b1b5801c2a3b40550efc78d23f027e39ca37e26e5446800a3e0a1e407e8d1",
+      "predicate": "named_element",
+      "evidence": [
+        {
+          "id": "evidence-contribution-53cf657ce109fc7e77d095694e58eab72840bc981f81b83c8963bc97289bd93d",
+          "locator": {
+            "uri": "",
+            "source_id": "wso2-integration-source",
+            "artifact_id": "artifact-4e5008eea04bf4734ccfb63f8d94671e7d48d1294ac2cd9d4031b82afb8750e2",
+            "path": "fixture.car",
+            "member": "synapse/api-v1.xml",
+            "start_line": 0,
+            "start_column": 0,
+            "end_line": 0,
+            "end_column": 0,
+            "byte_offset": 224,
+            "byte_length": 0
+          }
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "dimension": "configuration_variations",
+      "state": "produced",
+      "count": 2
+    },
+    {
+      "dimension": "entities_and_relationships",
+      "state": "produced",
+      "count": 8
+    },
+    {
+      "dimension": "flows_and_dependencies",
+      "state": "incomplete",
+      "count": 2
+    },
+    {
+      "dimension": "flows_and_dependencies",
+      "state": "produced",
+      "count": 7
+    }
+  ]
+}
