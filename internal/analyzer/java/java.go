@@ -111,6 +111,26 @@ func (a *Analyzer) Analyze(ctx context.Context, input analysis.ArtifactInput) (a
 	}
 
 	parsed := parse(strings.ReplaceAll(text.Content, "\r\n", "\n"))
+	artifactType := input.Artifact.Type
+	if artifactType == "" {
+		artifactType = analysis.ArtifactTypeJava
+	}
+	parsed.observations = append(parsed.observations, observation{
+		Method:  "artifact:" + input.Artifact.Path,
+		Type:    "java.artifact",
+		Line:    1,
+		EndLine: 1,
+		Value: map[string]any{
+			"path": input.Artifact.Path,
+			"type": artifactType,
+		},
+	})
+	sort.SliceStable(parsed.observations, func(i, j int) bool {
+		if parsed.observations[i].Line != parsed.observations[j].Line {
+			return parsed.observations[i].Line < parsed.observations[j].Line
+		}
+		return parsed.observations[i].Method < parsed.observations[j].Method
+	})
 	output := analysis.Output{
 		Contributions: make([]contract.Contribution, 0, len(parsed.observations)),
 		Coverage:      make([]contract.Coverage, 0, 8),
@@ -154,6 +174,14 @@ func (a *Analyzer) Analyze(ctx context.Context, input analysis.ArtifactInput) (a
 		}
 		coverage.Locator = locatorPointerAt(input, line)
 		output.Coverage = append(output.Coverage, coverage)
+	}
+	for _, gap := range parsed.gaps {
+		line := 0
+		if gap.Locator != nil {
+			line = gap.Locator.StartLine
+		}
+		gap.Locator = locatorPointerAt(input, line)
+		output.Gaps = append(output.Gaps, gap)
 	}
 	if len(output.Coverage) == 0 {
 		output.Coverage = append(output.Coverage, contract.Coverage{
@@ -232,7 +260,14 @@ type observation struct {
 type parsedFile struct {
 	observations []observation
 	coverage     []contract.Coverage
+	gaps         []contract.Gap
 }
+
+const (
+	javaEndpointCoverageMessage = "JAX-RS endpoint extraction requires a supported literal path and lexical association"
+	javaEndpointGapCode         = "java_endpoint_semantics_not_supported"
+	javaEndpointGapMessage      = "endpoint routing, parameter binding, and runtime resolution are not reconstructed by the lexical method"
+)
 
 func parse(content string) parsedFile {
 	lines := strings.Split(content, "\n")
@@ -378,13 +413,679 @@ func parse(content string) parsedFile {
 			})
 		}
 	}
+	endpoints := parseEndpoints(content)
+	parsed.observations = append(parsed.observations, endpoints.observations...)
+	if endpoints.produced {
+		addCoverage(&parsed.coverage, seenCoverage, contract.DimensionEntitiesAndRelationships, contract.CoverageProduced, "JAX-RS endpoint annotations observed", endpoints.firstLine)
+	}
+	if endpoints.unresolved {
+		addCoverage(&parsed.coverage, seenCoverage, contract.DimensionEntitiesAndRelationships, contract.CoverageIncomplete, javaEndpointCoverageMessage, endpoints.firstLine)
+		parsed.gaps = append(parsed.gaps, contract.Gap{
+			Code:      javaEndpointGapCode,
+			Dimension: string(contract.DimensionEntitiesAndRelationships),
+			Scope:     "file",
+			Message:   javaEndpointGapMessage,
+			Locator:   &contract.Locator{StartLine: endpoints.firstLine, EndLine: endpoints.firstLine},
+		})
+	}
 	sort.SliceStable(parsed.observations, func(i, j int) bool {
 		if parsed.observations[i].Line != parsed.observations[j].Line {
 			return parsed.observations[i].Line < parsed.observations[j].Line
 		}
 		return parsed.observations[i].Method < parsed.observations[j].Method
 	})
+	sort.SliceStable(parsed.gaps, func(i, j int) bool {
+		if parsed.gaps[i].Code != parsed.gaps[j].Code {
+			return parsed.gaps[i].Code < parsed.gaps[j].Code
+		}
+		return parsed.gaps[i].Dimension < parsed.gaps[j].Dimension
+	})
 	return parsed
+}
+
+type parsedEndpoints struct {
+	observations []observation
+	produced     bool
+	unresolved   bool
+	firstLine    int
+}
+
+type endpointAnnotation struct {
+	name       string
+	path       string
+	pathValid  bool
+	httpMethod string
+	start      int
+	end        int
+	startLine  int
+	endLine    int
+}
+
+type endpointClass struct {
+	name      string
+	start     int
+	bodyOpen  int
+	bodyClose int
+	line      int
+	pathIndex int
+	pathValid bool
+	path      string
+}
+
+type endpointMethod struct {
+	start       int
+	line        int
+	classIndex  int
+	httpIndexes []int
+	pathIndex   int
+	pathValid   bool
+	path        string
+}
+
+var endpointAnnotationRE = regexp.MustCompile(`@([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)`)
+var endpointMethodRE = regexp.MustCompile(`\b([A-Za-z_$][\w$]*)\s*\([^;{}()]*\)\s*(?:throws\s+[^\{;]+)?(?:\{|;)`)
+
+func parseEndpoints(content string) parsedEndpoints {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	masked := maskJavaSource(content)
+	lineStarts := sourceLineStarts(masked)
+	lines := strings.Split(masked, "\n")
+	braces := matchingBraces(masked)
+	annotations := scanEndpointAnnotations(content, masked, lineStarts)
+	classes := scanEndpointClasses(masked, lines, lineStarts, braces, annotations)
+	methods := scanEndpointMethods(masked, lines, lineStarts, classes, annotations)
+
+	result := parsedEndpoints{
+		observations: make([]observation, 0),
+		firstLine:    firstEndpointLine(annotations),
+	}
+	used := make(map[int]bool)
+
+	for methodIndex := range methods {
+		method := &methods[methodIndex]
+		classPathIndex := -1
+		classPath := ""
+		if method.classIndex >= 0 && method.classIndex < len(classes) && classes[method.classIndex].pathValid {
+			classPathIndex = classes[method.classIndex].pathIndex
+			classPath = classes[method.classIndex].path
+		}
+		paths := make([]string, 0, 2)
+		if classPath != "" {
+			paths = append(paths, classPath)
+		}
+		if method.pathValid {
+			paths = append(paths, method.path)
+		}
+		if len(paths) == 0 || (len(method.httpIndexes) == 0 && !method.pathValid) {
+			continue
+		}
+		path := joinEndpointPaths(paths...)
+		if path == "" {
+			continue
+		}
+		startLine := method.line
+		if classPathIndex >= 0 {
+			startLine = minInt(startLine, annotations[classPathIndex].startLine)
+		}
+		if method.pathIndex >= 0 {
+			startLine = minInt(startLine, annotations[method.pathIndex].startLine)
+		}
+		if len(method.httpIndexes) == 0 {
+			result.observations = append(result.observations, endpointObservation(path, "", startLine, method.line))
+			if classPathIndex >= 0 {
+				used[classPathIndex] = true
+			}
+			if method.pathIndex >= 0 {
+				used[method.pathIndex] = true
+			}
+			result.produced = true
+			continue
+		}
+		for _, httpIndex := range method.httpIndexes {
+			if httpIndex < 0 || httpIndex >= len(annotations) {
+				continue
+			}
+			used[httpIndex] = true
+			result.observations = append(result.observations, endpointObservation(path, annotations[httpIndex].httpMethod, startLine, method.line))
+		}
+		if classPathIndex >= 0 {
+			used[classPathIndex] = true
+		}
+		if method.pathIndex >= 0 {
+			used[method.pathIndex] = true
+		}
+		if len(method.httpIndexes) > 0 {
+			result.produced = true
+		}
+	}
+
+	for classIndex := range classes {
+		class := &classes[classIndex]
+		if !class.pathValid || class.pathIndex < 0 {
+			continue
+		}
+		if used[class.pathIndex] {
+			continue
+		}
+		classHasEndpoint := false
+		for _, method := range methods {
+			if method.classIndex == classIndex && (method.pathValid || len(method.httpIndexes) > 0) {
+				classHasEndpoint = true
+				break
+			}
+		}
+		if classHasEndpoint {
+			continue
+		}
+		used[class.pathIndex] = true
+		result.observations = append(result.observations, endpointObservation(class.path, "", annotations[class.pathIndex].startLine, class.line))
+		result.produced = true
+	}
+
+	for index, annotation := range annotations {
+		if !strings.EqualFold(lastQualifiedName(annotation.name), "Path") && annotation.httpMethod == "" {
+			continue
+		}
+		if !used[index] {
+			result.unresolved = true
+		}
+	}
+	if result.firstLine == 0 && result.unresolved {
+		result.firstLine = 1
+	}
+	return result
+}
+
+func endpointObservation(path, httpMethod string, startLine, endLine int) observation {
+	method := "endpoint:" + path
+	if httpMethod != "" {
+		method += ":" + httpMethod
+	}
+	method += ":" + fmt.Sprint(startLine) + ":" + fmt.Sprint(endLine)
+	value := map[string]any{"path": path}
+	if httpMethod != "" {
+		value["http_method"] = httpMethod
+	}
+	return observation{
+		Method:  method,
+		Type:    "java.endpoint",
+		Line:    startLine,
+		EndLine: endLine,
+		Value:   value,
+	}
+}
+
+func scanEndpointAnnotations(content, masked string, lineStarts []int) []endpointAnnotation {
+	matches := endpointAnnotationRE.FindAllStringSubmatchIndex(masked, -1)
+	annotations := make([]endpointAnnotation, 0, len(matches))
+	for _, match := range matches {
+		name := masked[match[2]:match[3]]
+		annotation := endpointAnnotation{
+			name:      name,
+			start:     match[0],
+			end:       match[1],
+			startLine: sourceLineAt(lineStarts, match[0]),
+			endLine:   sourceLineAt(lineStarts, match[1]-1),
+		}
+		cursor := match[1]
+		for cursor < len(masked) && isJavaSpace(masked[cursor]) {
+			cursor++
+		}
+		if cursor < len(masked) && masked[cursor] == '(' {
+			if close := closingParenthesis(masked, cursor); close >= 0 {
+				annotation.end = close + 1
+				annotation.endLine = sourceLineAt(lineStarts, close)
+				if strings.EqualFold(lastQualifiedName(name), "Path") {
+					literal, valid := endpointAnnotationLiteral(content[cursor+1 : close])
+					annotation.path = joinEndpointPaths(literal)
+					annotation.pathValid = valid
+				}
+			}
+		} else if strings.EqualFold(lastQualifiedName(name), "Path") {
+			annotation.pathValid = false
+		}
+		if httpMethod := endpointHTTPMethod(name); httpMethod != "" {
+			annotation.httpMethod = httpMethod
+		}
+		annotations = append(annotations, annotation)
+	}
+	return annotations
+}
+
+func scanEndpointClasses(masked string, lines []string, lineStarts []int, braces map[int]int, annotations []endpointAnnotation) []endpointClass {
+	classes := make([]endpointClass, 0)
+	for lineIndex, line := range lines {
+		matches := typeRE.FindAllStringSubmatchIndex(line, -1)
+		for _, match := range matches {
+			name := line[match[4]:match[5]]
+			start := lineStarts[lineIndex] + match[0]
+			bodyOpen := findDeclarationBrace(masked, start, match[1]+lineStarts[lineIndex])
+			bodyClose := len(masked)
+			if close, ok := braces[bodyOpen]; ok {
+				bodyClose = close
+			}
+			class := endpointClass{
+				name:      name,
+				start:     start,
+				bodyOpen:  bodyOpen,
+				bodyClose: bodyClose,
+				line:      lineIndex + 1,
+				pathIndex: -1,
+			}
+			if pathIndex, path, valid := attachedPathAnnotation(annotations, start, lineIndex+1, masked); pathIndex >= 0 {
+				class.pathIndex = pathIndex
+				class.path = path
+				class.pathValid = valid
+			}
+			classes = append(classes, class)
+		}
+	}
+	return classes
+}
+
+func scanEndpointMethods(masked string, lines []string, lineStarts []int, classes []endpointClass, annotations []endpointAnnotation) []endpointMethod {
+	methods := make([]endpointMethod, 0)
+	for lineIndex, line := range lines {
+		matches := endpointMethodRE.FindAllStringSubmatchIndex(line, -1)
+		for _, match := range matches {
+			name := line[match[2]:match[3]]
+			if isControlName(name) {
+				continue
+			}
+			start := lineStarts[lineIndex] + match[0]
+			classIndex := containingEndpointClass(classes, start)
+			method := endpointMethod{
+				start:       start,
+				line:        lineIndex + 1,
+				classIndex:  classIndex,
+				httpIndexes: make([]int, 0),
+				pathIndex:   -1,
+			}
+			for index, annotation := range annotations {
+				if annotation.end > start || annotation.start < endpointClassBodyStart(classes, classIndex) {
+					continue
+				}
+				if !endpointAnnotationNear(annotation, lineIndex+1, lines) {
+					continue
+				}
+				if annotation.httpMethod != "" {
+					method.httpIndexes = append(method.httpIndexes, index)
+				}
+				if annotation.pathValid && strings.EqualFold(lastQualifiedName(annotation.name), "Path") {
+					if method.pathIndex < 0 || annotations[method.pathIndex].end < annotation.end {
+						method.pathIndex = index
+						method.path = annotation.path
+						method.pathValid = true
+					}
+				}
+			}
+			sort.Slice(method.httpIndexes, func(i, j int) bool {
+				return annotations[method.httpIndexes[i]].start < annotations[method.httpIndexes[j]].start
+			})
+			methods = append(methods, method)
+		}
+	}
+	return methods
+}
+
+func attachedPathAnnotation(annotations []endpointAnnotation, declarationStart, declarationLine int, masked string) (int, string, bool) {
+	for index := len(annotations) - 1; index >= 0; index-- {
+		annotation := annotations[index]
+		if !strings.EqualFold(lastQualifiedName(annotation.name), "Path") || annotation.end > declarationStart {
+			continue
+		}
+		if !endpointAnnotationNear(annotation, declarationLine, strings.Split(masked, "\n")) {
+			continue
+		}
+		return index, annotation.path, annotation.pathValid
+	}
+	return -1, "", false
+}
+
+func endpointAnnotationNear(annotation endpointAnnotation, declarationLine int, lines []string) bool {
+	if declarationLine < annotation.endLine || declarationLine-annotation.endLine > 8 {
+		return false
+	}
+	for line := annotation.endLine + 1; line < declarationLine; line++ {
+		lineIndex := line - 1
+		if lineIndex < 0 || lineIndex >= len(lines) {
+			return false
+		}
+		trimmed := strings.TrimSpace(lines[lineIndex])
+		if trimmed == "" || strings.HasPrefix(trimmed, "@") || endpointModifierLine(trimmed) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func endpointModifierLine(line string) bool {
+	for _, field := range strings.Fields(line) {
+		switch field {
+		case "public", "protected", "private", "static", "final", "abstract", "synchronized", "native", "strictfp", "default":
+		default:
+			return false
+		}
+	}
+	return line != ""
+}
+
+func endpointClassBodyStart(classes []endpointClass, index int) int {
+	if index < 0 || index >= len(classes) {
+		return 0
+	}
+	return classes[index].bodyOpen
+}
+
+func containingEndpointClass(classes []endpointClass, offset int) int {
+	best := -1
+	for index, class := range classes {
+		if offset <= class.bodyOpen || offset >= class.bodyClose {
+			continue
+		}
+		if best < 0 || classes[best].bodyOpen < class.bodyOpen {
+			best = index
+		}
+	}
+	return best
+}
+
+func findDeclarationBrace(masked string, start, after int) int {
+	if after < start {
+		after = start
+	}
+	limit := after + 4096
+	if limit > len(masked) {
+		limit = len(masked)
+	}
+	for index := after; index < limit; index++ {
+		switch masked[index] {
+		case '{':
+			return index
+		case ';':
+			return -1
+		}
+	}
+	return -1
+}
+
+func matchingBraces(masked string) map[int]int {
+	opening := make([]int, 0)
+	matching := make(map[int]int)
+	for index := 0; index < len(masked); index++ {
+		switch masked[index] {
+		case '{':
+			opening = append(opening, index)
+		case '}':
+			if len(opening) == 0 {
+				continue
+			}
+			open := opening[len(opening)-1]
+			opening = opening[:len(opening)-1]
+			matching[open] = index
+		}
+	}
+	return matching
+}
+
+func maskJavaSource(content string) string {
+	masked := []byte(content)
+	blockComment := false
+	for index := 0; index < len(content); {
+		if blockComment {
+			if index+1 < len(content) && content[index] == '*' && content[index+1] == '/' {
+				masked[index], masked[index+1] = ' ', ' '
+				index += 2
+				blockComment = false
+				continue
+			}
+			if content[index] != '\n' {
+				masked[index] = ' '
+			}
+			index++
+			continue
+		}
+		if index+1 < len(content) && content[index] == '/' && content[index+1] == '/' {
+			masked[index], masked[index+1] = ' ', ' '
+			index += 2
+			for index < len(content) && content[index] != '\n' {
+				masked[index] = ' '
+				index++
+			}
+			continue
+		}
+		if index+1 < len(content) && content[index] == '/' && content[index+1] == '*' {
+			masked[index], masked[index+1] = ' ', ' '
+			index += 2
+			blockComment = true
+			continue
+		}
+		if content[index] == '"' || content[index] == '\'' {
+			quote := content[index]
+			if quote == '"' && index+2 < len(content) && content[index:index+3] == "\"\"\"" {
+				masked[index], masked[index+1], masked[index+2] = ' ', ' ', ' '
+				index += 3
+				for index < len(content) {
+					if index+2 < len(content) && content[index:index+3] == "\"\"\"" {
+						masked[index], masked[index+1], masked[index+2] = ' ', ' ', ' '
+						index += 3
+						break
+					}
+					if content[index] != '\n' {
+						masked[index] = ' '
+					}
+					index++
+				}
+				continue
+			}
+			masked[index] = ' '
+			index++
+			for index < len(content) {
+				if content[index] == '\n' {
+					break
+				}
+				if content[index] == '\\' {
+					masked[index] = ' '
+					index++
+					if index < len(content) && content[index] != '\n' {
+						masked[index] = ' '
+						index++
+					}
+					continue
+				}
+				masked[index] = ' '
+				if content[index] == quote {
+					index++
+					break
+				}
+				index++
+			}
+			continue
+		}
+		index++
+	}
+	return string(masked)
+}
+
+func endpointAnnotationLiteral(argument string) (string, bool) {
+	var literals []string
+	var code strings.Builder
+	for index := 0; index < len(argument); {
+		if index+1 < len(argument) && argument[index] == '/' && argument[index+1] == '/' {
+			index += 2
+			for index < len(argument) && argument[index] != '\n' {
+				index++
+			}
+			continue
+		}
+		if index+1 < len(argument) && argument[index] == '/' && argument[index+1] == '*' {
+			index += 2
+			for index+1 < len(argument) && !(argument[index] == '*' && argument[index+1] == '/') {
+				index++
+			}
+			if index+1 < len(argument) {
+				index += 2
+			}
+			continue
+		}
+		if argument[index] == '"' {
+			if index+2 < len(argument) && argument[index:index+3] == "\"\"\"" {
+				return "", false
+			}
+			index++
+			var literal strings.Builder
+			closed := false
+			for index < len(argument) {
+				if argument[index] == '\n' || argument[index] == '\r' {
+					return "", false
+				}
+				if argument[index] == '\\' && index+1 < len(argument) {
+					literal.WriteByte(argument[index])
+					literal.WriteByte(argument[index+1])
+					index += 2
+					continue
+				}
+				if argument[index] == '"' {
+					index++
+					closed = true
+					break
+				}
+				literal.WriteByte(argument[index])
+				index++
+			}
+			if !closed {
+				return "", false
+			}
+			literals = append(literals, literal.String())
+			continue
+		}
+		code.WriteByte(argument[index])
+		index++
+	}
+	if len(literals) != 1 || strings.ContainsAny(literals[0], "\r\n") {
+		return "", false
+	}
+	trimmed := strings.TrimSpace(code.String())
+	if trimmed != "" {
+		if !strings.HasPrefix(trimmed, "value") {
+			return "", false
+		}
+		remainder := strings.TrimSpace(strings.TrimPrefix(trimmed, "value"))
+		if !strings.HasPrefix(remainder, "=") || strings.TrimSpace(strings.TrimPrefix(remainder, "=")) != "" {
+			return "", false
+		}
+	}
+	if literals[0] == "" {
+		return "/", true
+	}
+	return joinEndpointPaths(literals[0]), true
+}
+
+func joinEndpointPaths(paths ...string) string {
+	joined := ""
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+		if joined == "" {
+			joined = path
+			continue
+		}
+		joined = strings.TrimRight(joined, "/") + "/" + strings.TrimLeft(path, "/")
+	}
+	if joined == "" {
+		return ""
+	}
+	if !strings.HasPrefix(joined, "/") {
+		joined = "/" + joined
+	}
+	for strings.Contains(joined, "//") {
+		joined = strings.ReplaceAll(joined, "//", "/")
+	}
+	return joined
+}
+
+func endpointHTTPMethod(name string) string {
+	switch strings.ToUpper(lastQualifiedName(name)) {
+	case "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD":
+		return strings.ToUpper(lastQualifiedName(name))
+	default:
+		return ""
+	}
+}
+
+func lastQualifiedName(name string) string {
+	if index := strings.LastIndexByte(name, '.'); index >= 0 {
+		return name[index+1:]
+	}
+	return name
+}
+
+func sourceLineStarts(content string) []int {
+	starts := []int{0}
+	for index := 0; index < len(content); index++ {
+		if content[index] == '\n' && index+1 < len(content) {
+			starts = append(starts, index+1)
+		}
+	}
+	return starts
+}
+
+func sourceLineAt(starts []int, offset int) int {
+	if offset < 0 {
+		return 1
+	}
+	index := sort.Search(len(starts), func(index int) bool { return starts[index] > offset })
+	if index == 0 {
+		return 1
+	}
+	return index
+}
+
+func closingParenthesis(masked string, open int) int {
+	depth := 0
+	for index := open; index < len(masked); index++ {
+		switch masked[index] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				return index
+			}
+		}
+	}
+	return -1
+}
+
+func isJavaSpace(value byte) bool {
+	switch value {
+	case ' ', '\t', '\n', '\r', '\f':
+		return true
+	default:
+		return false
+	}
+}
+
+func firstEndpointLine(annotations []endpointAnnotation) int {
+	first := 0
+	for _, annotation := range annotations {
+		if !strings.EqualFold(lastQualifiedName(annotation.name), "Path") && annotation.httpMethod == "" {
+			continue
+		}
+		if first == 0 || annotation.startLine < first {
+			first = annotation.startLine
+		}
+	}
+	return first
+}
+
+func minInt(left, right int) int {
+	if left < right {
+		return left
+	}
+	return right
 }
 
 func addCoverage(coverage *[]contract.Coverage, seen map[string]bool, dimension contract.Dimension, state contract.CoverageState, message string, line int) {
