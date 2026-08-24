@@ -43,6 +43,41 @@ var typeElements = map[string]bool{
 	"messageprocessor": true,
 }
 
+var endpointElements = map[string]bool{
+	"api":             true,
+	"proxy":           true,
+	"proxyservice":    true,
+	"endpoint":        true,
+	"inboundendpoint": true,
+	"address":         true,
+	"http":            true,
+}
+
+var messageElements = map[string]bool{
+	"payloadfactory": true,
+	"message":        true,
+	"publishevent":   true,
+}
+
+var configurationElements = map[string]bool{
+	"property":  true,
+	"parameter": true,
+	"param":     true,
+}
+
+const (
+	endpointContributionType       = "wso2.endpoint"
+	messageContributionType        = "wso2.message"
+	configurationContributionType  = "wso2.configuration"
+	dynamicEndpointGapCode         = "dynamic_endpoint"
+	redactedEndpointGapCode        = "redacted_endpoint"
+	dynamicMessageGapCode          = "dynamic_message"
+	redactedMessageGapCode         = "redacted_message"
+	dynamicConfigurationGapCode    = "dynamic_configuration"
+	redactedConfigurationGapCode   = "redacted_configuration"
+	missingConfigurationKeyGapCode = "configuration_key_missing"
+)
+
 // Analyzer handles standalone XML and CAR package artifacts.
 type Analyzer struct{}
 
@@ -149,6 +184,7 @@ func (a *Analyzer) parseXML(ctx context.Context, input analysis.ArtifactInput, m
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	stack := make([]string, 0, 8)
 	seenCoverage := make(map[string]bool)
+	descriptor := a.Descriptor()
 	for {
 		if err := ctx.Err(); err != nil {
 			return output, err
@@ -166,27 +202,25 @@ func (a *Analyzer) parseXML(ctx context.Context, input analysis.ArtifactInput, m
 			pathName := strings.Join(stack, "/")
 			local := strings.ToLower(value.Name.Local)
 			if typeElements[local] {
-				contribution, contributionErr := analysis.NewContribution(
-					input,
-					a.Descriptor(),
-					methodFor(member, "type", pathName, decoder.InputOffset()),
-					"wso2.type",
-					locator(input, member, decoder.InputOffset()),
-					map[string]any{"name": value.Name.Local, "path": pathName, "member": member},
-				)
-				if contributionErr != nil {
-					return output, contributionErr
-				}
-				output.Contributions = append(output.Contributions, contribution)
-				if input.Evidence.Enabled {
-					output.Evidence = append(output.Evidence, analysis.EvidenceDraft{
-						ContributionID: contribution.ID,
-						Locator:        contribution.Locator,
-						Content:        "element " + value.Name.Local,
-						OriginalHash:   input.Artifact.Hash,
-					})
+				if err := appendTypeObservation(&output, input, descriptor, value, pathName, member, decoder.InputOffset()); err != nil {
+					return output, err
 				}
 				addCoverage(&output, seenCoverage, coverage(input, "member:"+member, contract.CoverageProduced, "declarative WSO2 type observed", member))
+			}
+			if endpointElements[local] {
+				if err := appendEndpointObservation(&output, seenCoverage, input, descriptor, value, pathName, member, decoder.InputOffset()); err != nil {
+					return output, err
+				}
+			}
+			if messageElements[local] {
+				if err := appendMessageObservation(&output, seenCoverage, input, descriptor, value, pathName, member, decoder.InputOffset()); err != nil {
+					return output, err
+				}
+			}
+			if configurationElements[local] {
+				if err := appendConfigurationObservation(&output, seenCoverage, input, descriptor, value, pathName, member, decoder.InputOffset()); err != nil {
+					return output, err
+				}
 			}
 			for _, attribute := range value.Attr {
 				attributeName := strings.ToLower(attribute.Name.Local)
@@ -266,7 +300,16 @@ func (a *Analyzer) parseXML(ctx context.Context, input analysis.ArtifactInput, m
 				continue
 			}
 			literal := strings.TrimSpace(string(value))
-			if literal == "" || !isImportElement(strings.ToLower(stack[len(stack)-1])) {
+			if literal == "" {
+				continue
+			}
+			local := strings.ToLower(stack[len(stack)-1])
+			if (local == "address" || local == "http") && !isImportElement(local) {
+				if err := appendEndpointTextObservation(&output, seenCoverage, input, descriptor, stack, member, decoder.InputOffset(), literal); err != nil {
+					return output, err
+				}
+			}
+			if !isImportElement(local) {
 				continue
 			}
 			if dynamicExpression(literal) {
@@ -308,6 +351,393 @@ func (a *Analyzer) parseXML(ctx context.Context, input analysis.ArtifactInput, m
 			}
 		}
 	}
+}
+
+type literalAttribute struct {
+	value    string
+	name     string
+	found    bool
+	dynamic  bool
+	redacted bool
+}
+
+func appendTypeObservation(
+	output *analysis.Output,
+	input analysis.ArtifactInput,
+	descriptor analysis.Descriptor,
+	element xml.StartElement,
+	pathName, member string,
+	offset int64,
+) error {
+	identity := declaredIdentity(element)
+	name := element.Name.Local
+	nameSource := "local_name"
+	if identity.value != "" {
+		name = identity.value
+		nameSource = "declared_" + identity.name
+	}
+	payload := map[string]any{
+		"kind":        element.Name.Local,
+		"name":        name,
+		"name_source": nameSource,
+		"path":        pathName,
+		"member":      member,
+	}
+	return appendObservation(
+		output,
+		input,
+		descriptor,
+		methodFor(member, "type", pathName, offset),
+		"wso2.type",
+		locator(input, member, offset),
+		payload,
+		"element "+element.Name.Local,
+		input.Artifact.Hash,
+	)
+}
+
+func appendEndpointObservation(
+	output *analysis.Output,
+	seenCoverage map[string]bool,
+	input analysis.ArtifactInput,
+	descriptor analysis.Descriptor,
+	element xml.StartElement,
+	pathName, member string,
+	offset int64,
+) error {
+	identity := declaredIdentity(element)
+	pathValue := findLiteralAttribute(element, "path")
+	contextValue := findLiteralAttribute(element, "context")
+	uriValue := findLiteralAttribute(element, "uri", "url", "address", "serviceurl", "location")
+
+	redacted := redactedPlaceholder(identity) || redactedPlaceholder(pathValue) || redactedPlaceholder(contextValue) || redactedPlaceholder(uriValue)
+	dynamic := identity.dynamic || pathValue.dynamic || contextValue.dynamic || uriValue.dynamic
+	if redactedPlaceholder(pathValue) {
+		pathValue.value = ""
+	}
+	if redactedPlaceholder(contextValue) {
+		contextValue.value = ""
+	}
+	if redactedPlaceholder(uriValue) {
+		uriValue.value = ""
+	}
+	if redactedPlaceholder(identity) {
+		identity.value = ""
+	}
+
+	sustained := identity.value != "" || pathValue.value != "" || contextValue.value != "" || uriValue.value != ""
+	if dynamic {
+		addGap(output, gapAt(input, dynamicEndpointGapCode, string(contract.DimensionEntitiesAndRelationships), "endpoint identity, path, or URI is dynamic and was not resolved", member, offset))
+	}
+	if redacted {
+		addGap(output, gapAt(input, redactedEndpointGapCode, string(contract.DimensionEntitiesAndRelationships), "endpoint identity, path, or URI was redacted and was not used as an endpoint fact", member, offset))
+	}
+	if !sustained {
+		addCoverage(output, seenCoverage, coverageForDimension(input, "member:"+member, contract.DimensionEntitiesAndRelationships, contract.CoverageIncomplete, "endpoint extraction requires a safe literal identity, path, or URI", member))
+		return nil
+	}
+
+	payload := map[string]any{
+		"kind":     element.Name.Local,
+		"member":   member,
+		"xml_path": pathName,
+	}
+	if identity.value != "" {
+		payload["name"] = identity.value
+	}
+	if pathValue.value != "" {
+		payload["path"] = pathValue.value
+	}
+	if contextValue.value != "" {
+		payload["context"] = contextValue.value
+	}
+	if uriValue.value != "" {
+		payload["uri"] = uriValue.value
+	}
+	if redacted {
+		payload["redacted"] = true
+	}
+	if err := appendObservation(
+		output,
+		input,
+		descriptor,
+		methodFor(member, "endpoint", pathName, offset),
+		endpointContributionType,
+		locator(input, member, offset),
+		payload,
+		"endpoint "+element.Name.Local,
+		input.Artifact.Hash,
+	); err != nil {
+		return err
+	}
+	state := contract.CoverageProduced
+	message := "literal WSO2 endpoint identity, path, or URI observed"
+	if dynamic || redacted {
+		state = contract.CoverageIncomplete
+		message = "WSO2 endpoint metadata was partially dynamic or redacted"
+	}
+	addCoverage(output, seenCoverage, coverageForDimension(input, "member:"+member, contract.DimensionEntitiesAndRelationships, state, message, member))
+	return nil
+}
+
+func appendMessageObservation(
+	output *analysis.Output,
+	seenCoverage map[string]bool,
+	input analysis.ArtifactInput,
+	descriptor analysis.Descriptor,
+	element xml.StartElement,
+	pathName, member string,
+	offset int64,
+) error {
+	identity := findLiteralAttribute(element, "name", "id", "key", "streamname", "stream", "eventstream", "topic")
+	media := findLiteralAttribute(element, "media-type", "mediatype", "media_type")
+	contentType := findLiteralAttribute(element, "content-type", "contenttype", "content_type", "type")
+	dynamic := identity.dynamic || media.dynamic || contentType.dynamic
+
+	if dynamic {
+		addGap(output, gapAt(input, dynamicMessageGapCode, string(contract.DimensionFlowsAndDependencies), "message construction metadata is dynamic and was not resolved", member, offset))
+	}
+	if redactedPlaceholder(identity) || redactedPlaceholder(media) || redactedPlaceholder(contentType) {
+		addGap(output, gapAt(input, redactedMessageGapCode, string(contract.DimensionFlowsAndDependencies), "message construction metadata was redacted and was not retained", member, offset))
+	}
+
+	payload := map[string]any{
+		"kind":     element.Name.Local,
+		"member":   member,
+		"path":     pathName,
+		"xml_path": pathName,
+	}
+	if identity.value != "" {
+		payload["name"] = identity.value
+	}
+	if media.value != "" && media.value != "[redacted]" {
+		payload["media_type"] = media.value
+	}
+	if contentType.value != "" && contentType.value != "[redacted]" {
+		payload["content_type"] = contentType.value
+	}
+	if redactedPlaceholder(identity) || redactedPlaceholder(media) || redactedPlaceholder(contentType) {
+		payload["redacted"] = true
+	}
+	if err := appendObservation(
+		output,
+		input,
+		descriptor,
+		methodFor(member, "message", pathName, offset),
+		messageContributionType,
+		locator(input, member, offset),
+		payload,
+		"message "+element.Name.Local,
+		input.Artifact.Hash,
+	); err != nil {
+		return err
+	}
+	state := contract.CoverageProduced
+	message := "declarative WSO2 message construction observed"
+	if dynamic || redactedPlaceholder(identity) || redactedPlaceholder(media) || redactedPlaceholder(contentType) {
+		state = contract.CoverageIncomplete
+		message = "WSO2 message metadata was partially dynamic or redacted"
+	}
+	addCoverage(output, seenCoverage, coverageForDimension(input, "member:"+member, contract.DimensionFlowsAndDependencies, state, message, member))
+	return nil
+}
+
+func appendEndpointTextObservation(
+	output *analysis.Output,
+	seenCoverage map[string]bool,
+	input analysis.ArtifactInput,
+	descriptor analysis.Descriptor,
+	stack []string,
+	member string,
+	offset int64,
+	literal string,
+) error {
+	if dynamicExpression(literal) {
+		addGap(output, gapAt(input, dynamicEndpointGapCode, string(contract.DimensionEntitiesAndRelationships), "endpoint URI is dynamic and was not resolved", member, offset))
+		addCoverage(output, seenCoverage, coverageForDimension(input, "member:"+member, contract.DimensionEntitiesAndRelationships, contract.CoverageIncomplete, "endpoint extraction requires a safe literal URI", member))
+		return nil
+	}
+	parsed, err := url.Parse(literal)
+	if err != nil || (parsed.Scheme == "" && !strings.HasPrefix(literal, "/")) {
+		return nil
+	}
+	uri, sanitized := sanitizeLiteral(literal)
+	if uri == "" || uri == "[redacted]" {
+		addGap(output, gapAt(input, redactedEndpointGapCode, string(contract.DimensionEntitiesAndRelationships), "endpoint URI was redacted and was not used as an endpoint fact", member, offset))
+		addCoverage(output, seenCoverage, coverageForDimension(input, "member:"+member, contract.DimensionEntitiesAndRelationships, contract.CoverageIncomplete, "endpoint extraction requires a safe literal URI", member))
+		return nil
+	}
+	pathName := strings.Join(stack, "/")
+	payload := map[string]any{
+		"kind":     stack[len(stack)-1],
+		"member":   member,
+		"uri":      uri,
+		"xml_path": pathName,
+	}
+	if err := appendObservation(
+		output,
+		input,
+		descriptor,
+		methodFor(member, "endpoint", pathName, offset),
+		endpointContributionType,
+		locator(input, member, offset),
+		payload,
+		"endpoint "+stack[len(stack)-1],
+		input.Artifact.Hash,
+	); err != nil {
+		return err
+	}
+	state := contract.CoverageProduced
+	message := "literal WSO2 endpoint URI observed"
+	if sanitized {
+		// The retained URI is already sanitized. The contribution remains
+		// usable because no redaction placeholder is published.
+		message = "sanitized literal WSO2 endpoint URI observed"
+	}
+	addCoverage(output, seenCoverage, coverageForDimension(input, "member:"+member, contract.DimensionEntitiesAndRelationships, state, message, member))
+	return nil
+}
+
+func appendConfigurationObservation(
+	output *analysis.Output,
+	seenCoverage map[string]bool,
+	input analysis.ArtifactInput,
+	descriptor analysis.Descriptor,
+	element xml.StartElement,
+	pathName, member string,
+	offset int64,
+) error {
+	key := findLiteralAttribute(element, "name", "key")
+	value := findLiteralAttribute(element, "value", "expression", "default", "value-ref", "valueref")
+	if !key.found || (key.value == "" && !key.dynamic && !redactedPlaceholder(key)) {
+		addGap(output, gapAt(input, missingConfigurationKeyGapCode, string(contract.DimensionConfigurationVariations), "configuration element has no literal name or key", member, offset))
+		addCoverage(output, seenCoverage, coverageForDimension(input, "member:"+member, contract.DimensionConfigurationVariations, contract.CoverageIncomplete, "configuration extraction requires a literal name or key", member))
+		return nil
+	}
+	if key.dynamic || value.dynamic {
+		addGap(output, gapAt(input, dynamicConfigurationGapCode, string(contract.DimensionConfigurationVariations), "configuration key or value is dynamic and was not resolved", member, offset))
+	}
+	if redactedPlaceholder(key) || redactedPlaceholder(value) {
+		addGap(output, gapAt(input, redactedConfigurationGapCode, string(contract.DimensionConfigurationVariations), "configuration key or value was redacted and was not retained", member, offset))
+	}
+	if key.value == "" || redactedPlaceholder(key) {
+		addCoverage(output, seenCoverage, coverageForDimension(input, "member:"+member, contract.DimensionConfigurationVariations, contract.CoverageIncomplete, "configuration key was not safe to retain", member))
+		return nil
+	}
+
+	payload := map[string]any{
+		"kind":   element.Name.Local,
+		"key":    key.value,
+		"member": member,
+		"path":   pathName,
+	}
+	if err := appendObservation(
+		output,
+		input,
+		descriptor,
+		methodFor(member, "configuration", pathName, offset),
+		configurationContributionType,
+		locator(input, member, offset),
+		payload,
+		"configuration "+element.Name.Local,
+		input.Artifact.Hash,
+	); err != nil {
+		return err
+	}
+	state := contract.CoverageProduced
+	message := "literal WSO2 configuration key observed"
+	if key.dynamic || redactedPlaceholder(key) || value.dynamic || redactedPlaceholder(value) {
+		state = contract.CoverageIncomplete
+		message = "WSO2 configuration key observed without resolving dynamic or sensitive value"
+	}
+	addCoverage(output, seenCoverage, coverageForDimension(input, "member:"+member, contract.DimensionConfigurationVariations, state, message, member))
+	return nil
+}
+
+func appendObservation(
+	output *analysis.Output,
+	input analysis.ArtifactInput,
+	descriptor analysis.Descriptor,
+	method, typ string,
+	loc contract.Locator,
+	payload map[string]any,
+	evidenceText, originalHash string,
+) error {
+	contribution, err := analysis.NewContribution(input, descriptor, method, typ, loc, payload)
+	if err != nil {
+		return err
+	}
+	output.Contributions = append(output.Contributions, contribution)
+	if input.Evidence.Enabled {
+		if originalHash == "" {
+			originalHash = input.Artifact.Hash
+		}
+		output.Evidence = append(output.Evidence, analysis.EvidenceDraft{
+			ContributionID: contribution.ID,
+			Locator:        contribution.Locator,
+			Content:        evidenceText,
+			OriginalHash:   originalHash,
+		})
+	}
+	return nil
+}
+
+func declaredIdentity(element xml.StartElement) literalAttribute {
+	return findLiteralAttribute(element, "name", "id", "key")
+}
+
+func findLiteralAttribute(element xml.StartElement, names ...string) literalAttribute {
+	var observed literalAttribute
+	for _, wanted := range names {
+		for _, attribute := range element.Attr {
+			if strings.ToLower(attribute.Name.Local) != wanted {
+				continue
+			}
+			value := strings.TrimSpace(attribute.Value)
+			result := literalAttribute{name: wanted, found: true}
+			if value == "" {
+				observed.found = true
+				continue
+			}
+			if dynamicExpression(value) {
+				observed.found = true
+				observed.dynamic = true
+				continue
+			}
+			sanitized, redacted := sanitizeLiteral(value)
+			if sanitized == "[redacted]" {
+				observed.found = true
+				observed.redacted = true
+				continue
+			}
+			result.value = sanitized
+			result.redacted = redacted
+			result.dynamic = observed.dynamic
+			result.redacted = result.redacted || observed.redacted
+			return result
+		}
+	}
+	return observed
+}
+
+func redactedPlaceholder(value literalAttribute) bool {
+	return value.value == "[redacted]" || (value.redacted && value.value == "")
+}
+
+func addGap(output *analysis.Output, value contract.Gap) {
+	for _, existing := range output.Gaps {
+		if existing.Code == value.Code && sameLocator(existing.Locator, value.Locator) {
+			return
+		}
+	}
+	output.Gaps = append(output.Gaps, value)
+}
+
+func sameLocator(left, right *contract.Locator) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return *left == *right
 }
 
 func appendOutput(left, right analysis.Output) analysis.Output {
@@ -361,7 +791,7 @@ func isImportElement(name string) bool {
 
 func dynamicExpression(value string) bool {
 	value = strings.TrimSpace(value)
-	return strings.Contains(value, "${") || strings.Contains(value, "{{") || strings.Contains(value, "$ctx") || strings.Contains(value, "get-property") || strings.Contains(value, "xpath(") || strings.Contains(value, "synapse")
+	return strings.Contains(value, "${") || strings.Contains(value, "{{") || strings.Contains(value, "$ctx") || strings.Contains(value, "get-property") || strings.Contains(value, "xpath(") || strings.Contains(value, "synapse(") || strings.Contains(value, "synapse:")
 }
 
 func sanitizeLiteral(value string) (string, bool) {
@@ -420,8 +850,12 @@ func locator(input analysis.ArtifactInput, member string, offset int64) contract
 }
 
 func coverage(input analysis.ArtifactInput, scope string, state contract.CoverageState, message, member string) contract.Coverage {
+	return coverageForDimension(input, scope, contract.DimensionEntitiesAndRelationships, state, message, member)
+}
+
+func coverageForDimension(input analysis.ArtifactInput, scope string, dimension contract.Dimension, state contract.CoverageState, message, member string) contract.Coverage {
 	return contract.Coverage{
-		Dimension: string(contract.DimensionEntitiesAndRelationships),
+		Dimension: string(dimension),
 		Scope:     scope,
 		State:     state,
 		Message:   message,

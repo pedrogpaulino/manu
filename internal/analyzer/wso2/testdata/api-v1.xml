@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api name="OrdersAPI" context="/orders" include="synapse/shared-v1.xml">
+  <resource methods="GET" uri-template="/{id}" inSequence="orders-sequence"/>
+  <endpoint name="ordersEndpoint">
+    <address uri="https://user:pass@api.example.test/orders?tenant=fixture#fragment"/>
+  </endpoint>
+  <payloadFactory media-type="json">
+    <format>{&quot;id&quot;:&quot;$1&quot;}</format>
+  </payloadFactory>
+  <property name="orders.timeout" value="30"/>
+  <property name="orders.secret" value="secret-value"/>
+</api>

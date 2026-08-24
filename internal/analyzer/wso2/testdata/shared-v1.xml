@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sequence name="sharedSequence" import="synapse/api-v1.xml">
+  <message type="json"/>
+  <publishEvent streamName="orders"/>
+  <parameter name="runtime.url" value="${ctx.runtime.url}"/>
+</sequence>
