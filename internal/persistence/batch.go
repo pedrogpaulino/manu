@@ -13,6 +13,7 @@ import (
 	"github.com/pedrogpaulino/manu/internal/bundle"
 	"github.com/pedrogpaulino/manu/internal/contract"
 	"github.com/pedrogpaulino/manu/internal/evidence"
+	"github.com/pedrogpaulino/manu/internal/fact"
 	"github.com/pedrogpaulino/manu/internal/identity"
 	"github.com/pedrogpaulino/manu/internal/ingestion"
 )
@@ -32,6 +33,11 @@ type BundlePersistenceResult struct {
 	CoverageIDs    map[string]string
 	GapIDs         map[string]string
 	FailureIDs     map[string]string
+	// FrontendManifestIDs and CanonicalFactIDs are populated for v1alpha2
+	// bundles. They are additive to the legacy result and keyed by external
+	// identities from the factual sequences.
+	FrontendManifestIDs map[string]string
+	CanonicalFactIDs    map[string]string
 	// FactualIdentityIDs retains the external-ID key spelling used by the
 	// original batch API. StableFactualIdentityIDs is the canonical comparison
 	// key spelling used by localized updates. Both values point to
@@ -52,6 +58,7 @@ type preparedBundle struct {
 	gapIDs            map[string]string
 	failureIDs        map[string]string
 	factualIdentities []preparedFactualIdentity
+	factual           *PreparedFactualSnapshot
 	capturedAt        time.Time
 }
 
@@ -255,6 +262,26 @@ func prepareBundle(input bundle.Bundle) (preparedBundle, error) {
 		}
 	}
 
+	var factual *PreparedFactualSnapshot
+	if input.Manifest.Version == bundle.VersionV1Alpha2 {
+		prepared, err := prepareFactualSnapshot(FactualSnapshotInput{
+			OrganizationID: organizationCanonicalID(input),
+			SourceID:       sourceCanonicalID(input),
+			SnapshotID:     snapshotCanonicalID(input),
+			Scope: fact.Scope{
+				OrganizationID: input.Manifest.Organization.ID,
+				SourceID:       input.Manifest.Source.ID,
+				SnapshotID:     input.Manifest.Snapshot.ID,
+			},
+			FrontendManifests: input.FrontendManifests,
+			Facts:             input.Facts,
+		})
+		if err != nil {
+			return preparedBundle{}, err
+		}
+		factual = &prepared
+	}
+
 	return preparedBundle{
 		input:             input,
 		organizationID:    organizationCanonicalID(input),
@@ -267,6 +294,7 @@ func prepareBundle(input bundle.Bundle) (preparedBundle, error) {
 		gapIDs:            gapIDs,
 		failureIDs:        failureIDs,
 		factualIdentities: identities,
+		factual:           factual,
 		capturedAt:        batchCapturedAt(input),
 	}, nil
 }
@@ -308,7 +336,7 @@ func normalizeBatchBundle(input bundle.Bundle) bundle.Bundle {
 }
 
 func (p preparedBundle) result() BundlePersistenceResult {
-	return BundlePersistenceResult{
+	result := BundlePersistenceResult{
 		FactualDigest:            p.input.Manifest.FactualDigest,
 		OrganizationID:           p.organizationID,
 		SourceID:                 p.sourceID,
@@ -322,6 +350,17 @@ func (p preparedBundle) result() BundlePersistenceResult {
 		FactualIdentityIDs:       factualIdentityIDs(p.factualIdentities),
 		StableFactualIdentityIDs: stableFactualIdentityIDs(p.factualIdentities),
 	}
+	if p.factual != nil {
+		result.FrontendManifestIDs = make(map[string]string, len(p.factual.FrontendManifests))
+		for _, manifest := range p.factual.FrontendManifests {
+			result.FrontendManifestIDs[manifest.ExternalID] = manifest.ID
+		}
+		result.CanonicalFactIDs = make(map[string]string, len(p.factual.Facts))
+		for _, canonicalFact := range p.factual.Facts {
+			result.CanonicalFactIDs[canonicalFact.ExternalID] = canonicalFact.ID
+		}
+	}
+	return result
 }
 
 func factualIdentityIDs(identities []preparedFactualIdentity) map[string]string {
@@ -454,6 +493,11 @@ func persistPreparedBundle(ctx context.Context, u *UnitOfWork, p preparedBundle)
 			IdentityKey: identity.key, FactualDigest: identity.digest,
 			State: "historical", ObservedAt: p.capturedAt,
 		}); err != nil {
+			return err
+		}
+	}
+	if p.factual != nil {
+		if err := u.persistPreparedFactualSnapshot(ctx, *p.factual, p.capturedAt); err != nil {
 			return err
 		}
 	}
