@@ -251,8 +251,7 @@ func validateInput(input Input) error {
 		return ErrInvalidInput
 	}
 	if input.Contribution.AnalyzerID != input.Manifest.ID ||
-		input.Contribution.AnalyzerVersion != input.Manifest.Version ||
-		input.Contribution.Method != input.Manifest.Method {
+		input.Contribution.AnalyzerVersion != input.Manifest.Version {
 		return ErrInvalidInput
 	}
 	if input.Contribution.Locator.SourceID != "" && input.Contribution.Locator.SourceID != input.Scope.SourceID {

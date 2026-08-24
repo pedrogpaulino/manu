@@ -49,9 +49,8 @@ func TestRegistryDispatchesExactRegistrationAndFallsBack(t *testing.T) {
 			candidate.Manifest.Version = "2"
 			candidate.Contribution.AnalyzerVersion = "2"
 		}},
-		{name: "different method", mutate: func(candidate *normalization.Input) {
+		{name: "different manifest method", mutate: func(candidate *normalization.Input) {
 			candidate.Manifest.Method = "other"
-			candidate.Contribution.Method = "other"
 		}},
 		{name: "different contribution type", mutate: func(candidate *normalization.Input) { candidate.Contribution.Type = "other" }},
 	}
@@ -75,6 +74,41 @@ func TestRegistryDispatchesExactRegistrationAndFallsBack(t *testing.T) {
 	}
 	if called != 1 {
 		t.Fatalf("fallback dispatched normalizer %d times, want 1", called)
+	}
+}
+
+func TestRegistryDispatchesContributionObservationMethodAndUsesManifestProducer(t *testing.T) {
+	t.Parallel()
+
+	input := normalizationInput(t, "frontend-observation-method")
+	input.Contribution.Method = "type:definition"
+	wantInput := input
+	calledMethod := ""
+	registry, err := normalization.NewRegistry(normalization.Registration{
+		FrontendID:       input.Manifest.ID,
+		FrontendVersion:  input.Manifest.Version,
+		FrontendMethod:   input.Manifest.Method,
+		ContributionType: input.Contribution.Type,
+		Normalizer: normalization.NormalizerFunc(func(_ context.Context, received normalization.Input) (normalization.Output, error) {
+			calledMethod = received.Contribution.Method
+			return normalization.Output{Facts: []fact.CanonicalFact{normalizationFact(t, received, "method-aware", fact.PredicateDefinition)}}, nil
+		}),
+	})
+	if err != nil {
+		t.Fatalf("NewRegistry() error = %v", err)
+	}
+	output, err := registry.Normalize(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Normalize() error = %v", err)
+	}
+	if calledMethod != input.Contribution.Method {
+		t.Fatalf("normalizer contribution method = %q, want %q", calledMethod, input.Contribution.Method)
+	}
+	if len(output.Facts) != 1 || output.Facts[0].Producer.Method != input.Manifest.Method {
+		t.Fatalf("facts = %#v, want producer method %q", output.Facts, input.Manifest.Method)
+	}
+	if !reflect.DeepEqual(input, wantInput) {
+		t.Fatalf("Normalize() mutated contribution/input: got %#v, want %#v", input, wantInput)
 	}
 }
 
