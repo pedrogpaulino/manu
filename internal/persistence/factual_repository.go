@@ -2,11 +2,15 @@ package persistence
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
+	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/pedrogpaulino/manu/internal/fact"
 	"github.com/pedrogpaulino/manu/internal/identity"
 )
@@ -604,4 +608,618 @@ func invalidFactualReference(component string) error {
 
 func invalidFactualScope(component string) error {
 	return fmt.Errorf("%w: %s scope mismatch", ErrInvalidFactualSnapshot, component)
+}
+
+const (
+	lockFactualSnapshotSQL = `
+SELECT organization.external_id, source.external_id, snapshot.external_id,
+       snapshot.captured_at
+FROM analysis_snapshots AS snapshot
+JOIN sources AS source
+  ON source.organization_id = snapshot.organization_id
+ AND source.id = snapshot.source_id
+JOIN organizations AS organization
+  ON organization.id = snapshot.organization_id
+WHERE snapshot.organization_id = $1
+  AND snapshot.source_id = $2
+  AND snapshot.id = $3
+FOR UPDATE OF snapshot`
+
+	insertFactualFrontendManifestSQL = `
+INSERT INTO frontend_manifests (
+    id, organization_id, source_id, snapshot_id, external_id,
+    manifest_version, frontend_id, version, method, execution_profile,
+    manifest, manifest_digest
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+ON CONFLICT (organization_id, id) DO NOTHING`
+	selectFactualFrontendManifestSQL = `
+	SELECT source_id, snapshot_id, external_id, manifest_version, frontend_id, version, method,
+	       execution_profile, manifest, manifest_digest
+	FROM frontend_manifests
+	WHERE organization_id = $1 AND id = $2`
+
+	insertFactualExtensionSchemaSQL = `
+INSERT INTO frontend_extension_schemas (
+    id, organization_id, source_id, snapshot_id, frontend_manifest_id,
+    schema_id, version, digest
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (organization_id, id) DO NOTHING`
+	selectFactualExtensionSchemaSQL = `
+SELECT source_id, snapshot_id, frontend_manifest_id, schema_id, version, digest
+FROM frontend_extension_schemas
+WHERE organization_id = $1 AND id = $2`
+
+	insertFactualRuleVersionSQL = `
+INSERT INTO rule_versions (
+    id, organization_id, rule_id, version, implementation_digest, configuration
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (organization_id, id) DO NOTHING`
+	selectFactualRuleVersionSQL = `
+SELECT rule_id, version, implementation_digest, configuration
+FROM rule_versions
+WHERE organization_id = $1 AND id = $2`
+
+	insertFactualCanonicalFactSQL = `
+INSERT INTO canonical_facts (
+    id, organization_id, source_id, snapshot_id, identity_key, fact_version,
+    fact_kind, predicate, subject_kind, subject_id, object_kind, object_id,
+    typed_value, frontend_manifest_id, producer_id, producer_version,
+    producer_method, rule_version_id, observed_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+        $16, $17, $18, $19)
+ON CONFLICT (organization_id, id) DO NOTHING`
+	selectFactualCanonicalFactSQL = `
+SELECT source_id, snapshot_id, identity_key, fact_version, fact_kind,
+       predicate, subject_kind, subject_id, object_kind, object_id,
+       typed_value, frontend_manifest_id, producer_id, producer_version,
+       producer_method, rule_version_id, observed_at
+FROM canonical_facts
+WHERE organization_id = $1 AND id = $2`
+
+	insertFactualQualifierSQL = `
+INSERT INTO canonical_fact_qualifiers (
+    id, organization_id, source_id, snapshot_id, fact_id, ordinal, name,
+    typed_value
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (organization_id, id) DO NOTHING`
+	selectFactualQualifierSQL = `
+SELECT source_id, snapshot_id, fact_id, ordinal, name, typed_value
+FROM canonical_fact_qualifiers
+WHERE organization_id = $1 AND id = $2`
+	selectFactualQualifiersSQL = `
+SELECT fact_id, ordinal, name, typed_value
+FROM canonical_fact_qualifiers
+WHERE organization_id = $1 AND source_id = $2 AND snapshot_id = $3 AND fact_id = $4
+ORDER BY ordinal`
+
+	insertFactualEvidenceLinkSQL = `
+INSERT INTO canonical_fact_evidence (
+    id, organization_id, source_id, snapshot_id, fact_id, evidence_unit_id,
+    ordinal
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (organization_id, id) DO NOTHING`
+	selectFactualEvidenceLinkSQL = `
+SELECT source_id, snapshot_id, fact_id, evidence_unit_id, ordinal
+FROM canonical_fact_evidence
+WHERE organization_id = $1 AND id = $2`
+	selectFactualEvidenceLinksSQL = `
+SELECT fact_id, evidence_unit_id, ordinal
+FROM canonical_fact_evidence
+WHERE organization_id = $1 AND source_id = $2 AND snapshot_id = $3 AND fact_id = $4
+ORDER BY ordinal`
+
+	insertFactualInputSQL = `
+INSERT INTO canonical_fact_inputs (
+    id, organization_id, source_id, snapshot_id, fact_id, input_fact_id,
+    rule_version_id, fact_kind, ordinal
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 'derived', $8)
+ON CONFLICT (organization_id, id) DO NOTHING`
+	selectFactualInputSQL = `
+SELECT source_id, snapshot_id, fact_id, input_fact_id, rule_version_id,
+       fact_kind, ordinal
+FROM canonical_fact_inputs
+WHERE organization_id = $1 AND id = $2`
+	selectFactualInputsSQL = `
+SELECT fact_id, input_fact_id, rule_version_id, fact_kind, ordinal
+FROM canonical_fact_inputs
+WHERE organization_id = $1 AND source_id = $2 AND snapshot_id = $3 AND fact_id = $4
+ORDER BY ordinal`
+)
+
+// PersistFactualSnapshot validates the complete factual slice before opening
+// a transaction. Every factual table is then written in one transaction; a
+// failure in any row causes WithinTx to roll back all preceding writes.
+func (r *Repository) PersistFactualSnapshot(ctx context.Context, input FactualSnapshotInput) error {
+	if err := validateContext(ctx); err != nil {
+		return err
+	}
+	prepared, err := prepareFactualSnapshot(input)
+	if err != nil {
+		return err
+	}
+	return r.WithinTx(ctx, func(u *UnitOfWork) error {
+		capturedAt, err := u.lockFactualSnapshot(ctx, prepared)
+		if err != nil {
+			return err
+		}
+		return u.persistPreparedFactualSnapshot(ctx, prepared, capturedAt)
+	})
+}
+
+func (u *UnitOfWork) lockFactualSnapshot(ctx context.Context, prepared PreparedFactualSnapshot) (time.Time, error) {
+	if u == nil || u.tx == nil {
+		return time.Time{}, fmt.Errorf("%w: unit of work is not configured", ErrInvalidInput)
+	}
+	var organizationExternalID, sourceExternalID, snapshotExternalID string
+	var capturedAt time.Time
+	err := u.tx.QueryRow(ctx, lockFactualSnapshotSQL,
+		prepared.OrganizationID, prepared.SourceID, prepared.SnapshotID,
+	).Scan(&organizationExternalID, &sourceExternalID, &snapshotExternalID, &capturedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return time.Time{}, ErrNotFound
+		}
+		return time.Time{}, wrapPersistenceError(ctx, "read factual snapshot", err)
+	}
+	if organizationExternalID != prepared.Scope.OrganizationID ||
+		sourceExternalID != prepared.Scope.SourceID ||
+		snapshotExternalID != prepared.Scope.SnapshotID || capturedAt.IsZero() {
+		return time.Time{}, ErrConflict
+	}
+	return capturedAt, nil
+}
+
+func (u *UnitOfWork) persistPreparedFactualSnapshot(ctx context.Context, prepared PreparedFactualSnapshot, capturedAt time.Time) error {
+	if err := validateContext(ctx); err != nil {
+		return err
+	}
+	if u == nil || u.tx == nil {
+		return fmt.Errorf("%w: unit of work is not configured", ErrInvalidInput)
+	}
+	for _, manifest := range prepared.FrontendManifests {
+		if err := u.insertFactualFrontendManifest(ctx, prepared, manifest); err != nil {
+			return err
+		}
+	}
+	for _, manifest := range prepared.FrontendManifests {
+		for _, schema := range manifest.ExtensionSchemas {
+			if err := u.insertFactualExtensionSchema(ctx, prepared, schema); err != nil {
+				return err
+			}
+		}
+	}
+	for _, rule := range prepared.RuleVersions {
+		if err := u.insertFactualRuleVersion(ctx, prepared, rule); err != nil {
+			return err
+		}
+	}
+	for _, canonicalFact := range prepared.Facts {
+		if err := u.insertFactualCanonicalFact(ctx, prepared, canonicalFact, capturedAt); err != nil {
+			return err
+		}
+	}
+	for _, canonicalFact := range prepared.Facts {
+		if canonicalFact.Kind == factualFactKindDerived && len(canonicalFact.Inputs) == 0 {
+			return fmt.Errorf("%w: derived fact has no inputs", ErrInvalidInput)
+		}
+		for _, qualifier := range canonicalFact.Qualifiers {
+			if err := u.insertFactualQualifier(ctx, prepared, qualifier); err != nil {
+				return err
+			}
+		}
+		for _, evidence := range canonicalFact.Evidence {
+			if err := u.insertFactualEvidenceLink(ctx, prepared, evidence); err != nil {
+				return err
+			}
+		}
+		for _, input := range canonicalFact.Inputs {
+			if err := u.insertFactualInput(ctx, prepared, input); err != nil {
+				return err
+			}
+		}
+		if err := u.compareFactualSupportSets(ctx, prepared, canonicalFact); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func factualExecInsert(ctx context.Context, u *UnitOfWork, query, operation string, args ...any) (int64, error) {
+	if u == nil || u.tx == nil {
+		return 0, fmt.Errorf("%w: unit of work is not configured", ErrInvalidInput)
+	}
+	tag, err := u.tx.Exec(ctx, query, args...)
+	if err != nil {
+		return 0, wrapPersistenceError(ctx, operation, err)
+	}
+	if tag.RowsAffected() > 1 {
+		return 0, fmt.Errorf("%w: %s affected too many rows", ErrInconsistent, operation)
+	}
+	return tag.RowsAffected(), nil
+}
+
+func (u *UnitOfWork) insertFactualFrontendManifest(ctx context.Context, prepared PreparedFactualSnapshot, manifest PreparedFrontendManifest) error {
+	rows, err := factualExecInsert(ctx, u, insertFactualFrontendManifestSQL, "insert factual frontend manifest",
+		manifest.ID, prepared.OrganizationID, prepared.SourceID, prepared.SnapshotID,
+		manifest.ExternalID, manifest.Manifest.ManifestVersion, manifest.Manifest.ID,
+		manifest.Manifest.Version, manifest.Manifest.Method, string(manifest.Manifest.Execution),
+		manifest.CanonicalJSON, manifest.Digest,
+	)
+	if err != nil || rows == 1 {
+		return err
+	}
+	var sourceID, snapshotID, externalID, manifestVersion, frontendID, version, method, executionProfile, digest string
+	var manifestJSON []byte
+	err = u.tx.QueryRow(ctx, selectFactualFrontendManifestSQL, prepared.OrganizationID, manifest.ID).Scan(
+		&sourceID, &snapshotID, &externalID, &manifestVersion, &frontendID, &version, &method,
+		&executionProfile, &manifestJSON, &digest,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrConflict
+		}
+		return wrapPersistenceError(ctx, "read factual frontend manifest", err)
+	}
+	if sourceID != prepared.SourceID || snapshotID != prepared.SnapshotID || externalID != manifest.ExternalID ||
+		manifestVersion != manifest.Manifest.ManifestVersion ||
+		frontendID != manifest.Manifest.ID || version != manifest.Manifest.Version || method != manifest.Manifest.Method ||
+		executionProfile != string(manifest.Manifest.Execution) || digest != manifest.Digest ||
+		!jsonEqual(manifestJSON, manifest.CanonicalJSON) {
+		return ErrConflict
+	}
+	return nil
+}
+
+func (u *UnitOfWork) insertFactualExtensionSchema(ctx context.Context, prepared PreparedFactualSnapshot, schema PreparedExtensionSchema) error {
+	rows, err := factualExecInsert(ctx, u, insertFactualExtensionSchemaSQL, "insert factual extension schema",
+		schema.ID, prepared.OrganizationID, prepared.SourceID, prepared.SnapshotID,
+		schema.ManifestID, schema.Schema.ID, schema.Schema.Version, schema.Schema.Digest,
+	)
+	if err != nil || rows == 1 {
+		return err
+	}
+	var sourceID, snapshotID, manifestID, schemaID, version, digest string
+	err = u.tx.QueryRow(ctx, selectFactualExtensionSchemaSQL, prepared.OrganizationID, schema.ID).Scan(
+		&sourceID, &snapshotID, &manifestID, &schemaID, &version, &digest,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrConflict
+		}
+		return wrapPersistenceError(ctx, "read factual extension schema", err)
+	}
+	if sourceID != prepared.SourceID || snapshotID != prepared.SnapshotID || manifestID != schema.ManifestID ||
+		schemaID != schema.Schema.ID || version != schema.Schema.Version || digest != schema.Schema.Digest {
+		return ErrConflict
+	}
+	return nil
+}
+
+func (u *UnitOfWork) insertFactualRuleVersion(ctx context.Context, prepared PreparedFactualSnapshot, rule PreparedRuleVersion) error {
+	rows, err := factualExecInsert(ctx, u, insertFactualRuleVersionSQL, "insert factual rule version",
+		rule.ID, prepared.OrganizationID, rule.RuleID, rule.Version, rule.ImplementationDigest, rule.Configuration,
+	)
+	if err != nil || rows == 1 {
+		return err
+	}
+	var ruleID, version, implementationDigest string
+	var configuration []byte
+	err = u.tx.QueryRow(ctx, selectFactualRuleVersionSQL, prepared.OrganizationID, rule.ID).Scan(
+		&ruleID, &version, &implementationDigest, &configuration,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrConflict
+		}
+		return wrapPersistenceError(ctx, "read factual rule version", err)
+	}
+	if ruleID != rule.RuleID || version != rule.Version || implementationDigest != rule.ImplementationDigest ||
+		!jsonEqual(configuration, rule.Configuration) {
+		return ErrConflict
+	}
+	return nil
+}
+
+func (u *UnitOfWork) insertFactualCanonicalFact(ctx context.Context, prepared PreparedFactualSnapshot, item PreparedCanonicalFact, capturedAt time.Time) error {
+	objectKind, objectID := any(nil), any(nil)
+	if item.Fact.Object != nil {
+		objectKind, objectID = item.Fact.Object.Kind, item.Fact.Object.ID
+	}
+	typedValue := any(nil)
+	if item.Fact.Value != nil {
+		value, valueErr := factualFactValueJSON(item.Fact)
+		if valueErr != nil {
+			return fmt.Errorf("%w: canonical fact value", ErrInvalidInput)
+		}
+		typedValue = value
+	}
+	frontendManifestID := any(nil)
+	ruleVersionID := any(nil)
+	if item.Kind == factualFactKindObserved {
+		frontendManifestID = item.FrontendManifestID
+	} else {
+		ruleVersionID = item.RuleVersionID
+	}
+	rows, err := factualExecInsert(ctx, u, insertFactualCanonicalFactSQL, "insert factual canonical fact",
+		item.ID, prepared.OrganizationID, prepared.SourceID, prepared.SnapshotID, item.IdentityKey,
+		item.Fact.Version, item.Kind, string(item.Fact.Predicate), string(item.Fact.Subject.Kind),
+		item.Fact.Subject.ID, objectKind, objectID, typedValue, frontendManifestID,
+		item.Fact.Producer.ID, item.Fact.Producer.Version, item.Fact.Producer.Method,
+		ruleVersionID, capturedAt,
+	)
+	if err != nil || rows == 1 {
+		return err
+	}
+	return u.existingFactualCanonicalFactMatches(ctx, prepared, item, capturedAt)
+}
+
+func (u *UnitOfWork) existingFactualCanonicalFactMatches(ctx context.Context, prepared PreparedFactualSnapshot, item PreparedCanonicalFact, capturedAt time.Time) error {
+	var sourceID, snapshotID, identityKey, factVersion, kind, predicate, subjectKind, subjectID string
+	var producerID, producerVersion, producerMethod string
+	var objectKind, objectID, frontendManifestID, ruleVersionID *string
+	var typedValue []byte
+	var observedAt time.Time
+	err := u.tx.QueryRow(ctx, selectFactualCanonicalFactSQL, prepared.OrganizationID, item.ID).Scan(
+		&sourceID, &snapshotID, &identityKey, &factVersion, &kind, &predicate, &subjectKind, &subjectID,
+		&objectKind, &objectID, &typedValue, &frontendManifestID, &producerID, &producerVersion,
+		&producerMethod, &ruleVersionID, &observedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrConflict
+		}
+		return wrapPersistenceError(ctx, "read factual canonical fact", err)
+	}
+	expectedValue, err := factualFactValueJSON(item.Fact)
+	if err != nil {
+		return fmt.Errorf("%w: canonical fact value", ErrInvalidInput)
+	}
+	expectedObjectKind, expectedObjectID := "", ""
+	if item.Fact.Object != nil {
+		expectedObjectKind, expectedObjectID = string(item.Fact.Object.Kind), item.Fact.Object.ID
+	}
+	expectedFrontend, expectedRule := item.FrontendManifestID, item.RuleVersionID
+	if sourceID != prepared.SourceID || snapshotID != prepared.SnapshotID || identityKey != item.IdentityKey ||
+		factVersion != item.Fact.Version || kind != item.Kind || predicate != string(item.Fact.Predicate) ||
+		subjectKind != string(item.Fact.Subject.Kind) || subjectID != item.Fact.Subject.ID ||
+		factualOptionalString(objectKind) != expectedObjectKind || factualOptionalString(objectID) != expectedObjectID ||
+		!jsonEqual(typedValue, expectedValue) || factualOptionalString(frontendManifestID) != expectedFrontend ||
+		producerID != item.Fact.Producer.ID || producerVersion != item.Fact.Producer.Version ||
+		producerMethod != item.Fact.Producer.Method || factualOptionalString(ruleVersionID) != expectedRule ||
+		!observedAt.Equal(capturedAt) {
+		return ErrConflict
+	}
+	return nil
+}
+
+func (u *UnitOfWork) insertFactualQualifier(ctx context.Context, prepared PreparedFactualSnapshot, qualifier PreparedFactQualifier) error {
+	rows, err := factualExecInsert(ctx, u, insertFactualQualifierSQL, "insert factual qualifier",
+		qualifier.ID, prepared.OrganizationID, prepared.SourceID, prepared.SnapshotID,
+		qualifier.FactID, qualifier.Ordinal, qualifier.Name, qualifier.TypedValue,
+	)
+	if err != nil || rows == 1 {
+		return err
+	}
+	var sourceID, snapshotID, factID, name string
+	var ordinal int64
+	var typedValue []byte
+	err = u.tx.QueryRow(ctx, selectFactualQualifierSQL, prepared.OrganizationID, qualifier.ID).Scan(
+		&sourceID, &snapshotID, &factID, &ordinal, &name, &typedValue,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrConflict
+		}
+		return wrapPersistenceError(ctx, "read factual qualifier", err)
+	}
+	if sourceID != prepared.SourceID || snapshotID != prepared.SnapshotID || factID != qualifier.FactID ||
+		ordinal != qualifier.Ordinal || name != qualifier.Name || !jsonEqual(typedValue, qualifier.TypedValue) {
+		return ErrConflict
+	}
+	return nil
+}
+
+func (u *UnitOfWork) insertFactualEvidenceLink(ctx context.Context, prepared PreparedFactualSnapshot, evidence PreparedFactEvidence) error {
+	rows, err := factualExecInsert(ctx, u, insertFactualEvidenceLinkSQL, "insert factual evidence link",
+		evidence.ID, prepared.OrganizationID, prepared.SourceID, prepared.SnapshotID,
+		evidence.FactID, evidence.EvidenceUnitID, evidence.Ordinal,
+	)
+	if err != nil || rows == 1 {
+		return err
+	}
+	var sourceID, snapshotID, factID, evidenceUnitID string
+	var ordinal int64
+	err = u.tx.QueryRow(ctx, selectFactualEvidenceLinkSQL, prepared.OrganizationID, evidence.ID).Scan(
+		&sourceID, &snapshotID, &factID, &evidenceUnitID, &ordinal,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrConflict
+		}
+		return wrapPersistenceError(ctx, "read factual evidence link", err)
+	}
+	if sourceID != prepared.SourceID || snapshotID != prepared.SnapshotID || factID != evidence.FactID ||
+		evidenceUnitID != evidence.EvidenceUnitID || ordinal != evidence.Ordinal {
+		return ErrConflict
+	}
+	return nil
+}
+
+func (u *UnitOfWork) insertFactualInput(ctx context.Context, prepared PreparedFactualSnapshot, input PreparedFactInput) error {
+	rows, err := factualExecInsert(ctx, u, insertFactualInputSQL, "insert factual lineage input",
+		input.ID, prepared.OrganizationID, prepared.SourceID, prepared.SnapshotID,
+		input.FactID, input.InputFactID, input.RuleVersionID, input.Ordinal,
+	)
+	if err != nil || rows == 1 {
+		return err
+	}
+	var sourceID, snapshotID, factID, inputFactID, ruleVersionID, kind string
+	var ordinal int64
+	err = u.tx.QueryRow(ctx, selectFactualInputSQL, prepared.OrganizationID, input.ID).Scan(
+		&sourceID, &snapshotID, &factID, &inputFactID, &ruleVersionID, &kind, &ordinal,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrConflict
+		}
+		return wrapPersistenceError(ctx, "read factual lineage input", err)
+	}
+	if sourceID != prepared.SourceID || snapshotID != prepared.SnapshotID || factID != input.FactID ||
+		inputFactID != input.InputFactID || ruleVersionID != input.RuleVersionID || kind != factualFactKindDerived ||
+		ordinal != input.Ordinal {
+		return ErrConflict
+	}
+	return nil
+}
+
+type factualQualifierSupport struct {
+	factID     string
+	ordinal    int64
+	name       string
+	typedValue []byte
+}
+
+type factualEvidenceSupport struct {
+	factID         string
+	evidenceUnitID string
+	ordinal        int64
+}
+
+type factualInputSupport struct {
+	factID        string
+	inputFactID   string
+	ruleVersionID string
+	kind          string
+	ordinal       int64
+}
+
+func (u *UnitOfWork) compareFactualSupportSets(ctx context.Context, prepared PreparedFactualSnapshot, item PreparedCanonicalFact) error {
+	qualifiers, err := u.readFactualQualifiers(ctx, prepared, item.ID)
+	if err != nil {
+		return err
+	}
+	if len(qualifiers) != len(item.Qualifiers) {
+		return ErrConflict
+	}
+	for index, actual := range qualifiers {
+		expected := item.Qualifiers[index]
+		if actual.factID != expected.FactID || actual.ordinal != expected.Ordinal || actual.name != expected.Name ||
+			!jsonEqual(actual.typedValue, expected.TypedValue) {
+			return ErrConflict
+		}
+	}
+
+	evidence, err := u.readFactualEvidenceLinks(ctx, prepared, item.ID)
+	if err != nil {
+		return err
+	}
+	if len(evidence) != len(item.Evidence) {
+		return ErrConflict
+	}
+	for index, actual := range evidence {
+		expected := item.Evidence[index]
+		if actual.factID != expected.FactID || actual.evidenceUnitID != expected.EvidenceUnitID || actual.ordinal != expected.Ordinal {
+			return ErrConflict
+		}
+	}
+
+	inputs, err := u.readFactualInputs(ctx, prepared, item.ID)
+	if err != nil {
+		return err
+	}
+	if len(inputs) != len(item.Inputs) {
+		return ErrConflict
+	}
+	for index, actual := range inputs {
+		expected := item.Inputs[index]
+		if actual.factID != expected.FactID || actual.inputFactID != expected.InputFactID ||
+			actual.ruleVersionID != expected.RuleVersionID || actual.kind != factualFactKindDerived || actual.ordinal != expected.Ordinal {
+			return ErrConflict
+		}
+	}
+	return nil
+}
+
+func (u *UnitOfWork) readFactualQualifiers(ctx context.Context, prepared PreparedFactualSnapshot, factID string) ([]factualQualifierSupport, error) {
+	rows, err := u.tx.Query(ctx, selectFactualQualifiersSQL, prepared.OrganizationID, prepared.SourceID, prepared.SnapshotID, factID)
+	if err != nil {
+		return nil, wrapPersistenceError(ctx, "read factual qualifier set", err)
+	}
+	defer rows.Close()
+	result := make([]factualQualifierSupport, 0)
+	for rows.Next() {
+		var item factualQualifierSupport
+		if err := rows.Scan(&item.factID, &item.ordinal, &item.name, &item.typedValue); err != nil {
+			return nil, wrapPersistenceError(ctx, "scan factual qualifier set", err)
+		}
+		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, wrapPersistenceError(ctx, "read factual qualifier set", err)
+	}
+	return result, nil
+}
+
+func (u *UnitOfWork) readFactualEvidenceLinks(ctx context.Context, prepared PreparedFactualSnapshot, factID string) ([]factualEvidenceSupport, error) {
+	rows, err := u.tx.Query(ctx, selectFactualEvidenceLinksSQL, prepared.OrganizationID, prepared.SourceID, prepared.SnapshotID, factID)
+	if err != nil {
+		return nil, wrapPersistenceError(ctx, "read factual evidence set", err)
+	}
+	defer rows.Close()
+	result := make([]factualEvidenceSupport, 0)
+	for rows.Next() {
+		var item factualEvidenceSupport
+		if err := rows.Scan(&item.factID, &item.evidenceUnitID, &item.ordinal); err != nil {
+			return nil, wrapPersistenceError(ctx, "scan factual evidence set", err)
+		}
+		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, wrapPersistenceError(ctx, "read factual evidence set", err)
+	}
+	return result, nil
+}
+
+func (u *UnitOfWork) readFactualInputs(ctx context.Context, prepared PreparedFactualSnapshot, factID string) ([]factualInputSupport, error) {
+	rows, err := u.tx.Query(ctx, selectFactualInputsSQL, prepared.OrganizationID, prepared.SourceID, prepared.SnapshotID, factID)
+	if err != nil {
+		return nil, wrapPersistenceError(ctx, "read factual lineage set", err)
+	}
+	defer rows.Close()
+	result := make([]factualInputSupport, 0)
+	for rows.Next() {
+		var item factualInputSupport
+		if err := rows.Scan(&item.factID, &item.inputFactID, &item.ruleVersionID, &item.kind, &item.ordinal); err != nil {
+			return nil, wrapPersistenceError(ctx, "scan factual lineage set", err)
+		}
+		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, wrapPersistenceError(ctx, "read factual lineage set", err)
+	}
+	return result, nil
+}
+
+func factualFactValueJSON(candidate fact.CanonicalFact) ([]byte, error) {
+	if candidate.Value == nil {
+		return nil, nil
+	}
+	if err := candidate.Value.Validate(); err != nil {
+		return nil, err
+	}
+	return json.Marshal(candidate.Value)
+}
+
+func factualOptionalString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
