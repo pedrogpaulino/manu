@@ -26,7 +26,7 @@ var pythonIntegrationDimensions = map[string]contract.Dimension{
 }
 
 func TestPythonFrappeNormalizationEndToEndIsDeterministicAndConservative(t *testing.T) {
-	manifest := pythonManifest()
+	manifest := Manifest()
 	registry := pythonRegistry(t, manifest)
 	scope := fact.Scope{
 		OrganizationID: "organization-python-integration",

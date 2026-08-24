@@ -9,14 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pedrogpaulino/manu/internal/analysis"
 	"github.com/pedrogpaulino/manu/internal/contract"
 	"github.com/pedrogpaulino/manu/internal/fact"
 	"github.com/pedrogpaulino/manu/internal/normalization"
 )
 
 func TestPythonNormalizerRegistrationsDeclareOnlySafeStaticMappings(t *testing.T) {
-	manifest := pythonManifest()
+	manifest := Manifest()
 	registrations, err := NormalizerRegistrations(manifest)
 	if err != nil {
 		t.Fatalf("NormalizerRegistrations() error = %v", err)
@@ -48,7 +47,7 @@ func TestPythonNormalizerRegistrationsDeclareOnlySafeStaticMappings(t *testing.T
 }
 
 func TestPythonNormalizationMapsContributionsToFactsWithEvidence(t *testing.T) {
-	registry := pythonRegistry(t, pythonManifest())
+	registry := pythonRegistry(t, Manifest())
 	tests := []struct {
 		name         string
 		contribution string
@@ -176,7 +175,7 @@ func TestPythonNormalizationMapsContributionsToFactsWithEvidence(t *testing.T) {
 }
 
 func TestPythonNormalizationUsesManifestProducerNotObservationMethod(t *testing.T) {
-	manifest := pythonManifest()
+	manifest := Manifest()
 	registry := pythonRegistry(t, manifest)
 	input := pythonInput(SymbolContributionType, "symbol:observed:line:42", json.RawMessage(`{"kind":"function","name":"run","qualified_name":"run"}`))
 	output, err := registry.Normalize(context.Background(), input)
@@ -194,7 +193,7 @@ func TestPythonNormalizationUsesManifestProducerNotObservationMethod(t *testing.
 }
 
 func TestPythonNormalizationRequiresEvidenceAndDoesNotRetainPayload(t *testing.T) {
-	registry := pythonRegistry(t, pythonManifest())
+	registry := pythonRegistry(t, Manifest())
 	input := pythonInput(RelationContributionType, "relation:without-evidence", json.RawMessage(`{"kind":"frappe_call","callee":"frappe.get_doc","target":"secret-target"}`))
 	input.Evidence = nil
 	output, err := registry.Normalize(context.Background(), input)
@@ -214,7 +213,7 @@ func TestPythonNormalizationRequiresEvidenceAndDoesNotRetainPayload(t *testing.T
 }
 
 func TestPythonNormalizationRejectsIncompatibleManifestsAndMalformedPayloads(t *testing.T) {
-	valid := pythonManifest()
+	valid := Manifest()
 	mutations := []struct {
 		name   string
 		mutate func(*fact.FrontendManifest)
@@ -274,7 +273,7 @@ func TestPythonNormalizationRejectsIncompatibleManifestsAndMalformedPayloads(t *
 }
 
 func TestPythonNormalizationIsDeterministicAndCancellationAware(t *testing.T) {
-	registry := pythonRegistry(t, pythonManifest())
+	registry := pythonRegistry(t, Manifest())
 	input := pythonInput(SymbolContributionType, "symbol:deterministic", json.RawMessage(`{"kind":"function","name":"run","qualified_name":"SalesOrder.run","signature":"(self)"}`))
 	first, err := registry.Normalize(context.Background(), input)
 	if err != nil {
@@ -314,7 +313,7 @@ func TestPythonNormalizationIsDeterministicAndCancellationAware(t *testing.T) {
 }
 
 func TestPythonNormalizerLeavesUnknownContributionOnFallback(t *testing.T) {
-	registry := pythonRegistry(t, pythonManifest())
+	registry := pythonRegistry(t, Manifest())
 	input := pythonInput("python.unsupported", "unsupported", json.RawMessage(`{"secret":"not a universal fact"}`))
 	output, err := registry.Normalize(context.Background(), input)
 	if err != nil {
@@ -343,39 +342,6 @@ func pythonRegistry(t *testing.T, manifest fact.FrontendManifest) *normalization
 	return registry
 }
 
-func pythonManifest() fact.FrontendManifest {
-	return fact.FrontendManifest{
-		ManifestVersion: fact.FrontendManifestVersion,
-		ID:              AnalyzerID,
-		Version:         AnalyzerVersion,
-		Method:          AnalyzerMethod,
-		SourceTypes:     []string{analysis.ArtifactTypePython},
-		Families:        []string{"python", "frappe"},
-		Versions:        []string{"python-3", "frappe-17"},
-		Capabilities: []contract.Dimension{
-			contract.DimensionLandscapeInventoryStructure,
-			contract.DimensionEntitiesAndRelationships,
-			contract.DimensionFlowsAndDependencies,
-			contract.DimensionConfigurationVariations,
-		},
-		Limitations: []string{
-			"lexical-only",
-			"no-import-resolution",
-			"no-runtime-execution",
-			"no-build-or-dependency-installation",
-		},
-		Predicates: []fact.Predicate{
-			fact.PredicateArtifact,
-			fact.PredicateSymbol,
-			fact.PredicateDefinition,
-			fact.PredicateReference,
-			fact.PredicateDependency,
-			fact.PredicateConfiguration,
-		},
-		Execution: fact.ExecutionProfileSafeStatic,
-	}
-}
-
 func pythonInput(contributionType, method string, value json.RawMessage) normalization.Input {
 	scope := fact.Scope{OrganizationID: "organization-python", SourceID: "source-python", SnapshotID: "snapshot-python"}
 	artifactID := "artifact-python-doctype"
@@ -398,7 +364,7 @@ func pythonInput(contributionType, method string, value json.RawMessage) normali
 	}
 	return normalization.Input{
 		Scope:        scope,
-		Manifest:     pythonManifest(),
+		Manifest:     Manifest(),
 		Contribution: contribution,
 		Evidence: []fact.EvidenceRef{{
 			ID:      "evidence-" + strings.ReplaceAll(method, ":", "-"),
