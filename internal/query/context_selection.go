@@ -14,8 +14,8 @@ const (
 	// ContextUtilityVersion identifies the version of the utility contract.
 	ContextUtilityVersion = "v1alpha1"
 	// ContextSelectionAlgorithm identifies the deterministic selection
-	// algorithm. It does not include a token estimator; costs are supplied by
-	// the caller until the token-estimation change is implemented.
+	// algorithm. Token-estimator identity is carried by ContextTokenEstimate;
+	// candidate costs are applied before selection.
 	ContextSelectionAlgorithm = "greedy-v1"
 
 	maxContextSelectionCandidates = maxContextItems
