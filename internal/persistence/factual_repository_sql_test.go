@@ -132,6 +132,68 @@ func TestPersistFactualSnapshotValidatesBeforeBegin(t *testing.T) {
 	}
 }
 
+func TestPersistFactualSnapshotMetricsRejectedBeforeBegin(t *testing.T) {
+	repository, starter := newFactualSQLRepository()
+	input := factualSnapshotFixture(t)
+	input.Scope.SourceID = "other-source"
+	var records []FactualMetricsRecord
+	repository.factualMetricsRecorder = FactualMetricsRecorderFunc(func(_ context.Context, record FactualMetricsRecord) {
+		records = append(records, record)
+	})
+
+	err := repository.PersistFactualSnapshot(context.Background(), input)
+	if !errors.Is(err, ErrInvalidFactualSnapshot) {
+		t.Fatalf("error = %v, want invalid factual snapshot", err)
+	}
+	if starter.beginCalls != 0 {
+		t.Fatalf("Begin calls = %d, want 0", starter.beginCalls)
+	}
+	if len(records) != 1 {
+		t.Fatalf("metrics records = %d, want 1", len(records))
+	}
+	if records[0].Operation != FactualMetricsOperationPersistFactualSnapshot || records[0].Outcome != FactualMetricsOutcomeRejected ||
+		records[0].Metrics != (FactualMetrics{Rejected: int64(len(input.Facts))}) {
+		t.Fatalf("rejected metrics = %#v, want %d rejected", records[0], len(input.Facts))
+	}
+}
+
+func TestPersistFactualSnapshotMetricsArePublishedAfterRollback(t *testing.T) {
+	repository, starter := newFactualSQLRepository()
+	input := factualSnapshotFixture(t)
+	prepared, err := PrepareFactualSnapshot(input)
+	if err != nil {
+		t.Fatalf("prepare fixture: %v", err)
+	}
+	capturedAt := time.Date(2026, time.August, 23, 19, 20, 21, 0, time.UTC)
+	starter.tx.queryRowList = []pgx.Row{factualSnapshotLockRow(input, capturedAt)}
+	starter.tx.queryRows = factualSupportRows(prepared)
+	starter.tx.execErrorAt = 2
+	var rollbackAtRecord int
+	var records []FactualMetricsRecord
+	repository.factualMetricsRecorder = FactualMetricsRecorderFunc(func(_ context.Context, record FactualMetricsRecord) {
+		rollbackAtRecord = starter.tx.rollbackCalls
+		records = append(records, record)
+	})
+
+	err = repository.PersistFactualSnapshot(context.Background(), input)
+	if !errors.Is(err, ErrDatabase) {
+		t.Fatalf("error = %v, want database error", err)
+	}
+	if starter.tx.commitCalls != 0 || starter.tx.rollbackCalls != 1 {
+		t.Fatalf("commit/rollback = %d/%d, want 0/1", starter.tx.commitCalls, starter.tx.rollbackCalls)
+	}
+	if rollbackAtRecord != 1 {
+		t.Fatalf("rollback calls observed by recorder = %d, want 1", rollbackAtRecord)
+	}
+	if len(records) != 1 {
+		t.Fatalf("metrics records = %d, want 1", len(records))
+	}
+	want := FactualMetrics{Rejected: int64(len(input.Facts))}
+	if records[0].Operation != FactualMetricsOperationPersistFactualSnapshot || records[0].Outcome != FactualMetricsOutcomeRejected || records[0].Metrics != want {
+		t.Fatalf("rollback metrics = %#v, want %#v", records[0], want)
+	}
+}
+
 func TestPersistFactualSnapshotLocksSnapshotUsesCapturedAtAndOrdersWrites(t *testing.T) {
 	repository, starter := newFactualSQLRepository()
 	input := factualSnapshotFixture(t)
@@ -142,9 +204,20 @@ func TestPersistFactualSnapshotLocksSnapshotUsesCapturedAtAndOrdersWrites(t *tes
 	capturedAt := time.Date(2026, time.August, 23, 19, 20, 21, 0, time.UTC)
 	starter.tx.queryRowList = []pgx.Row{factualSnapshotLockRow(input, capturedAt)}
 	starter.tx.queryRows = factualSupportRows(prepared)
+	var records []FactualMetricsRecord
+	repository.factualMetricsRecorder = FactualMetricsRecorderFunc(func(_ context.Context, record FactualMetricsRecord) {
+		records = append(records, record)
+	})
 
 	if err := repository.PersistFactualSnapshot(context.Background(), input); err != nil {
 		t.Fatalf("PersistFactualSnapshot() error = %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("metrics records = %d, want 1", len(records))
+	}
+	wantMetrics := FactualMetrics{Accepted: 2, Derived: 1}
+	if records[0].Operation != FactualMetricsOperationPersistFactualSnapshot || records[0].Outcome != FactualMetricsOutcomeCommitted || records[0].Metrics != wantMetrics {
+		t.Fatalf("committed metrics = %#v, want %#v", records[0], wantMetrics)
 	}
 	if starter.tx.commitCalls != 1 || starter.tx.rollbackCalls != 0 {
 		t.Fatalf("commit/rollback = %d/%d, want 1/0", starter.tx.commitCalls, starter.tx.rollbackCalls)

@@ -44,6 +44,10 @@ type BundlePersistenceResult struct {
 	// snapshot-scoped rows.
 	FactualIdentityIDs       map[string]string
 	StableFactualIdentityIDs map[string]string
+	// FactualMetrics reports factual rows committed by this batch. It remains
+	// zero for a failed operation; the configured recorder receives the
+	// rejected candidate count instead.
+	FactualMetrics FactualMetrics
 }
 
 type preparedBundle struct {
@@ -79,18 +83,36 @@ func (r *Repository) PersistBundle(ctx context.Context, input bundle.Bundle) (Bu
 	if err := validateContext(ctx); err != nil {
 		return BundlePersistenceResult{}, err
 	}
+	candidateCount := int64(len(input.Facts))
 	prepared, err := prepareBundle(input)
 	if err != nil {
+		r.recordFactualMetrics(ctx, FactualMetricsRecord{
+			Operation: FactualMetricsOperationPersistBundle,
+			Outcome:   FactualMetricsOutcomeRejected,
+			Metrics:   FactualMetrics{Rejected: candidateCount},
+		})
 		return BundlePersistenceResult{}, err
 	}
 
 	result := prepared.result()
+	var factualMetrics FactualMetrics
 	err = r.WithinTx(ctx, func(u *UnitOfWork) error {
-		return persistPreparedBundle(ctx, u, prepared)
+		return persistPreparedBundle(ctx, u, prepared, &factualMetrics)
 	})
 	if err != nil {
+		r.recordFactualMetrics(ctx, FactualMetricsRecord{
+			Operation: FactualMetricsOperationPersistBundle,
+			Outcome:   FactualMetricsOutcomeRejected,
+			Metrics:   FactualMetrics{Rejected: candidateCount},
+		})
 		return BundlePersistenceResult{}, err
 	}
+	result.FactualMetrics = factualMetrics
+	r.recordFactualMetrics(ctx, FactualMetricsRecord{
+		Operation: FactualMetricsOperationPersistBundle,
+		Outcome:   FactualMetricsOutcomeCommitted,
+		Metrics:   factualMetrics,
+	})
 	return result, nil
 }
 
@@ -103,6 +125,7 @@ func (r *Repository) PersistBundleIncremental(ctx context.Context, previous, cur
 	if err := validateContext(ctx); err != nil {
 		return BundlePersistenceResult{}, ingestion.IncrementalReport{}, err
 	}
+	candidateCount := int64(len(current.Facts))
 	// Keep comparison IDs aligned with the normalized rows that are about to
 	// be inserted. Coverage/gap/failure IDs may be omitted by a valid bundle
 	// transport and are derived locally without mutating the caller.
@@ -110,18 +133,40 @@ func (r *Repository) PersistBundleIncremental(ctx context.Context, previous, cur
 	current = normalizeBatchBundle(current)
 	report, err := ingestion.CompareBundles(ctx, previous, current, options...)
 	if err != nil {
+		r.recordFactualMetrics(ctx, FactualMetricsRecord{
+			Operation: FactualMetricsOperationPersistBundle,
+			Outcome:   FactualMetricsOutcomeRejected,
+			Metrics:   FactualMetrics{Rejected: candidateCount},
+		})
 		return BundlePersistenceResult{}, ingestion.IncrementalReport{}, err
 	}
 	prepared, err := prepareBundle(current)
 	if err != nil {
+		r.recordFactualMetrics(ctx, FactualMetricsRecord{
+			Operation: FactualMetricsOperationPersistBundle,
+			Outcome:   FactualMetricsOutcomeRejected,
+			Metrics:   FactualMetrics{Rejected: candidateCount},
+		})
 		return BundlePersistenceResult{}, ingestion.IncrementalReport{}, err
 	}
 	result := prepared.result()
+	var factualMetrics FactualMetrics
 	if err := r.WithinTx(ctx, func(u *UnitOfWork) error {
-		return persistPreparedBundle(ctx, u, prepared)
+		return persistPreparedBundle(ctx, u, prepared, &factualMetrics)
 	}); err != nil {
+		r.recordFactualMetrics(ctx, FactualMetricsRecord{
+			Operation: FactualMetricsOperationPersistBundle,
+			Outcome:   FactualMetricsOutcomeRejected,
+			Metrics:   FactualMetrics{Rejected: candidateCount},
+		})
 		return BundlePersistenceResult{}, ingestion.IncrementalReport{}, err
 	}
+	result.FactualMetrics = factualMetrics
+	r.recordFactualMetrics(ctx, FactualMetricsRecord{
+		Operation: FactualMetricsOperationPersistBundle,
+		Outcome:   FactualMetricsOutcomeCommitted,
+		Metrics:   factualMetrics,
+	})
 	return result, report, nil
 }
 
@@ -383,7 +428,7 @@ func stableFactualIdentityIDs(identities []preparedFactualIdentity) map[string]s
 	return result
 }
 
-func persistPreparedBundle(ctx context.Context, u *UnitOfWork, p preparedBundle) error {
+func persistPreparedBundle(ctx context.Context, u *UnitOfWork, p preparedBundle, factualMetricsOut *FactualMetrics) error {
 	input := p.input
 	organizationName := input.Manifest.Organization.Name
 	if strings.TrimSpace(organizationName) == "" {
@@ -497,8 +542,12 @@ func persistPreparedBundle(ctx context.Context, u *UnitOfWork, p preparedBundle)
 		}
 	}
 	if p.factual != nil {
-		if err := u.persistPreparedFactualSnapshot(ctx, *p.factual, p.capturedAt); err != nil {
+		factualMetrics, err := u.persistPreparedFactualSnapshot(ctx, *p.factual, p.capturedAt)
+		if err != nil {
 			return err
+		}
+		if factualMetricsOut != nil {
+			*factualMetricsOut = factualMetrics
 		}
 	}
 	return nil

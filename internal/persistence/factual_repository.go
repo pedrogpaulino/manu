@@ -740,17 +740,41 @@ func (r *Repository) PersistFactualSnapshot(ctx context.Context, input FactualSn
 	if err := validateContext(ctx); err != nil {
 		return err
 	}
+	candidateCount := int64(len(input.Facts))
 	prepared, err := prepareFactualSnapshot(input)
 	if err != nil {
+		r.recordFactualMetrics(ctx, FactualMetricsRecord{
+			Operation: FactualMetricsOperationPersistFactualSnapshot,
+			Outcome:   FactualMetricsOutcomeRejected,
+			Metrics:   FactualMetrics{Rejected: candidateCount},
+		})
 		return err
 	}
-	return r.WithinTx(ctx, func(u *UnitOfWork) error {
+	// FanoutLimited intentionally remains zero: the bounded executor belongs to
+	// the later 5.4 implementation, not this persistence path.
+	var metrics FactualMetrics
+	err = r.WithinTx(ctx, func(u *UnitOfWork) error {
 		capturedAt, err := u.lockFactualSnapshot(ctx, prepared)
 		if err != nil {
 			return err
 		}
-		return u.persistPreparedFactualSnapshot(ctx, prepared, capturedAt)
+		metrics, err = u.persistPreparedFactualSnapshot(ctx, prepared, capturedAt)
+		return err
 	})
+	if err != nil {
+		r.recordFactualMetrics(ctx, FactualMetricsRecord{
+			Operation: FactualMetricsOperationPersistFactualSnapshot,
+			Outcome:   FactualMetricsOutcomeRejected,
+			Metrics:   FactualMetrics{Rejected: candidateCount},
+		})
+		return err
+	}
+	r.recordFactualMetrics(ctx, FactualMetricsRecord{
+		Operation: FactualMetricsOperationPersistFactualSnapshot,
+		Outcome:   FactualMetricsOutcomeCommitted,
+		Metrics:   metrics,
+	})
+	return nil
 }
 
 func (u *UnitOfWork) lockFactualSnapshot(ctx context.Context, prepared PreparedFactualSnapshot) (time.Time, error) {
@@ -776,59 +800,69 @@ func (u *UnitOfWork) lockFactualSnapshot(ctx context.Context, prepared PreparedF
 	return capturedAt, nil
 }
 
-func (u *UnitOfWork) persistPreparedFactualSnapshot(ctx context.Context, prepared PreparedFactualSnapshot, capturedAt time.Time) error {
+func (u *UnitOfWork) persistPreparedFactualSnapshot(ctx context.Context, prepared PreparedFactualSnapshot, capturedAt time.Time) (FactualMetrics, error) {
 	if err := validateContext(ctx); err != nil {
-		return err
+		return FactualMetrics{}, err
 	}
 	if u == nil || u.tx == nil {
-		return fmt.Errorf("%w: unit of work is not configured", ErrInvalidInput)
+		return FactualMetrics{}, fmt.Errorf("%w: unit of work is not configured", ErrInvalidInput)
 	}
 	for _, manifest := range prepared.FrontendManifests {
 		if err := u.insertFactualFrontendManifest(ctx, prepared, manifest); err != nil {
-			return err
+			return FactualMetrics{}, err
 		}
 	}
 	for _, manifest := range prepared.FrontendManifests {
 		for _, schema := range manifest.ExtensionSchemas {
 			if err := u.insertFactualExtensionSchema(ctx, prepared, schema); err != nil {
-				return err
+				return FactualMetrics{}, err
 			}
 		}
 	}
 	for _, rule := range prepared.RuleVersions {
 		if err := u.insertFactualRuleVersion(ctx, prepared, rule); err != nil {
-			return err
+			return FactualMetrics{}, err
 		}
 	}
+	var metrics FactualMetrics
 	for _, canonicalFact := range prepared.Facts {
-		if err := u.insertFactualCanonicalFact(ctx, prepared, canonicalFact, capturedAt); err != nil {
-			return err
+		inserted, err := u.insertFactualCanonicalFact(ctx, prepared, canonicalFact, capturedAt)
+		if err != nil {
+			return FactualMetrics{}, err
+		}
+		if inserted {
+			metrics.Accepted++
+		} else {
+			metrics.Reused++
+		}
+		if canonicalFact.Kind == factualFactKindDerived {
+			metrics.Derived++
 		}
 	}
 	for _, canonicalFact := range prepared.Facts {
 		if canonicalFact.Kind == factualFactKindDerived && len(canonicalFact.Inputs) == 0 {
-			return fmt.Errorf("%w: derived fact has no inputs", ErrInvalidInput)
+			return FactualMetrics{}, fmt.Errorf("%w: derived fact has no inputs", ErrInvalidInput)
 		}
 		for _, qualifier := range canonicalFact.Qualifiers {
 			if err := u.insertFactualQualifier(ctx, prepared, qualifier); err != nil {
-				return err
+				return FactualMetrics{}, err
 			}
 		}
 		for _, evidence := range canonicalFact.Evidence {
 			if err := u.insertFactualEvidenceLink(ctx, prepared, evidence); err != nil {
-				return err
+				return FactualMetrics{}, err
 			}
 		}
 		for _, input := range canonicalFact.Inputs {
 			if err := u.insertFactualInput(ctx, prepared, input); err != nil {
-				return err
+				return FactualMetrics{}, err
 			}
 		}
 		if err := u.compareFactualSupportSets(ctx, prepared, canonicalFact); err != nil {
-			return err
+			return FactualMetrics{}, err
 		}
 	}
-	return nil
+	return metrics, nil
 }
 
 func factualExecInsert(ctx context.Context, u *UnitOfWork, query, operation string, args ...any) (int64, error) {
@@ -927,7 +961,7 @@ func (u *UnitOfWork) insertFactualRuleVersion(ctx context.Context, prepared Prep
 	return nil
 }
 
-func (u *UnitOfWork) insertFactualCanonicalFact(ctx context.Context, prepared PreparedFactualSnapshot, item PreparedCanonicalFact, capturedAt time.Time) error {
+func (u *UnitOfWork) insertFactualCanonicalFact(ctx context.Context, prepared PreparedFactualSnapshot, item PreparedCanonicalFact, capturedAt time.Time) (bool, error) {
 	objectKind, objectID := any(nil), any(nil)
 	if item.Fact.Object != nil {
 		objectKind, objectID = item.Fact.Object.Kind, item.Fact.Object.ID
@@ -936,7 +970,7 @@ func (u *UnitOfWork) insertFactualCanonicalFact(ctx context.Context, prepared Pr
 	if item.Fact.Value != nil {
 		value, valueErr := factualFactValueJSON(item.Fact)
 		if valueErr != nil {
-			return fmt.Errorf("%w: canonical fact value", ErrInvalidInput)
+			return false, fmt.Errorf("%w: canonical fact value", ErrInvalidInput)
 		}
 		typedValue = value
 	}
@@ -955,9 +989,12 @@ func (u *UnitOfWork) insertFactualCanonicalFact(ctx context.Context, prepared Pr
 		ruleVersionID, capturedAt,
 	)
 	if err != nil || rows == 1 {
-		return err
+		return rows == 1, err
 	}
-	return u.existingFactualCanonicalFactMatches(ctx, prepared, item, capturedAt)
+	if err := u.existingFactualCanonicalFactMatches(ctx, prepared, item, capturedAt); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func (u *UnitOfWork) existingFactualCanonicalFactMatches(ctx context.Context, prepared PreparedFactualSnapshot, item PreparedCanonicalFact, capturedAt time.Time) error {

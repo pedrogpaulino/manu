@@ -111,6 +111,29 @@ func TestPersistBundleUsesOneTransactionAndHistoricalIdentities(t *testing.T) {
 	}
 }
 
+func TestPersistBundleV1Alpha1MetricsCommitZeroFacts(t *testing.T) {
+	tx := &fakeTransaction{}
+	repository, starter := newFakeRepository(tx)
+	var records []FactualMetricsRecord
+	repository.factualMetricsRecorder = FactualMetricsRecorderFunc(func(_ context.Context, record FactualMetricsRecord) {
+		records = append(records, record)
+	})
+
+	result, err := repository.PersistBundle(context.Background(), batchFixture("snapshot-v1-metrics", "configuration-1"))
+	if err != nil {
+		t.Fatalf("PersistBundle() error = %v", err)
+	}
+	if starter.beginCalls != 1 || tx.commitCalls != 1 || tx.rollbackCalls != 0 {
+		t.Fatalf("transaction calls = begin %d commit %d rollback %d, want 1/1/0", starter.beginCalls, tx.commitCalls, tx.rollbackCalls)
+	}
+	if result.FactualMetrics != (FactualMetrics{}) {
+		t.Fatalf("v1alpha1 result factual metrics = %#v, want zero", result.FactualMetrics)
+	}
+	if len(records) != 1 || records[0].Operation != FactualMetricsOperationPersistBundle || records[0].Outcome != FactualMetricsOutcomeCommitted || records[0].Metrics != (FactualMetrics{}) {
+		t.Fatalf("v1alpha1 metrics records = %#v, want one committed zero record", records)
+	}
+}
+
 func TestPersistBundleIncrementalKeepsStableFactualIdentityKeyAcrossSnapshots(t *testing.T) {
 	previous := batchFixture("snapshot-1", "configuration-1")
 	current := batchFixture("snapshot-2", "configuration-1")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -21,6 +22,12 @@ func TestPersistBundleV2WritesFactualRowsAfterLegacyEvidenceInOneTransaction(t *
 	}
 	repository, starter := newFactualSQLRepository()
 	starter.tx.queryRows = factualSupportRows(prepared)
+	var commitAtRecord int
+	var records []FactualMetricsRecord
+	repository.factualMetricsRecorder = FactualMetricsRecorderFunc(func(_ context.Context, record FactualMetricsRecord) {
+		commitAtRecord = starter.tx.commitCalls
+		records = append(records, record)
+	})
 
 	result, err := repository.PersistBundle(context.Background(), input)
 	if err != nil {
@@ -31,6 +38,15 @@ func TestPersistBundleV2WritesFactualRowsAfterLegacyEvidenceInOneTransaction(t *
 	}
 	if result.FrontendManifestIDs["batch-frontend"] == "" || result.CanonicalFactIDs[input.Facts[0].ID] == "" {
 		t.Fatalf("v1alpha2 IDs missing from result: %#v", result)
+	}
+	if result.FactualMetrics != (FactualMetrics{Accepted: 1}) {
+		t.Fatalf("result factual metrics = %#v, want one accepted fact", result.FactualMetrics)
+	}
+	if len(records) != 1 || records[0].Operation != FactualMetricsOperationPersistBundle || records[0].Outcome != FactualMetricsOutcomeCommitted || records[0].Metrics != result.FactualMetrics {
+		t.Fatalf("bundle metrics records = %#v, want one committed record", records)
+	}
+	if commitAtRecord != 1 {
+		t.Fatalf("commit calls observed by recorder = %d, want 1", commitAtRecord)
 	}
 	legacyEvidenceIndex, factualManifestIndex := -1, -1
 	for index, query := range starter.tx.execs {
@@ -52,11 +68,22 @@ func TestPersistBundleV2RejectsBeforeBeginAndRollsBackLateFactualFailure(t *test
 	invalid.Facts[0].ID = mustBatchFactID(t, invalid.Facts[0])
 	setBatchDigest(t, &invalid)
 	invalidRepository, invalidStarter := newFactualSQLRepository()
-	if _, err := invalidRepository.PersistBundle(context.Background(), invalid); !errors.Is(err, bundle.ErrInvalidReference) {
+	var invalidRecords []FactualMetricsRecord
+	invalidRepository.factualMetricsRecorder = FactualMetricsRecorderFunc(func(_ context.Context, record FactualMetricsRecord) {
+		invalidRecords = append(invalidRecords, record)
+	})
+	invalidResult, err := invalidRepository.PersistBundle(context.Background(), invalid)
+	if !errors.Is(err, bundle.ErrInvalidReference) {
 		t.Fatalf("invalid v1alpha2 bundle error = %v, want invalid reference", err)
+	}
+	if !reflect.DeepEqual(invalidResult, (BundlePersistenceResult{})) {
+		t.Fatalf("invalid v1alpha2 result = %#v, want zero result", invalidResult)
 	}
 	if invalidStarter.beginCalls != 0 || len(invalidStarter.tx.execs) != 0 {
 		t.Fatalf("invalid v1alpha2 bundle opened/wrote transaction: begin=%d writes=%d", invalidStarter.beginCalls, len(invalidStarter.tx.execs))
+	}
+	if len(invalidRecords) != 1 || invalidRecords[0].Outcome != FactualMetricsOutcomeRejected || invalidRecords[0].Metrics.Rejected != int64(len(invalid.Facts)) {
+		t.Fatalf("invalid bundle metrics = %#v, want one rejected record", invalidRecords)
 	}
 
 	input := batchV2Fixture(t, "snapshot-late-failure")
@@ -69,14 +96,27 @@ func TestPersistBundleV2RejectsBeforeBeginAndRollsBackLateFactualFailure(t *test
 	// The v1alpha1 portion of batchFixture has fifteen writes. The first
 	// factual write must therefore be the sixteenth statement.
 	starter.tx.execErrorAt = 16
-	if _, err := repository.PersistBundle(context.Background(), input); err == nil {
+	var rollbackAtRecord int
+	var records []FactualMetricsRecord
+	repository.factualMetricsRecorder = FactualMetricsRecorderFunc(func(_ context.Context, record FactualMetricsRecord) {
+		rollbackAtRecord = starter.tx.rollbackCalls
+		records = append(records, record)
+	})
+	lateResult, err := repository.PersistBundle(context.Background(), input)
+	if err == nil {
 		t.Fatal("PersistBundle() error = nil, want factual write failure")
+	}
+	if !reflect.DeepEqual(lateResult, (BundlePersistenceResult{})) {
+		t.Fatalf("late failure result = %#v, want zero result", lateResult)
 	}
 	if starter.beginCalls != 1 || starter.tx.commitCalls != 0 || starter.tx.rollbackCalls != 1 {
 		t.Fatalf("late factual transaction calls = begin %d commit %d rollback %d, want 1/0/1", starter.beginCalls, starter.tx.commitCalls, starter.tx.rollbackCalls)
 	}
 	if len(starter.tx.execs) != 16 {
 		t.Fatalf("writes before late factual failure = %d, want 16", len(starter.tx.execs))
+	}
+	if rollbackAtRecord != 1 || len(records) != 1 || records[0].Outcome != FactualMetricsOutcomeRejected || records[0].Metrics.Rejected != int64(len(input.Facts)) {
+		t.Fatalf("late failure metrics = %#v, rollback observed=%d", records, rollbackAtRecord)
 	}
 }
 
@@ -127,9 +167,17 @@ func TestPersistBundleIncrementalV2UsesOneTransaction(t *testing.T) {
 	}
 	repository, starter := newFactualSQLRepository()
 	starter.tx.queryRows = factualSupportRows(prepared)
+	var records []FactualMetricsRecord
+	repository.factualMetricsRecorder = FactualMetricsRecorderFunc(func(_ context.Context, record FactualMetricsRecord) {
+		records = append(records, record)
+	})
 
-	if _, _, err := repository.PersistBundleIncremental(context.Background(), previous, current); err != nil {
+	result, _, err := repository.PersistBundleIncremental(context.Background(), previous, current)
+	if err != nil {
 		t.Fatalf("PersistBundleIncremental() error = %v", err)
+	}
+	if result.FactualMetrics != (FactualMetrics{Accepted: 1}) || len(records) != 1 || records[0].Operation != FactualMetricsOperationPersistBundle || records[0].Outcome != FactualMetricsOutcomeCommitted || records[0].Metrics != result.FactualMetrics {
+		t.Fatalf("incremental metrics result/records = %#v/%#v, want one accepted committed record", result.FactualMetrics, records)
 	}
 	if starter.beginCalls != 1 || starter.tx.commitCalls != 1 || starter.tx.rollbackCalls != 0 {
 		t.Fatalf("incremental transaction calls = begin %d commit %d rollback %d, want 1/1/0", starter.beginCalls, starter.tx.commitCalls, starter.tx.rollbackCalls)

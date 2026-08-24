@@ -35,10 +35,12 @@ const (
 // Counts are deliberately independent of identities, scopes, payloads, and
 // error details.
 type FactualMetrics struct {
-	Accepted      int64 `json:"accepted"`
-	Reused        int64 `json:"reused"`
-	Rejected      int64 `json:"rejected"`
-	Derived       int64 `json:"derived"`
+	Accepted int64 `json:"accepted"`
+	Reused   int64 `json:"reused"`
+	Rejected int64 `json:"rejected"`
+	Derived  int64 `json:"derived"`
+	// FanoutLimited remains zero until the bounded executor planned for 5.4
+	// exists; persistence does not invent a fan-out limitation.
 	FanoutLimited int64 `json:"fanout_limited"`
 }
 
