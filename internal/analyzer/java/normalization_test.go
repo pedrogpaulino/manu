@@ -24,6 +24,7 @@ func TestNormalizerRegistrationsMapJavaContributionsToCanonicalFacts(t *testing.
 		value        string
 		factCount    int
 		predicates   []fact.Predicate
+		dimension    contract.Dimension
 	}{
 		{
 			name:         "artifact",
@@ -32,6 +33,16 @@ func TestNormalizerRegistrationsMapJavaContributionsToCanonicalFacts(t *testing.
 			value:        `{"path":"src/Main.java","type":"java","hash":"abc","size":42}`,
 			factCount:    1,
 			predicates:   []fact.Predicate{fact.PredicateArtifact},
+			dimension:    contract.DimensionLandscapeInventoryStructure,
+		},
+		{
+			name:         "package",
+			contribution: javaPackageContribution,
+			method:       "package:example.booking",
+			value:        `{"name":"example.booking"}`,
+			factCount:    2,
+			predicates:   []fact.Predicate{fact.PredicateNamedElement, fact.PredicateMembership},
+			dimension:    contract.DimensionLandscapeInventoryStructure,
 		},
 		{
 			name:         "type",
@@ -40,6 +51,7 @@ func TestNormalizerRegistrationsMapJavaContributionsToCanonicalFacts(t *testing.
 			value:        `{"kind":"class","name":"BookingService","qualified_name":"example.BookingService"}`,
 			factCount:    2,
 			predicates:   []fact.Predicate{fact.PredicateSymbol, fact.PredicateDefinition},
+			dimension:    contract.DimensionEntitiesAndRelationships,
 		},
 		{
 			name:         "method",
@@ -48,6 +60,7 @@ func TestNormalizerRegistrationsMapJavaContributionsToCanonicalFacts(t *testing.
 			value:        `{"kind":"method","name":"create","parameters":"String id","return_type":"Booking"}`,
 			factCount:    2,
 			predicates:   []fact.Predicate{fact.PredicateSymbol, fact.PredicateDefinition},
+			dimension:    contract.DimensionEntitiesAndRelationships,
 		},
 		{
 			name:         "import",
@@ -56,6 +69,61 @@ func TestNormalizerRegistrationsMapJavaContributionsToCanonicalFacts(t *testing.
 			value:        `{"name":"example.Booking","static":false}`,
 			factCount:    2,
 			predicates:   []fact.Predicate{fact.PredicateReference, fact.PredicateDependency},
+			dimension:    contract.DimensionFlowsAndDependencies,
+		},
+		{
+			name:         "relation call",
+			contribution: javaRelationContribution,
+			method:       "relation:call:1",
+			value:        `{"kind":"call","from":"service","to":"repository.save"}`,
+			factCount:    1,
+			predicates:   []fact.Predicate{fact.PredicateCall},
+			dimension:    contract.DimensionFlowsAndDependencies,
+		},
+		{
+			name:         "relation extends",
+			contribution: javaRelationContribution,
+			method:       "relation:extends:1",
+			value:        `{"kind":"extends","to":"BaseService"}`,
+			factCount:    1,
+			predicates:   []fact.Predicate{fact.PredicateDependency},
+			dimension:    contract.DimensionFlowsAndDependencies,
+		},
+		{
+			name:         "relation implements",
+			contribution: javaRelationContribution,
+			method:       "relation:implements:1",
+			value:        `{"kind":"implements","from":"BookingService","to":"Auditable"}`,
+			factCount:    1,
+			predicates:   []fact.Predicate{fact.PredicateDependency},
+			dimension:    contract.DimensionFlowsAndDependencies,
+		},
+		{
+			name:         "relation constructs",
+			contribution: javaRelationContribution,
+			method:       "relation:constructs:1",
+			value:        `{"kind":"constructs","to":"Booking"}`,
+			factCount:    1,
+			predicates:   []fact.Predicate{fact.PredicateDependency},
+			dimension:    contract.DimensionFlowsAndDependencies,
+		},
+		{
+			name:         "configuration",
+			contribution: javaConfigurationContribution,
+			method:       "config:booking.url:1",
+			value:        `{"key":"booking.url","kind":"property-access"}`,
+			factCount:    1,
+			predicates:   []fact.Predicate{fact.PredicateConfiguration},
+			dimension:    contract.DimensionConfigurationVariations,
+		},
+		{
+			name:         "endpoint",
+			contribution: javaEndpointContribution,
+			method:       "endpoint:/bookings:1",
+			value:        `{"path":"/bookings","http_method":"GET"}`,
+			factCount:    1,
+			predicates:   []fact.Predicate{fact.PredicateEndpoint},
+			dimension:    contract.DimensionEntitiesAndRelationships,
 		},
 	}
 
@@ -66,8 +134,15 @@ func TestNormalizerRegistrationsMapJavaContributionsToCanonicalFacts(t *testing.
 			if err != nil {
 				t.Fatalf("Normalize() error = %v", err)
 			}
-			if len(output.Facts) != test.factCount || len(output.Coverage) != 0 {
-				t.Fatalf("output counts = facts:%d coverage:%d, want facts:%d and no coverage", len(output.Facts), len(output.Coverage), test.factCount)
+			if len(output.Facts) != test.factCount || len(output.Coverage) != 1 {
+				t.Fatalf("output counts = facts:%d coverage:%d, want facts:%d and one coverage", len(output.Facts), len(output.Coverage), test.factCount)
+			}
+			coverage := output.Coverage[0]
+			if coverage.Dimension != string(test.dimension) || coverage.Scope != input.Contribution.ID || coverage.AnalyzerID != input.Manifest.ID || coverage.State != contract.CoverageProduced || coverage.ID != contract.CoverageID(coverage.Dimension, coverage.Scope, coverage.State, coverage.AnalyzerID) {
+				t.Fatalf("coverage = %#v, want produced coverage for %q and contribution scope", coverage, test.dimension)
+			}
+			if err := coverage.Validate(); err != nil {
+				t.Fatalf("coverage.Validate() error = %v", err)
 			}
 			gotPredicates := make([]fact.Predicate, 0, len(output.Facts))
 			for _, candidate := range output.Facts {
@@ -98,6 +173,29 @@ func TestNormalizerRegistrationsMapJavaContributionsToCanonicalFacts(t *testing.
 				for _, candidate := range output.Facts {
 					if candidate.Subject.Kind != fact.ParticipantArtifact || candidate.Subject.ID != input.Contribution.ArtifactID || candidate.Object == nil || candidate.Object.Kind != fact.ParticipantSymbol {
 						t.Fatalf("import relation = %#v, want artifact to lexical symbol", candidate)
+					}
+				}
+			}
+			if test.contribution == javaPackageContribution {
+				for _, candidate := range output.Facts {
+					if candidate.Predicate == fact.PredicateMembership {
+						if candidate.Subject.Kind != fact.ParticipantArtifact || candidate.Subject.ID != input.Contribution.ArtifactID || candidate.Object == nil || candidate.Object.Kind != fact.ParticipantNamedElement {
+							t.Fatalf("package membership = %#v, want artifact -> package", candidate)
+						}
+					}
+				}
+			}
+			if test.contribution == javaConfigurationContribution {
+				for _, candidate := range output.Facts {
+					if candidate.Value == nil || candidate.Value.Kind != fact.ValueString || candidate.Value.String != "booking.url" || len(candidate.Qualifiers) != 1 || candidate.Qualifiers[0].Name != "kind" || candidate.Qualifiers[0].Value.String != "property-access" {
+						t.Fatalf("configuration value = %#v, want key literal", candidate.Value)
+					}
+				}
+			}
+			if test.contribution == javaEndpointContribution {
+				for _, candidate := range output.Facts {
+					if candidate.Value == nil || candidate.Value.Kind != fact.ValueString || candidate.Value.String != "/bookings" || candidate.Subject.Kind != fact.ParticipantNamedElement || len(candidate.Qualifiers) != 1 || candidate.Qualifiers[0].Name != "http_method" || candidate.Qualifiers[0].Value.String != "GET" {
+						t.Fatalf("endpoint fact = %#v, want deterministic named endpoint with path value", candidate)
 					}
 				}
 			}
@@ -169,7 +267,16 @@ func TestJavaNormalizationReturnsConservativeCoverageWithoutEvidence(t *testing.
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
-	for _, contributionType := range []string{javaArtifactContribution, javaTypeContribution, javaMethodContribution, javaImportContribution} {
+	for _, contributionType := range []string{
+		javaArtifactContribution,
+		javaPackageContribution,
+		javaTypeContribution,
+		javaMethodContribution,
+		javaImportContribution,
+		javaRelationContribution,
+		javaConfigurationContribution,
+		javaEndpointContribution,
+	} {
 		input := javaInput(contributionType, "observation", json.RawMessage(`{"name":"kept out of output"}`))
 		input.Evidence = nil
 		output, normalizeErr := registry.Normalize(context.Background(), input)
@@ -208,18 +315,128 @@ func TestJavaNormalizationRejectsMalformedPayloadAndManifestWithoutLeakingData(t
 		func(manifest *fact.FrontendManifest) { manifest.ID = "other" },
 		func(manifest *fact.FrontendManifest) { manifest.Version = "2" },
 		func(manifest *fact.FrontendManifest) { manifest.Method = "other" },
-		func(manifest *fact.FrontendManifest) {
-			manifest.Predicates = removePredicate(manifest.Predicates, fact.PredicateDependency)
-		},
-		func(manifest *fact.FrontendManifest) {
-			manifest.Capabilities = removeDimension(manifest.Capabilities, contract.DimensionFlowsAndDependencies)
-		},
+	}
+	for _, predicate := range []fact.Predicate{
+		fact.PredicateArtifact,
+		fact.PredicateSymbol,
+		fact.PredicateNamedElement,
+		fact.PredicateDefinition,
+		fact.PredicateReference,
+		fact.PredicateCall,
+		fact.PredicateDependency,
+		fact.PredicateConfiguration,
+		fact.PredicateEndpoint,
+		fact.PredicateMembership,
+	} {
+		predicate := predicate
+		mutations = append(mutations, func(manifest *fact.FrontendManifest) {
+			manifest.Predicates = removePredicate(manifest.Predicates, predicate)
+		})
+	}
+	for _, dimension := range []contract.Dimension{
+		contract.DimensionLandscapeInventoryStructure,
+		contract.DimensionEntitiesAndRelationships,
+		contract.DimensionFlowsAndDependencies,
+		contract.DimensionConfigurationVariations,
+	} {
+		dimension := dimension
+		mutations = append(mutations, func(manifest *fact.FrontendManifest) {
+			manifest.Capabilities = removeDimension(manifest.Capabilities, dimension)
+		})
 	}
 	for index, mutate := range mutations {
 		candidate := javaManifest()
 		mutate(&candidate)
 		if _, err := NormalizerRegistrations(candidate); err == nil {
 			t.Fatalf("mutation %d accepted incompatible Java manifest", index)
+		}
+	}
+}
+
+func TestJavaNormalizationRejectsNewMappingErrorsWithoutLeakingPayload(t *testing.T) {
+	tests := []struct {
+		name         string
+		contribution string
+		value        string
+	}{
+		{name: "package missing name", contribution: javaPackageContribution, value: `{"secret":"package"}`},
+		{name: "relation missing target", contribution: javaRelationContribution, value: `{"kind":"extends"}`},
+		{name: "relation call missing source", contribution: javaRelationContribution, value: `{"kind":"call","to":"target"}`},
+		{name: "relation unknown kind", contribution: javaRelationContribution, value: `{"kind":"throws","to":"target"}`},
+		{name: "configuration missing key", contribution: javaConfigurationContribution, value: `{"kind":"property","secret":"configuration"}`},
+		{name: "endpoint missing path", contribution: javaEndpointContribution, value: `{"http_method":"GET","secret":"endpoint"}`},
+		{name: "endpoint unsupported method", contribution: javaEndpointContribution, value: `{"path":"/bookings","http_method":"TRACE","secret":"endpoint"}`},
+		{name: "endpoint control path", contribution: javaEndpointContribution, value: "{\"path\":\"/bookings\\nsecret\"}"},
+	}
+	registry := javaRegistry(t, javaManifest())
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := javaInput(test.contribution, "invalid", json.RawMessage(test.value))
+			output, err := registry.Normalize(context.Background(), input)
+			if !errors.Is(err, normalization.ErrNormalizationFailed) || !reflect.DeepEqual(output, normalization.Output{}) || strings.Contains(err.Error(), "secret") {
+				t.Fatalf("Normalize() output/error = %#v/%v, want redacted failure and zero output", output, err)
+			}
+		})
+	}
+}
+
+func TestJavaNormalizationComposesAllMappedContributionsDeterministically(t *testing.T) {
+	registry := javaRegistry(t, javaManifest())
+	inputs := []normalization.Input{
+		javaInput(javaArtifactContribution, "artifact", json.RawMessage(`{"path":"src/Main.java"}`)),
+		javaInput(javaTypeContribution, "type", json.RawMessage(`{"kind":"class","name":"Main"}`)),
+		javaInput(javaMethodContribution, "method", json.RawMessage(`{"name":"run","parameters":"String value"}`)),
+		javaInput(javaImportContribution, "import", json.RawMessage(`{"name":"example.Dependency"}`)),
+		javaInput(javaConfigurationContribution, "configuration", json.RawMessage(`{"key":"service.url","kind":"property"}`)),
+		javaInput(javaEndpointContribution, "endpoint", json.RawMessage(`{"path":"/run","http_method":"POST"}`)),
+	}
+	forward, err := registry.NormalizeAll(context.Background(), inputs)
+	if err != nil {
+		t.Fatalf("NormalizeAll(forward) error = %v", err)
+	}
+	reverseInputs := append([]normalization.Input(nil), inputs...)
+	for left, right := 0, len(reverseInputs)-1; left < right; left, right = left+1, right-1 {
+		reverseInputs[left], reverseInputs[right] = reverseInputs[right], reverseInputs[left]
+	}
+	reverse, err := registry.NormalizeAll(context.Background(), reverseInputs)
+	if err != nil {
+		t.Fatalf("NormalizeAll(reverse) error = %v", err)
+	}
+	if !reflect.DeepEqual(forward, reverse) {
+		t.Fatalf("NormalizeAll() changed with input order:\nforward=%#v\nreverse=%#v", forward, reverse)
+	}
+	if len(forward.Facts) != 9 || len(forward.Coverage) != len(inputs) {
+		t.Fatalf("composed output counts = facts:%d coverage:%d, want 9 facts and %d coverages", len(forward.Facts), len(forward.Coverage), len(inputs))
+	}
+	for _, candidate := range forward.Facts {
+		if err := candidate.Validate(); err != nil {
+			t.Fatalf("composed fact.Validate() error = %v", err)
+		}
+	}
+	for _, coverage := range forward.Coverage {
+		if coverage.State != contract.CoverageProduced || coverage.ID != contract.CoverageID(coverage.Dimension, coverage.Scope, coverage.State, coverage.AnalyzerID) {
+			t.Fatalf("composed coverage = %#v, want deterministic produced coverage", coverage)
+		}
+	}
+}
+
+func TestJavaNormalizerLeavesUnsupportedObservationTypesOnRegistryFallback(t *testing.T) {
+	registrations, err := NormalizerRegistrations(javaManifest())
+	if err != nil {
+		t.Fatalf("NormalizerRegistrations() error = %v", err)
+	}
+	if len(registrations) != 8 {
+		t.Fatalf("registration count = %d, want eight supported contribution types", len(registrations))
+	}
+	registry, err := normalization.NewRegistry(registrations...)
+	if err != nil {
+		t.Fatalf("NewRegistry() error = %v", err)
+	}
+	for _, contributionType := range []string{"java.annotation", "java.exception"} {
+		input := javaInput(contributionType, "unsupported", json.RawMessage(`{"name":"unsupported"}`))
+		output, normalizeErr := registry.Normalize(context.Background(), input)
+		if normalizeErr != nil || len(output.Facts) != 0 || len(output.Coverage) != len(input.Manifest.Capabilities) {
+			t.Fatalf("fallback for %q = %#v/%v, want no facts and manifest capability coverage", contributionType, output, normalizeErr)
 		}
 	}
 }
@@ -250,13 +467,19 @@ func javaManifest() fact.FrontendManifest {
 			contract.DimensionLandscapeInventoryStructure,
 			contract.DimensionEntitiesAndRelationships,
 			contract.DimensionFlowsAndDependencies,
+			contract.DimensionConfigurationVariations,
 		},
 		Predicates: []fact.Predicate{
 			fact.PredicateArtifact,
 			fact.PredicateSymbol,
+			fact.PredicateNamedElement,
 			fact.PredicateDefinition,
 			fact.PredicateReference,
+			fact.PredicateCall,
 			fact.PredicateDependency,
+			fact.PredicateConfiguration,
+			fact.PredicateEndpoint,
+			fact.PredicateMembership,
 		},
 		Execution: fact.ExecutionProfileSafeStatic,
 	}

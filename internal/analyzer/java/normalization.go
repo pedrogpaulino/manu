@@ -17,10 +17,14 @@ import (
 )
 
 const (
-	javaArtifactContribution = "java.artifact"
-	javaTypeContribution     = "java.type"
-	javaMethodContribution   = "java.method"
-	javaImportContribution   = "java.import"
+	javaArtifactContribution      = "java.artifact"
+	javaPackageContribution       = "java.package"
+	javaTypeContribution          = "java.type"
+	javaMethodContribution        = "java.method"
+	javaImportContribution        = "java.import"
+	javaRelationContribution      = "java.relation"
+	javaConfigurationContribution = "java.configuration"
+	javaEndpointContribution      = "java.endpoint"
 
 	// MissingEvidenceCoverageMessage is intentionally fixed. It is a factual
 	// coverage explanation, not a copy of the contribution payload.
@@ -30,20 +34,26 @@ const (
 var javaRequiredPredicates = [...]fact.Predicate{
 	fact.PredicateArtifact,
 	fact.PredicateSymbol,
+	fact.PredicateNamedElement,
 	fact.PredicateDefinition,
 	fact.PredicateReference,
+	fact.PredicateCall,
 	fact.PredicateDependency,
+	fact.PredicateConfiguration,
+	fact.PredicateEndpoint,
+	fact.PredicateMembership,
 }
 
 var javaRequiredDimensions = [...]contract.Dimension{
 	contract.DimensionLandscapeInventoryStructure,
 	contract.DimensionEntitiesAndRelationships,
 	contract.DimensionFlowsAndDependencies,
+	contract.DimensionConfigurationVariations,
 }
 
 // NormalizerRegistrations returns the bounded Java normalizers used by the
 // shared normalization registry. A registration is only produced for a
-// manifest that advertises the vocabulary and dimensions needed by all four
+// manifest that advertises the vocabulary and dimensions needed by all
 // mappings.
 func NormalizerRegistrations(manifest fact.FrontendManifest) ([]normalization.Registration, error) {
 	if err := validateJavaManifest(manifest); err != nil {
@@ -52,9 +62,13 @@ func NormalizerRegistrations(manifest fact.FrontendManifest) ([]normalization.Re
 
 	mappings := []javaMapping{
 		{contributionType: javaArtifactContribution, dimension: contract.DimensionLandscapeInventoryStructure, normalize: normalizeArtifact},
+		{contributionType: javaPackageContribution, dimension: contract.DimensionLandscapeInventoryStructure, normalize: normalizePackage},
 		{contributionType: javaTypeContribution, dimension: contract.DimensionEntitiesAndRelationships, normalize: normalizeType},
 		{contributionType: javaMethodContribution, dimension: contract.DimensionEntitiesAndRelationships, normalize: normalizeMethod},
 		{contributionType: javaImportContribution, dimension: contract.DimensionFlowsAndDependencies, normalize: normalizeImport},
+		{contributionType: javaRelationContribution, dimension: contract.DimensionFlowsAndDependencies, normalize: normalizeRelation},
+		{contributionType: javaConfigurationContribution, dimension: contract.DimensionConfigurationVariations, normalize: normalizeConfiguration},
+		{contributionType: javaEndpointContribution, dimension: contract.DimensionEntitiesAndRelationships, normalize: normalizeEndpoint},
 	}
 	registrations := make([]normalization.Registration, 0, len(mappings))
 	for _, mapping := range mappings {
@@ -121,16 +135,28 @@ func normalizeJavaContribution(ctx context.Context, input normalization.Input, m
 	if err := ctx.Err(); err != nil {
 		return normalization.Output{}, err
 	}
-	return normalization.Output{Facts: facts}, nil
+	return normalization.Output{
+		Facts: facts,
+		Coverage: []contract.Coverage{javaCoverage(
+			input,
+			mapping.dimension,
+			contract.CoverageProduced,
+			"Java normalization produced canonical facts",
+		)},
+	}, nil
 }
 
 func incompleteJavaCoverage(input normalization.Input, dimension contract.Dimension) contract.Coverage {
+	return javaCoverage(input, dimension, contract.CoverageIncomplete, MissingEvidenceCoverageMessage)
+}
+
+func javaCoverage(input normalization.Input, dimension contract.Dimension, state contract.CoverageState, message string) contract.Coverage {
 	coverage := contract.Coverage{
 		Dimension:  string(dimension),
 		Scope:      input.Contribution.ID,
-		State:      contract.CoverageIncomplete,
+		State:      state,
 		AnalyzerID: input.Manifest.ID,
-		Message:    MissingEvidenceCoverageMessage,
+		Message:    message,
 	}
 	coverage.ID = contract.CoverageID(coverage.Dimension, coverage.Scope, coverage.State, coverage.AnalyzerID)
 	return coverage
@@ -161,6 +187,26 @@ type javaMethodPayload struct {
 type javaImportPayload struct {
 	Name   string `json:"name"`
 	Static *bool  `json:"static"`
+}
+
+type javaPackagePayload struct {
+	Name string `json:"name"`
+}
+
+type javaRelationPayload struct {
+	Kind string `json:"kind"`
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+type javaConfigurationPayload struct {
+	Key  string `json:"key"`
+	Kind string `json:"kind"`
+}
+
+type javaEndpointPayload struct {
+	Path       string `json:"path"`
+	HTTPMethod string `json:"http_method"`
 }
 
 func normalizeArtifact(input normalization.Input, _ javaMapping) ([]fact.CanonicalFact, error) {
@@ -200,6 +246,31 @@ func normalizeArtifact(input normalization.Input, _ javaMapping) ([]fact.Canonic
 	}
 	candidate, err := javaFact(input, fact.PredicateArtifact, fact.Participant{Kind: fact.ParticipantArtifact, ID: input.Contribution.ArtifactID}, nil, &fact.TypedValue{Kind: fact.ValueString, String: payload.Path}, qualifiers)
 	return oneJavaFact(candidate, err)
+}
+
+func normalizePackage(input normalization.Input, _ javaMapping) ([]fact.CanonicalFact, error) {
+	var payload javaPackagePayload
+	if err := decodeJavaPayload(input.Contribution.Value, &payload); err != nil {
+		return nil, fmt.Errorf("java package contribution: %w", err)
+	}
+	if err := validLexicalText(payload.Name, "package name"); err != nil {
+		return nil, err
+	}
+	packageID := javaLexicalID("package", input.Contribution.ArtifactID, payload.Name, "")
+	packageParticipant := fact.Participant{Kind: fact.ParticipantNamedElement, ID: packageID}
+	artifactParticipant := fact.Participant{Kind: fact.ParticipantArtifact, ID: input.Contribution.ArtifactID}
+	nameQualifier := []fact.Qualifier{javaStringQualifier("kind", "package")}
+	namedFact, err := javaFact(input, fact.PredicateNamedElement, packageParticipant, nil, &fact.TypedValue{Kind: fact.ValueString, String: payload.Name}, nameQualifier)
+	if err != nil {
+		return nil, err
+	}
+	// Membership is directed from the artifact to its declared package: the
+	// artifact is the lexical member associated with the package container.
+	membershipFact, err := javaFact(input, fact.PredicateMembership, artifactParticipant, &packageParticipant, nil, nameQualifier)
+	if err != nil {
+		return nil, err
+	}
+	return []fact.CanonicalFact{namedFact, membershipFact}, nil
 }
 
 func normalizeType(input normalization.Input, _ javaMapping) ([]fact.CanonicalFact, error) {
@@ -318,6 +389,128 @@ func normalizeImport(input normalization.Input, _ javaMapping) ([]fact.Canonical
 		return nil, err
 	}
 	return []fact.CanonicalFact{referenceFact, dependencyFact}, nil
+}
+
+func normalizeRelation(input normalization.Input, _ javaMapping) ([]fact.CanonicalFact, error) {
+	var payload javaRelationPayload
+	if err := decodeJavaPayload(input.Contribution.Value, &payload); err != nil {
+		return nil, fmt.Errorf("java relation contribution: %w", err)
+	}
+	if err := validLexicalText(payload.Kind, "relation kind"); err != nil {
+		return nil, err
+	}
+	if err := validLexicalText(payload.To, "relation target"); err != nil {
+		return nil, err
+	}
+	kind := strings.ToLower(strings.TrimSpace(payload.Kind))
+	var predicate fact.Predicate
+	switch kind {
+	case "call":
+		predicate = fact.PredicateCall
+		if err := validLexicalText(payload.From, "call source"); err != nil {
+			return nil, err
+		}
+	case "extends", "implements", "constructs":
+		predicate = fact.PredicateDependency
+	case "":
+		return nil, errors.New("java relation kind is required")
+	default:
+		return nil, errors.New("java relation kind is unsupported")
+	}
+
+	var subject fact.Participant
+	if payload.From == "" {
+		subject = fact.Participant{Kind: fact.ParticipantArtifact, ID: input.Contribution.ArtifactID}
+	} else {
+		if err := validLexicalText(payload.From, "relation source"); err != nil {
+			return nil, err
+		}
+		subject = fact.Participant{Kind: fact.ParticipantSymbol, ID: javaLexicalID("relation-from", input.Contribution.ArtifactID, payload.From, kind)}
+	}
+	target := fact.Participant{Kind: fact.ParticipantSymbol, ID: javaLexicalID("relation-to", input.Contribution.ArtifactID, payload.To, kind)}
+	qualifiers := []fact.Qualifier{
+		javaStringQualifier("kind", kind),
+		javaStringQualifier("target", payload.To),
+	}
+	if payload.From != "" {
+		qualifiers = append(qualifiers, javaStringQualifier("source", payload.From))
+	}
+	candidate, err := javaFact(input, predicate, subject, &target, nil, qualifiers)
+	if err != nil {
+		return nil, err
+	}
+	return oneJavaFact(candidate, nil)
+}
+
+func normalizeConfiguration(input normalization.Input, _ javaMapping) ([]fact.CanonicalFact, error) {
+	var payload javaConfigurationPayload
+	if err := decodeJavaPayload(input.Contribution.Value, &payload); err != nil {
+		return nil, fmt.Errorf("java configuration contribution: %w", err)
+	}
+	if err := validLexicalText(payload.Key, "configuration key"); err != nil {
+		return nil, err
+	}
+	qualifiers := make([]fact.Qualifier, 0, 1)
+	if payload.Kind != "" {
+		if err := validLexicalText(payload.Kind, "configuration kind"); err != nil {
+			return nil, err
+		}
+		qualifiers = append(qualifiers, javaStringQualifier("kind", payload.Kind))
+	}
+	candidate, err := javaFact(
+		input,
+		fact.PredicateConfiguration,
+		fact.Participant{Kind: fact.ParticipantArtifact, ID: input.Contribution.ArtifactID},
+		nil,
+		&fact.TypedValue{Kind: fact.ValueString, String: payload.Key},
+		qualifiers,
+	)
+	return oneJavaFact(candidate, err)
+}
+
+func normalizeEndpoint(input normalization.Input, _ javaMapping) ([]fact.CanonicalFact, error) {
+	var payload javaEndpointPayload
+	if err := decodeJavaPayload(input.Contribution.Value, &payload); err != nil {
+		return nil, fmt.Errorf("java endpoint contribution: %w", err)
+	}
+	if err := validLexicalText(payload.Path, "endpoint path"); err != nil {
+		return nil, err
+	}
+	httpMethod, err := normalizeHTTPMethod(payload.HTTPMethod)
+	if err != nil {
+		return nil, err
+	}
+	endpointID := javaLexicalID("endpoint", input.Contribution.ArtifactID, payload.Path, httpMethod)
+	qualifiers := make([]fact.Qualifier, 0, 1)
+	if httpMethod != "" {
+		qualifiers = append(qualifiers, javaStringQualifier("http_method", httpMethod))
+	}
+	candidate, err := javaFact(
+		input,
+		fact.PredicateEndpoint,
+		fact.Participant{Kind: fact.ParticipantNamedElement, ID: endpointID},
+		nil,
+		&fact.TypedValue{Kind: fact.ValueString, String: payload.Path},
+		qualifiers,
+	)
+	return oneJavaFact(candidate, err)
+}
+
+func normalizeHTTPMethod(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if value != "" && trimmed == "" {
+		return "", errors.New("java endpoint HTTP method is unsupported")
+	}
+	if trimmed == "" {
+		return "", nil
+	}
+	method := strings.ToUpper(trimmed)
+	switch method {
+	case "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD":
+		return method, nil
+	default:
+		return "", errors.New("java endpoint HTTP method is unsupported")
+	}
 }
 
 func oneJavaFact(candidate fact.CanonicalFact, err error) ([]fact.CanonicalFact, error) {
