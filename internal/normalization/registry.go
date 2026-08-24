@@ -2,6 +2,8 @@ package normalization
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -53,7 +55,95 @@ func (r *Registry) Normalize(ctx context.Context, input Input) (Output, error) {
 	if err := validateInput(input); err != nil {
 		return Output{}, err
 	}
-	prepared := cloneInput(input)
+	return r.normalizePrepared(ctx, cloneInput(input))
+}
+
+// NormalizeAll validates and normalizes a complete set of contributions for
+// one snapshot. Validation and cloning finish for every input before the
+// first normalizer is called, so a later malformed input can never leave
+// earlier normalizer work observable through a partial result.
+func (r *Registry) NormalizeAll(ctx context.Context, inputs []Input) (Output, error) {
+	if err := validateContext(ctx); err != nil {
+		return Output{}, err
+	}
+	if r == nil {
+		return Output{}, ErrInvalidInput
+	}
+	if len(inputs) == 0 {
+		return Output{}, nil
+	}
+
+	prepared := make([]Input, len(inputs))
+	var expectedScope fact.Scope
+	for index, input := range inputs {
+		if err := validateContext(ctx); err != nil {
+			return Output{}, err
+		}
+		if err := validateInput(input); err != nil {
+			return Output{}, err
+		}
+		if index == 0 {
+			expectedScope = input.Scope
+		} else if input.Scope != expectedScope {
+			return Output{}, ErrInvalidInput
+		}
+		prepared[index] = cloneInput(input)
+	}
+	if err := validateContext(ctx); err != nil {
+		return Output{}, err
+	}
+
+	sort.SliceStable(prepared, func(left, right int) bool {
+		return inputSortKey(prepared[left]) < inputSortKey(prepared[right])
+	})
+
+	result := Output{}
+	seenFacts := make(map[string]struct{})
+	seenCoverage := make(map[string]struct{})
+	for _, input := range prepared {
+		if err := validateContext(ctx); err != nil {
+			return Output{}, err
+		}
+		output, err := r.normalizePrepared(ctx, input)
+		if err != nil {
+			return Output{}, err
+		}
+		for _, fact := range output.Facts {
+			if _, exists := seenFacts[fact.ID]; exists {
+				return Output{}, ErrInvalidOutput
+			}
+			seenFacts[fact.ID] = struct{}{}
+		}
+		for _, coverage := range output.Coverage {
+			if _, exists := seenCoverage[coverage.ID]; exists {
+				return Output{}, ErrInvalidOutput
+			}
+			seenCoverage[coverage.ID] = struct{}{}
+		}
+		result.Facts = append(result.Facts, output.Facts...)
+		result.Extensions = append(result.Extensions, output.Extensions...)
+		result.Coverage = append(result.Coverage, output.Coverage...)
+	}
+
+	if err := validateContext(ctx); err != nil {
+		return Output{}, err
+	}
+	sort.SliceStable(result.Facts, func(left, right int) bool {
+		return result.Facts[left].ID < result.Facts[right].ID
+	})
+	sort.SliceStable(result.Coverage, func(left, right int) bool {
+		return result.Coverage[left].ID < result.Coverage[right].ID
+	})
+	sort.SliceStable(result.Extensions, func(left, right int) bool {
+		return extensionKey(result.Extensions[left]) < extensionKey(result.Extensions[right])
+	})
+	return result, nil
+}
+
+func (r *Registry) normalizePrepared(ctx context.Context, prepared Input) (Output, error) {
+	if err := validateContext(ctx); err != nil {
+		return Output{}, err
+	}
 	key := registrationKey(
 		prepared.Manifest.ID,
 		prepared.Manifest.Version,
@@ -73,6 +163,24 @@ func (r *Registry) Normalize(ctx context.Context, input Input) (Output, error) {
 		return Output{}, ErrNormalizationFailed
 	}
 	return prepareOutput(prepared, output)
+}
+
+func inputSortKey(input Input) string {
+	primary := strings.Join([]string{
+		input.Manifest.ID,
+		input.Manifest.Version,
+		input.Manifest.Method,
+		input.Contribution.Type,
+		input.Contribution.ID,
+	}, "\x00")
+	encoded, err := json.Marshal(input)
+	if err != nil {
+		// Keep sorting total even when a future raw field is not JSON
+		// serializable. Input contains no maps or pointer identities, so %#v is
+		// a deterministic tie-breaker for the current value types.
+		encoded = []byte(fmt.Sprintf("%#v", input))
+	}
+	return primary + "\x00" + string(encoded)
 }
 
 func validateContext(ctx context.Context) error {
