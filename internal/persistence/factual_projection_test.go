@@ -128,6 +128,9 @@ func TestPrepareFactualProjectionChangesIdentityWithScope(t *testing.T) {
 	other.SnapshotID = identity.CanonicalUUID("snapshot", other.Scope.OrganizationID, other.Scope.SourceID, other.Scope.SnapshotID)
 	for index := range other.Facts {
 		other.Facts[index].Scope = other.Scope
+		for evidenceIndex := range other.Facts[index].Evidence {
+			other.Facts[index].Evidence[evidenceIndex].Locator.SourceID = other.Scope.SourceID
+		}
 		other.Facts[index].ID = mustFactID(other.Facts[index])
 	}
 	second, err := PrepareFactualProjection(other)
@@ -242,7 +245,13 @@ func factualProjectionFact(scope fact.Scope, subjectKind fact.ParticipantKind, s
 		Subject:   fact.Participant{Kind: subjectKind, ID: subjectID},
 		Object:    object,
 		Producer:  producer,
-		Evidence:  []fact.EvidenceRef{{ID: "evidence-" + evidenceID, Locator: contract.Locator{Path: evidenceID + ".java", StartLine: 1, EndLine: 1}}},
+		Evidence: []fact.EvidenceRef{{
+			ID: "evidence-" + evidenceID,
+			Locator: contract.Locator{
+				SourceID: scope.SourceID, ArtifactID: "artifact-1",
+				Path: evidenceID + ".java", StartLine: 1, EndLine: 1,
+			},
+		}},
 	}
 	if object == nil {
 		candidate.Value = &fact.TypedValue{Kind: fact.ValueString, String: evidenceID}

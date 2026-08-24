@@ -20,7 +20,7 @@
 - [x] 3.1 Criar migration forward-only aditiva para fatos observados e derivados, qualificadores, vínculos de evidência, entradas de derivação, manifestos e versões de regras, verificando aplicação transacional, rollback sem artefatos parciais, constraints de escopo e integridade no catálogo de migrações.
 - [x] 3.2 Implementar repositórios transacionais e escopados por `Organization`, `Source` e snapshot para fatos e linhagem, verificando imutabilidade, idempotência, conflito e isolamento em testes PostgreSQL.
 - [x] 3.3 Integrar manifestos e fatos à ingestão de bundles sem remover contribuições existentes, verificando atomicidade, repetição idempotente e preservação dos resultados válidos quando uma dimensão falhar.
-- [ ] 3.4 Implementar leitura canônica e rebuild de `entities`, `relationships` e demais projeções factuais a partir do PostgreSQL, verificando que sejam tratadas como projeções reconstruíveis e possam ser apagadas e refeitas por snapshot sem reanalisar a fonte.
+- [x] 3.4 Implementar leitura canônica e rebuild de `entities`, `relationships` e demais projeções factuais a partir do PostgreSQL, verificando que sejam tratadas como projeções reconstruíveis e possam ser apagadas e refeitas por snapshot sem reanalisar a fonte.
 - [ ] 3.5 Acrescentar métricas de fatos aceitos, reutilizados, rejeitados, derivados e limitados por fanout, verificando cardinalidade e ausência de conteúdo sensível nos registros operacionais.
 
 ## 4. Normalização e corpus heterogêneo
