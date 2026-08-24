@@ -48,6 +48,7 @@ type Input struct {
 // produced for one input contribution.
 type Output struct {
 	Facts      []fact.CanonicalFact     `json:"facts,omitempty"`
+	Conflicts  []fact.Conflict          `json:"conflicts,omitempty"`
 	Extensions []bundle.ExtensionRecord `json:"extensions,omitempty"`
 	Coverage   []contract.Coverage      `json:"coverage,omitempty"`
 }

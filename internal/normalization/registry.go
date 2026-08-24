@@ -131,6 +131,13 @@ func (r *Registry) NormalizeAll(ctx context.Context, inputs []Input) (Output, er
 	sort.SliceStable(result.Facts, func(left, right int) bool {
 		return result.Facts[left].ID < result.Facts[right].ID
 	})
+	conflicts, err := fact.DetectConflicts(result.Facts)
+	if err != nil {
+		return Output{}, ErrInvalidOutput
+	}
+	if len(conflicts) > 0 {
+		result.Conflicts = conflicts
+	}
 	sort.SliceStable(result.Coverage, func(left, right int) bool {
 		return result.Coverage[left].ID < result.Coverage[right].ID
 	})
@@ -280,6 +287,9 @@ func validateInput(input Input) error {
 }
 
 func prepareOutput(input Input, raw Output) (Output, error) {
+	if len(raw.Conflicts) > 0 {
+		return Output{}, ErrInvalidOutput
+	}
 	result := Output{
 		Facts:      cloneFacts(raw.Facts),
 		Extensions: cloneExtensions(input.Extensions),
