@@ -5,7 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -23,6 +29,48 @@ var pythonIntegrationDimensions = map[string]contract.Dimension{
 	ImportContributionType:        contract.DimensionFlowsAndDependencies,
 	RelationContributionType:      contract.DimensionFlowsAndDependencies,
 	ConfigurationContributionType: contract.DimensionConfigurationVariations,
+}
+
+const pythonFactualGoldenPath = "testdata/frappe17/facts.golden.json"
+
+type pythonFactualGolden struct {
+	SchemaVersion string                 `json:"schema_version"`
+	Family        string                 `json:"family"`
+	Manifest      fact.FrontendManifest  `json:"manifest"`
+	FactualDigest string                 `json:"factual_digest"`
+	Facts         []pythonGoldenFact     `json:"facts"`
+	Coverage      []pythonGoldenCoverage `json:"coverage"`
+}
+
+type pythonGoldenFact struct {
+	FactID    string                 `json:"fact_id"`
+	Predicate fact.Predicate         `json:"predicate"`
+	Evidence  []pythonGoldenEvidence `json:"evidence"`
+}
+
+type pythonGoldenEvidence struct {
+	ID      string              `json:"id"`
+	Locator pythonGoldenLocator `json:"locator"`
+}
+
+type pythonGoldenLocator struct {
+	URI         string `json:"uri"`
+	SourceID    string `json:"source_id"`
+	ArtifactID  string `json:"artifact_id"`
+	Path        string `json:"path"`
+	Member      string `json:"member"`
+	StartLine   int    `json:"start_line"`
+	StartColumn int    `json:"start_column"`
+	EndLine     int    `json:"end_line"`
+	EndColumn   int    `json:"end_column"`
+	ByteOffset  int64  `json:"byte_offset"`
+	ByteLength  int64  `json:"byte_length"`
+}
+
+type pythonGoldenCoverage struct {
+	Dimension string                 `json:"dimension"`
+	State     contract.CoverageState `json:"state"`
+	Count     int                    `json:"count"`
 }
 
 func TestPythonFrappeNormalizationEndToEndIsDeterministicAndConservative(t *testing.T) {
@@ -159,6 +207,218 @@ func TestPythonFrappeNormalizationEndToEndIsDeterministicAndConservative(t *test
 	repeatedDigest := pythonIntegrationFactualDigest(t, outputs, artifacts, allContributions, scope, manifest, repeated)
 	if firstDigest != repeatedDigest {
 		t.Fatalf("repeated FactualDigestV2 changed: first=%q repeated=%q", firstDigest, repeatedDigest)
+	}
+
+	candidateGolden := pythonGoldenSnapshot(manifest, firstDigest, normalized)
+	golden, err := loadPythonFactualGolden()
+	if err != nil {
+		t.Fatalf("load Python factual golden: %v", err)
+	}
+	if !reflect.DeepEqual(candidateGolden, golden) {
+		candidateJSON, _ := json.MarshalIndent(candidateGolden, "", "  ")
+		wantJSON, _ := json.MarshalIndent(golden, "", "  ")
+		t.Fatalf("Python factual golden mismatch:\n got:\n%s\n want:\n%s", candidateJSON, wantJSON)
+	}
+}
+
+func pythonGoldenSnapshot(manifest fact.FrontendManifest, digest string, normalized normalization.Output) pythonFactualGolden {
+	facts := make([]pythonGoldenFact, 0, len(normalized.Facts))
+	for _, candidate := range normalized.Facts {
+		evidence := make([]pythonGoldenEvidence, 0, len(candidate.Evidence))
+		for _, reference := range candidate.Evidence {
+			evidence = append(evidence, pythonGoldenEvidence{
+				ID:      reference.ID,
+				Locator: pythonGoldenLocatorFromContract(reference.Locator),
+			})
+		}
+		facts = append(facts, pythonGoldenFact{
+			FactID:    candidate.ID,
+			Predicate: candidate.Predicate,
+			Evidence:  evidence,
+		})
+	}
+
+	counts := make(map[string]int, len(normalized.Coverage))
+	for _, coverage := range normalized.Coverage {
+		key := coverage.Dimension + "\x00" + string(coverage.State)
+		counts[key]++
+	}
+	coverage := make([]pythonGoldenCoverage, 0, len(counts))
+	for key, count := range counts {
+		parts := strings.SplitN(key, "\x00", 2)
+		coverage = append(coverage, pythonGoldenCoverage{
+			Dimension: parts[0],
+			State:     contract.CoverageState(parts[1]),
+			Count:     count,
+		})
+	}
+	sort.Slice(coverage, func(left, right int) bool {
+		if coverage[left].Dimension != coverage[right].Dimension {
+			return coverage[left].Dimension < coverage[right].Dimension
+		}
+		return coverage[left].State < coverage[right].State
+	})
+
+	return pythonFactualGolden{
+		SchemaVersion: "v1",
+		Family:        "python-frappe",
+		Manifest:      clonePythonManifest(manifest),
+		FactualDigest: digest,
+		Facts:         facts,
+		Coverage:      coverage,
+	}
+}
+
+func pythonGoldenLocatorFromContract(locator contract.Locator) pythonGoldenLocator {
+	return pythonGoldenLocator{
+		URI:         locator.URI,
+		SourceID:    locator.SourceID,
+		ArtifactID:  locator.ArtifactID,
+		Path:        locator.Path,
+		Member:      locator.Member,
+		StartLine:   locator.StartLine,
+		StartColumn: locator.StartColumn,
+		EndLine:     locator.EndLine,
+		EndColumn:   locator.EndColumn,
+		ByteOffset:  locator.ByteOffset,
+		ByteLength:  locator.ByteLength,
+	}
+}
+
+func loadPythonFactualGolden() (pythonFactualGolden, error) {
+	file, err := os.Open(filepath.Join(filepath.Dir(pythonFactualGoldenPath), filepath.Base(pythonFactualGoldenPath)))
+	if err != nil {
+		return pythonFactualGolden{}, err
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	decoder.DisallowUnknownFields()
+	var golden pythonFactualGolden
+	if err := decoder.Decode(&golden); err != nil {
+		return pythonFactualGolden{}, err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return pythonFactualGolden{}, errors.New("trailing JSON value")
+		}
+		return pythonFactualGolden{}, err
+	}
+	if err := validatePythonFactualGolden(golden); err != nil {
+		return pythonFactualGolden{}, err
+	}
+	return golden, nil
+}
+
+func validatePythonFactualGolden(golden pythonFactualGolden) error {
+	if golden.SchemaVersion != "v1" {
+		return fmt.Errorf("schema_version = %q, want v1", golden.SchemaVersion)
+	}
+	if golden.Family != "python-frappe" {
+		return fmt.Errorf("family = %q, want python-frappe", golden.Family)
+	}
+	if err := golden.Manifest.Validate(); err != nil {
+		return fmt.Errorf("manifest: %w", err)
+	}
+	if !reflect.DeepEqual(golden.Manifest, Manifest()) {
+		return errors.New("manifest does not exactly match Manifest()")
+	}
+	if len(golden.FactualDigest) != sha256.Size*2 {
+		return errors.New("factual_digest must be a SHA-256 hex digest")
+	}
+	if _, err := hex.DecodeString(golden.FactualDigest); err != nil {
+		return fmt.Errorf("factual_digest: %w", err)
+	}
+	if len(golden.Facts) == 0 {
+		return errors.New("facts must not be empty")
+	}
+	previousFactID := ""
+	seenFacts := make(map[string]struct{}, len(golden.Facts))
+	for index, candidate := range golden.Facts {
+		if candidate.FactID == "" {
+			return fmt.Errorf("facts[%d].fact_id is required", index)
+		}
+		if index > 0 && candidate.FactID <= previousFactID {
+			return fmt.Errorf("facts are not strictly ordered by fact_id at index %d", index)
+		}
+		previousFactID = candidate.FactID
+		if _, exists := seenFacts[candidate.FactID]; exists {
+			return fmt.Errorf("facts[%d].fact_id is duplicated", index)
+		}
+		seenFacts[candidate.FactID] = struct{}{}
+		if err := candidate.Predicate.Validate(); err != nil {
+			return fmt.Errorf("facts[%d].predicate: %w", index, err)
+		}
+		if len(candidate.Evidence) == 0 {
+			return fmt.Errorf("facts[%d].evidence must not be empty", index)
+		}
+		for evidenceIndex, evidence := range candidate.Evidence {
+			if evidence.ID == "" {
+				return fmt.Errorf("facts[%d].evidence[%d].id is required", index, evidenceIndex)
+			}
+			locator := evidence.Locator.toContract()
+			if err := locator.Validate(); err != nil {
+				return fmt.Errorf("facts[%d].evidence[%d].locator: %w", index, evidenceIndex, err)
+			}
+			if locator.SourceID != "source-python-integration" {
+				return fmt.Errorf("facts[%d].evidence[%d] has unexpected source_id %q", index, evidenceIndex, locator.SourceID)
+			}
+			if locator.Path != "doctype.py" && locator.Path != "hooks.py" {
+				return fmt.Errorf("facts[%d].evidence[%d] points outside Python fixtures: %q", index, evidenceIndex, locator.Path)
+			}
+			if locator.StartLine <= 0 || locator.EndLine < locator.StartLine {
+				return fmt.Errorf("facts[%d].evidence[%d] has invalid line range", index, evidenceIndex)
+			}
+		}
+	}
+	if len(golden.Coverage) == 0 {
+		return errors.New("coverage must not be empty")
+	}
+	previousCoverageKey := ""
+	seenCoverage := make(map[string]struct{}, len(golden.Coverage))
+	for index, coverage := range golden.Coverage {
+		if coverage.Dimension == "" || coverage.Count <= 0 {
+			return fmt.Errorf("coverage[%d] requires dimension and positive count", index)
+		}
+		if !validPythonCoverageState(coverage.State) {
+			return fmt.Errorf("coverage[%d] has invalid state %q", index, coverage.State)
+		}
+		key := coverage.Dimension + "\x00" + string(coverage.State)
+		if index > 0 && key <= previousCoverageKey {
+			return fmt.Errorf("coverage is not ordered by dimension/state at index %d", index)
+		}
+		previousCoverageKey = key
+		if _, exists := seenCoverage[key]; exists {
+			return fmt.Errorf("coverage[%d] is duplicated", index)
+		}
+		seenCoverage[key] = struct{}{}
+	}
+	return nil
+}
+
+func (locator pythonGoldenLocator) toContract() contract.Locator {
+	return contract.Locator{
+		URI:         locator.URI,
+		SourceID:    locator.SourceID,
+		ArtifactID:  locator.ArtifactID,
+		Path:        locator.Path,
+		Member:      locator.Member,
+		StartLine:   locator.StartLine,
+		StartColumn: locator.StartColumn,
+		EndLine:     locator.EndLine,
+		EndColumn:   locator.EndColumn,
+		ByteOffset:  locator.ByteOffset,
+		ByteLength:  locator.ByteLength,
+	}
+}
+
+func validPythonCoverageState(state contract.CoverageState) bool {
+	switch state {
+	case contract.CoverageProduced, contract.CoverageIncomplete, contract.CoverageNotSupported, contract.CoverageNotApplicable, contract.CoverageFailed:
+		return true
+	default:
+		return false
 	}
 }
 

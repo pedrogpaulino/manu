@@ -1,0 +1,752 @@
+{
+  "schema_version": "v1",
+  "family": "python-frappe",
+  "manifest": {
+    "manifest_version": "v1alpha1",
+    "id": "python",
+    "version": "1",
+    "method": "structural-python-v1",
+    "source_types": [
+      "filesystem"
+    ],
+    "families": [
+      "python",
+      "frappe"
+    ],
+    "versions": [
+      "python-3",
+      "frappe-17"
+    ],
+    "capabilities": [
+      "landscape_inventory_structure",
+      "entities_and_relationships",
+      "flows_and_dependencies",
+      "configuration_variations"
+    ],
+    "limitations": [
+      "lexical-only",
+      "no-import-resolution",
+      "no-build-or-dependency-installation",
+      "no-runtime-execution",
+      "no-site-access",
+      "no-orm-semantics"
+    ],
+    "predicates": [
+      "artifact",
+      "symbol",
+      "definition",
+      "reference",
+      "dependency",
+      "configuration"
+    ],
+    "execution_profile": "safe-static"
+  },
+  "factual_digest": "9eab722a13516e68b60d097b5c425e0dc1247df6ad330a23175249cc927ef9ab",
+  "facts": [
+    {
+      "fact_id": "fact-01b8d573dfe812e0e1461116dfcd21189abef4e6449f80be3f18c114f91ff078",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-6475b4ac5b478f04a3811560c520ecb3cbb2a19258f778032fbb874e91349441",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 4,
+            "start_column": 0,
+            "end_line": 4,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-156a2e6108f403868ad3e3c55c8552664374d77de34d118095d8c6764fd3bad9",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-c61d9a0fae3d56e7350aa38655be8159b760b1ca7d908cf814db937df4055865",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 5,
+            "start_column": 0,
+            "end_line": 5,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-163fac354fd3fa68448daa98c2fb6f08b8679c2217bd1d7e76f1c8f6c78b7309",
+      "predicate": "artifact",
+      "evidence": [
+        {
+          "id": "evidence-contribution-6c7b15cd0b9d871fa483b4d665293083355e93e5345fe4c6829c782d5b9b4304",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-79ee1e371f7a1f114848c03ff41e6211df2676b38de3332d92b66abdb1ae498d",
+            "path": "hooks.py",
+            "member": "",
+            "start_line": 1,
+            "start_column": 0,
+            "end_line": 1,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-16c33ecef3c66cfaba027c2af646ece05a43ad53bf5b4266a89aa2846615c7e1",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-b9c3d918d122acc701bb562d49b3406ffaf3cb40b7a4e9addeb2e87ee6c2169e",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 6,
+            "start_column": 0,
+            "end_line": 6,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-197bc0c01dd5395a7d97242328d1c78e2672eba6321fdf247d4f8d38f77cc435",
+      "predicate": "definition",
+      "evidence": [
+        {
+          "id": "evidence-contribution-f097247d0ef55e66c883a62e2f7643db02f23820bee00d19bd28e0b7ca07caa2",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 21,
+            "start_column": 0,
+            "end_line": 21,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-2095ec42cd87725ba47dff94681541b9507f2e61230341e1f44b072edf2fde6d",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-525f66e498428138667347cb916ea81bc5af55c45aac0165de25a7470fd5bf39",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 16,
+            "start_column": 0,
+            "end_line": 16,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-25ac358b599ebd9f5f26f4d5e8a068fea7cbd752aac69be5198177a417916b3c",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-3b1472655c400d09800e5b41a8cdd47a956373e3e4e1960c4e2800749fa016f3",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-79ee1e371f7a1f114848c03ff41e6211df2676b38de3332d92b66abdb1ae498d",
+            "path": "hooks.py",
+            "member": "",
+            "start_line": 7,
+            "start_column": 0,
+            "end_line": 7,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-3b3647c8efff9677d08dda73f28d6e5a7e6d44c23e68f6c02404512d9b2fe676",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-024947cbc9582577750497792486380f6a1d17f81108254b983f20ab8126d7e5",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-79ee1e371f7a1f114848c03ff41e6211df2676b38de3332d92b66abdb1ae498d",
+            "path": "hooks.py",
+            "member": "",
+            "start_line": 2,
+            "start_column": 0,
+            "end_line": 2,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-41e65a21f04a738e210f3466788c903c91326597f69026040242619387086fdf",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-a7b848a433f8c96ac4a0461917edec85e97bb866d4dcfc4c4cb77918c132988d",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 17,
+            "start_column": 0,
+            "end_line": 17,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-569359974ca8147ce728ee97f3f82b001b0b226f3bbffe0050883fd12ad6a488",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-00f0e7bbf75ab014b621c938f9c92c06aa7cef1bc44c9de7d2ee5dc13ea0de57",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-79ee1e371f7a1f114848c03ff41e6211df2676b38de3332d92b66abdb1ae498d",
+            "path": "hooks.py",
+            "member": "",
+            "start_line": 1,
+            "start_column": 0,
+            "end_line": 1,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-5d617e0d6836b6bc340e874be75416bd7dc41329bb20d3c327f267534e905552",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-39d3f60d75ce264432ee46c475b56ae98c9c346c3bdd9474ae3fcdc6e20bc256",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-79ee1e371f7a1f114848c03ff41e6211df2676b38de3332d92b66abdb1ae498d",
+            "path": "hooks.py",
+            "member": "",
+            "start_line": 9,
+            "start_column": 0,
+            "end_line": 9,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-634f17f03cfbf729b70f707daeed528d083caa6132af910e31407acaa8a66a13",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-b84d3b31c63b76ae45b671f05f05c4ea0307875222f1a1919e8f8841edffaf85",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-79ee1e371f7a1f114848c03ff41e6211df2676b38de3332d92b66abdb1ae498d",
+            "path": "hooks.py",
+            "member": "",
+            "start_line": 8,
+            "start_column": 0,
+            "end_line": 8,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-6d1e81c1959841d77ed5dc2ffe097283cb9ba39fd34bdd0c9e015433e84ce479",
+      "predicate": "definition",
+      "evidence": [
+        {
+          "id": "evidence-contribution-dfc925ad23871b698c855693a11b652ae9c28537572438a1e42656f052ce4225",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 9,
+            "start_column": 0,
+            "end_line": 9,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-71850a78f86c014c35d252149b3a0dc4dccd6e957465fc4fee6ff40f4e7eb6c3",
+      "predicate": "artifact",
+      "evidence": [
+        {
+          "id": "evidence-contribution-009dbbd454dbe8912926230d60a2e324a3dc8a2a3a53f1002f8038a2c3196d48",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 1,
+            "start_column": 0,
+            "end_line": 1,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-71b12009a1cd1da2913412fb765c601762953cb790ca2898369c61884d64ad84",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-620ab471ff326cb6e90e1d1e0a5532f072920e2267da7c8c51fcdc5c5585ba0f",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-79ee1e371f7a1f114848c03ff41e6211df2676b38de3332d92b66abdb1ae498d",
+            "path": "hooks.py",
+            "member": "",
+            "start_line": 7,
+            "start_column": 0,
+            "end_line": 7,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-788471123d211f41d0150a9be24d5931983a534be4f5eceaed628007f5f31f2b",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-6475b4ac5b478f04a3811560c520ecb3cbb2a19258f778032fbb874e91349441",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 4,
+            "start_column": 0,
+            "end_line": 4,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-89d6377d09cecc6e61642d6da2be30918b2ed49e0e5f1ce55ac5a0bfef5c7521",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-58af4b0799ece8c1e4ea4c8f1ac17fb133131bae2c07ffb7e448716bc2bd8ce9",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 14,
+            "start_column": 0,
+            "end_line": 14,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-8b78882e694ab9899457898d10303833cafa0f86619488d998d9381dc5d44b63",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-4f1696917fd085d00e6ad62118277aeae5de369a912f82c93c4430122458a951",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-79ee1e371f7a1f114848c03ff41e6211df2676b38de3332d92b66abdb1ae498d",
+            "path": "hooks.py",
+            "member": "",
+            "start_line": 9,
+            "start_column": 0,
+            "end_line": 9,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-9102a0145f89ae7936ca3d59238408d09def2800831ec1db1d30747520166c1b",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-049cf161078fba95074a8a9b165e920ed1c81c4fc4ac4088a26f4f9eb572a378",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-79ee1e371f7a1f114848c03ff41e6211df2676b38de3332d92b66abdb1ae498d",
+            "path": "hooks.py",
+            "member": "",
+            "start_line": 5,
+            "start_column": 0,
+            "end_line": 5,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-98b44a24a3153c8a44259e45240d6ec8adca751e65c52ca6bf9204b8982fa991",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-a55ea0671e9a9a55f13455edf02929d63556e8f72425856f9ad1dad3cf585e75",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 3,
+            "start_column": 0,
+            "end_line": 3,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-9d11c09c3748c9f34b4925b48a83c251119d092e9b665fde33fd168fb86386d9",
+      "predicate": "symbol",
+      "evidence": [
+        {
+          "id": "evidence-contribution-dfc925ad23871b698c855693a11b652ae9c28537572438a1e42656f052ce4225",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 9,
+            "start_column": 0,
+            "end_line": 9,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-b8546058f51c481f32a483a7253e7db9caa9b47411e7c7801b2ebb02ac0c9d86",
+      "predicate": "symbol",
+      "evidence": [
+        {
+          "id": "evidence-contribution-7ce3f5f5d570a9c727f6476de651ef550d435f9f838a70d6e232fd513ee9209c",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 13,
+            "start_column": 0,
+            "end_line": 13,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-b8ebfcaec9df7ef1fb35cf32d913e98f8fb05d8efe90a8e3eb2e9fe652184de1",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-19b995a1178dc5c6147df3850a6f1bfce4ddd96d57f48da1bc4ea544b6282ab8",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-79ee1e371f7a1f114848c03ff41e6211df2676b38de3332d92b66abdb1ae498d",
+            "path": "hooks.py",
+            "member": "",
+            "start_line": 3,
+            "start_column": 0,
+            "end_line": 3,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-bda6b80bc18a7d816fed1b3b7ed650eae63d1eb8c53b976aa086765cf246e01c",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-a55ea0671e9a9a55f13455edf02929d63556e8f72425856f9ad1dad3cf585e75",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 3,
+            "start_column": 0,
+            "end_line": 3,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-cc2ca675db27deac85f8d26a66c810032532cffc9c2431d3af31ec65f6367e7b",
+      "predicate": "symbol",
+      "evidence": [
+        {
+          "id": "evidence-contribution-f097247d0ef55e66c883a62e2f7643db02f23820bee00d19bd28e0b7ca07caa2",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 21,
+            "start_column": 0,
+            "end_line": 21,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-ce284963d57bc0d1d974236bfb1393355ac393ff29c32ec5379640709e65d7a4",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-b9c3d918d122acc701bb562d49b3406ffaf3cb40b7a4e9addeb2e87ee6c2169e",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 6,
+            "start_column": 0,
+            "end_line": 6,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-d02781bd8b461e37ee0dd7227ba048f6c0dd594480ffecafa53fa1cc476e45cb",
+      "predicate": "dependency",
+      "evidence": [
+        {
+          "id": "evidence-contribution-c61d9a0fae3d56e7350aa38655be8159b760b1ca7d908cf814db937df4055865",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 5,
+            "start_column": 0,
+            "end_line": 5,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-dd859ac96f028b51c92ee7e99ca1a94007bf3d9f96c902db2c0d2bd1fc63ceb8",
+      "predicate": "definition",
+      "evidence": [
+        {
+          "id": "evidence-contribution-7ce3f5f5d570a9c727f6476de651ef550d435f9f838a70d6e232fd513ee9209c",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 13,
+            "start_column": 0,
+            "end_line": 13,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-e6653ee39b7c47412e0d9c2e02c171eb7c6c4d54a1d77a1e22f7943d5b2faaca",
+      "predicate": "configuration",
+      "evidence": [
+        {
+          "id": "evidence-contribution-353281b1d3ed83b5589011070735708e39db45de81addcbe809836df95493007",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-79ee1e371f7a1f114848c03ff41e6211df2676b38de3332d92b66abdb1ae498d",
+            "path": "hooks.py",
+            "member": "",
+            "start_line": 4,
+            "start_column": 0,
+            "end_line": 4,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-e6cf2d393f38bba0d370f7e61bf616185c40bcb461aac975a2d1bb19fa4d4e3c",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-709436d69e0f9ae06b1273cac0cc0c927fc2bc056326f215bb086e9bbad0771b",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 15,
+            "start_column": 0,
+            "end_line": 15,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    },
+    {
+      "fact_id": "fact-fc5b9aec5bb8d946fe6c6995d1d5eca170f994e69ef1cc15121d10268aff154d",
+      "predicate": "reference",
+      "evidence": [
+        {
+          "id": "evidence-contribution-15f287dde72b85554b8425e494764f98319c7da73bcbd96358f4e2e3ed30a3c9",
+          "locator": {
+            "uri": "",
+            "source_id": "source-python-integration",
+            "artifact_id": "artifact-c4f626117b94559e611092d93eba3e897d5a5f9383b8115647556456c71ef689",
+            "path": "doctype.py",
+            "member": "",
+            "start_line": 22,
+            "start_column": 0,
+            "end_line": 22,
+            "end_column": 0,
+            "byte_offset": 0,
+            "byte_length": 0
+          }
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "dimension": "configuration_variations",
+      "state": "produced",
+      "count": 11
+    },
+    {
+      "dimension": "entities_and_relationships",
+      "state": "produced",
+      "count": 3
+    },
+    {
+      "dimension": "flows_and_dependencies",
+      "state": "produced",
+      "count": 8
+    },
+    {
+      "dimension": "landscape_inventory_structure",
+      "state": "produced",
+      "count": 2
+    }
+  ]
+}
+
