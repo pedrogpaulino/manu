@@ -212,6 +212,7 @@ func composeServeServices(configuration config.Config, pool *pgxpool.Pool) (api.
 
 	textProjection := retrieval.NewTextProjection(persistence.NewTextProjectionStore(pool))
 	relationProjection := retrieval.NewRelationProjection(persistence.NewRelationProjectionStore(pool))
+	factualRelationInputs := persistence.NewFactualRelationInputProvider(pool)
 	var vectorProjection *retrieval.VectorProjection
 	var embedder aigateway.Embedder
 	var embeddingProfile aigateway.EmbeddingProfile
@@ -252,6 +253,7 @@ func composeServeServices(configuration config.Config, pool *pgxpool.Pool) (api.
 		VectorProfile:    vectorProfile,
 		UnitResolver:     evidenceResolver,
 		Relations:        relationProjection,
+		RelationInputs:   factualRelationInputs,
 		Support:          query.ConservativeSupportAssessor{},
 		Fusion:           fusion,
 		Limit:            configuration.Retrieval.TopK,

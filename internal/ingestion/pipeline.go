@@ -5,12 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/pedrogpaulino/manu/internal/bundle"
 	"github.com/pedrogpaulino/manu/internal/contract"
 	"github.com/pedrogpaulino/manu/internal/evidence"
+	"github.com/pedrogpaulino/manu/internal/fact"
 	"github.com/pedrogpaulino/manu/internal/identity"
 	"github.com/pedrogpaulino/manu/internal/retrieval"
 )
@@ -442,6 +446,7 @@ func textEntries(input bundle.Bundle, result CanonicalPersistenceResult) ([]retr
 	for _, contribution := range input.Contributions {
 		contributions[contribution.ID] = contribution
 	}
+	factual := indexFactualTextProjection(input)
 	for _, unit := range input.Evidence {
 		if !persistibleEvidence(unit) {
 			continue
@@ -453,6 +458,12 @@ func textEntries(input bundle.Bundle, result CanonicalPersistenceResult) ([]retr
 		metadata := textProjectionMetadata{ProjectionKind: "generic"}
 		if contribution, exists := contributions[unit.Contribution.ID]; exists {
 			metadata = contributionProjectionMetadata(contribution)
+		}
+		facts := factual.factsFor(unit)
+		metadata = mergeFactProjectionMetadata(metadata, facts)
+		exactTerms := append([]string{unit.Contribution.AnalyzerID, unit.Contribution.Method}, metadata.ExactTerms...)
+		for _, candidate := range facts {
+			exactTerms = append(exactTerms, canonicalFactExactTerms(candidate)...)
 		}
 		entries = append(entries, retrieval.TextEntry{
 			EvidenceID:          evidenceID,
@@ -469,11 +480,186 @@ func textEntries(input bundle.Bundle, result CanonicalPersistenceResult) ([]retr
 			SymbolQualifiedName: metadata.SymbolQualifiedName,
 			ConfigurationKey:    metadata.ConfigurationKey,
 			ExceptionType:       metadata.ExceptionType,
-			ExactTerms:          append([]string{unit.Contribution.AnalyzerID, unit.Contribution.Method}, metadata.ExactTerms...),
+			ExactTerms:          exactTerms,
 			Persist:             unit.Persist,
 		})
 	}
+	sort.SliceStable(entries, func(left, right int) bool { return entries[left].EvidenceID < entries[right].EvidenceID })
 	return entries, nil
+}
+
+// factualTextProjectionIndex keeps canonical facts separate from the
+// relational evidence UUID assigned by persistence. The bundle contract binds
+// a fact to an Evidence Unit by its explicit external EvidenceRef identity;
+// locators remain provenance only and are never used to infer identity.
+type factualTextProjectionIndex struct {
+	byEvidenceID map[string][]fact.CanonicalFact
+}
+
+func indexFactualTextProjection(input bundle.Bundle) factualTextProjectionIndex {
+	index := factualTextProjectionIndex{
+		byEvidenceID: make(map[string][]fact.CanonicalFact),
+	}
+	for _, candidate := range input.Facts {
+		if !factBelongsToBundleScope(candidate, input) {
+			continue
+		}
+		for _, reference := range candidate.Evidence {
+			if reference.ID != "" {
+				index.byEvidenceID[reference.ID] = append(index.byEvidenceID[reference.ID], candidate)
+			}
+		}
+	}
+	return index
+}
+
+func (i factualTextProjectionIndex) factsFor(unit evidence.EvidenceUnit) []fact.CanonicalFact {
+	candidates := append([]fact.CanonicalFact(nil), i.byEvidenceID[unit.ID]...)
+	if len(candidates) < 2 {
+		return candidates
+	}
+	// Keep one copy so repeated references cannot make terms depend on input
+	// order. Retrieval normalization performs the final term compaction.
+	seen := make(map[string]struct{}, len(candidates))
+	unique := candidates[:0]
+	for _, candidate := range candidates {
+		if _, exists := seen[candidate.ID]; exists {
+			continue
+		}
+		seen[candidate.ID] = struct{}{}
+		unique = append(unique, candidate)
+	}
+	return unique
+}
+
+func factBelongsToBundleScope(candidate fact.CanonicalFact, input bundle.Bundle) bool {
+	return candidate.Scope.OrganizationID == input.Manifest.Organization.ID &&
+		candidate.Scope.SourceID == input.Manifest.Source.ID &&
+		candidate.Scope.SnapshotID == input.Manifest.Snapshot.ID
+}
+
+func mergeFactProjectionMetadata(metadata textProjectionMetadata, facts []fact.CanonicalFact) textProjectionMetadata {
+	if len(facts) == 0 {
+		return metadata
+	}
+	// Canonical bundle writing already orders facts by ID, but textEntries also
+	// serves direct callers. Sorting the local copy makes technical metadata
+	// independent of fact input order without changing the canonical bundle.
+	ordered := append([]fact.CanonicalFact(nil), facts...)
+	sort.SliceStable(ordered, func(left, right int) bool { return ordered[left].ID < ordered[right].ID })
+	factKind := metadata.ProjectionKind
+	if factKind == "generic" {
+		for _, candidate := range ordered {
+			switch candidate.Predicate {
+			case fact.PredicateConfiguration:
+				// Configuration is the most specific technical projection when
+				// a unit carries more than one canonical assertion.
+				factKind = "configuration"
+			case fact.PredicateSymbol, fact.PredicateDefinition, fact.PredicateNamedElement:
+				if factKind == "generic" {
+					factKind = "symbol"
+				}
+			}
+		}
+	}
+	if metadata.ProjectionKind == "generic" {
+		metadata.ProjectionKind = factKind
+	}
+	for _, candidate := range ordered {
+		switch candidate.Predicate {
+		case fact.PredicateConfiguration:
+			if metadata.ProjectionKind == "configuration" && metadata.ConfigurationKey == "" && candidate.Value != nil && candidate.Value.Kind == fact.ValueString {
+				metadata.ConfigurationKey = candidate.Value.String
+			}
+		case fact.PredicateSymbol, fact.PredicateDefinition, fact.PredicateNamedElement:
+			if metadata.ProjectionKind != "symbol" {
+				continue
+			}
+			if metadata.SymbolName == "" && candidate.Value != nil && candidate.Value.Kind == fact.ValueString {
+				metadata.SymbolName = candidate.Value.String
+			}
+			if metadata.SymbolQualifiedName == "" {
+				metadata.SymbolQualifiedName = factQualifierString(candidate, "qualified_name", "qualifiedName", "qualified")
+			}
+		}
+	}
+	for _, value := range []string{
+		metadata.SymbolName, metadata.SymbolQualifiedName,
+		metadata.ConfigurationKey, metadata.ExceptionType,
+	} {
+		if value != "" && !containsFactTerm(metadata.ExactTerms, value) {
+			metadata.ExactTerms = append(metadata.ExactTerms, value)
+		}
+	}
+	return metadata
+}
+
+func factQualifierString(candidate fact.CanonicalFact, names ...string) string {
+	for _, qualifier := range candidate.Qualifiers {
+		for _, name := range names {
+			if qualifier.Name == name && qualifier.Value.Kind == fact.ValueString {
+				return qualifier.Value.String
+			}
+		}
+	}
+	return ""
+}
+
+func containsFactTerm(terms []string, want string) bool {
+	for _, term := range terms {
+		if term == want {
+			return true
+		}
+	}
+	return false
+}
+
+func canonicalFactExactTerms(candidate fact.CanonicalFact) []string {
+	terms := []string{string(candidate.Predicate), candidate.Subject.ID}
+	if candidate.Object != nil {
+		terms = append(terms, candidate.Object.ID)
+	}
+	if candidate.Value != nil {
+		terms = append(terms, canonicalTypedValueTerms(*candidate.Value)...)
+	}
+	for _, qualifier := range candidate.Qualifiers {
+		terms = append(terms, qualifier.Name)
+		terms = append(terms, canonicalTypedValueTerms(qualifier.Value)...)
+	}
+	return validFactTerms(terms)
+}
+
+func canonicalTypedValueTerms(value fact.TypedValue) []string {
+	scalar := canonicalTypedValueScalar(value)
+	return []string{string(value.Kind) + ":" + scalar, scalar}
+}
+
+func canonicalTypedValueScalar(value fact.TypedValue) string {
+	switch value.Kind {
+	case fact.ValueString:
+		return value.String
+	case fact.ValueInteger:
+		return strconv.FormatInt(value.Integer, 10)
+	case fact.ValueNumber:
+		return strconv.FormatFloat(value.Number, 'g', -1, 64)
+	case fact.ValueBoolean:
+		return strconv.FormatBool(value.Boolean)
+	case fact.ValueNull:
+		return "null"
+	default:
+		return ""
+	}
+}
+
+func validFactTerms(terms []string) []string {
+	valid := make([]string, 0, len(terms))
+	for _, term := range terms {
+		if term == "" || !utf8.ValidString(term) || strings.ContainsRune(term, '\x00') {
+			continue
+		}
+		valid = append(valid, term)
+	}
+	return valid
 }
 
 type textProjectionMetadata struct {

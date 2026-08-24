@@ -74,13 +74,7 @@ func PrepareFactualProjection(input FactualSnapshotInput) (PreparedFactualProjec
 	sort.Strings(entityKeys)
 	for _, key := range entityKeys {
 		item := entities[key]
-		entityID := identity.CanonicalUUID(
-			"factual-projection-entity",
-			prepared.Scope.OrganizationID,
-			prepared.Scope.SourceID,
-			prepared.Scope.SnapshotID,
-			string(item.participant.Kind), item.participant.ID,
-		)
+		entityID := factualProjectionEntityID(prepared.Scope, item.participant)
 		entityIDs[key] = entityID
 		attributes, err := marshalFactualProjectionAttributes(factualProjectionEntityAttributes{
 			Version:        factualProjectionAttributesVersion,
@@ -134,6 +128,20 @@ func PrepareFactualProjection(input FactualSnapshotInput) (PreparedFactualProjec
 		})
 	}
 	return result, nil
+}
+
+// factualProjectionEntityID is the one canonical identity function for
+// factual participants. Both the rebuildable relational projection and
+// retrieval adapters must use the external scope identities from the fact
+// contract, not relational UUIDs or external evidence identities.
+func factualProjectionEntityID(scope fact.Scope, participant fact.Participant) string {
+	return identity.CanonicalUUID(
+		"factual-projection-entity",
+		scope.OrganizationID,
+		scope.SourceID,
+		scope.SnapshotID,
+		string(participant.Kind), participant.ID,
+	)
 }
 
 type factualProjectionEntityAccumulator struct {

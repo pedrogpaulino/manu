@@ -133,11 +133,15 @@ func (r *HybridRetriever) Retrieve(ctx context.Context, input QueryRetrievalInpu
 	}
 	seeds := []retrieval.RelationSeed(nil)
 	evidenceByEntity := map[string][]retrieval.FusionEvidenceReference(nil)
-	if r.RelationInputs != nil {
+	relationEnabled := relationSignalEnabled(r.Fusion)
+	if relationEnabled && r.RelationInputs != nil && r.Relations != nil {
 		seeds, evidenceByEntity, err = r.RelationInputs.RelationInputs(ctx, input, textHits, vectorHits)
 		if err != nil {
 			return QueryRetrievalResult{}, err
 		}
+	}
+	if relationEnabled && (r.RelationInputs == nil || r.Relations == nil) {
+		degradation = append(degradation, "relation_unavailable")
 	}
 	fusion, err := retrieval.Fuse(ctx, retrieval.FusionRequest{
 		Scope:              retrieval.FusionScope(input.Scope),
@@ -194,6 +198,14 @@ func (r *HybridRetriever) Retrieve(ctx context.Context, input QueryRetrievalInpu
 	}
 	result.Support = support
 	return result, nil
+}
+
+func relationSignalEnabled(configuration retrieval.FusionConfiguration) bool {
+	if configuration.RelationWeight > 0 {
+		return true
+	}
+	return configuration.RelationWeight == 0 && configuration.ExactWeight == 0 &&
+		configuration.TextualWeight == 0 && configuration.VectorWeight == 0
 }
 
 var ErrEvidenceUnitNotFound = errors.New("query: evidence unit not found")

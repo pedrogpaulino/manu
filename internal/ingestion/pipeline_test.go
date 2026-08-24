@@ -15,6 +15,7 @@ import (
 	"github.com/pedrogpaulino/manu/internal/bundle"
 	"github.com/pedrogpaulino/manu/internal/contract"
 	"github.com/pedrogpaulino/manu/internal/evidence"
+	"github.com/pedrogpaulino/manu/internal/fact"
 	"github.com/pedrogpaulino/manu/internal/identity"
 	"github.com/pedrogpaulino/manu/internal/retrieval"
 )
@@ -185,6 +186,194 @@ func TestTextEntriesUseSupportedContributionMetadataAndCanonicalEvidenceIDs(t *t
 	if entry.EvidenceID != result.EvidenceIDs[input.Evidence[0].ID] {
 		t.Fatalf("evidence ID = %q, want canonical %q", entry.EvidenceID, result.EvidenceIDs[input.Evidence[0].ID])
 	}
+}
+
+func TestTextEntriesEnrichPersistibleEvidenceWithCanonicalFactTerms(t *testing.T) {
+	input := pipelineTestBundle(t)
+	unit := input.Evidence[0]
+	scope := fact.Scope{
+		OrganizationID: input.Manifest.Organization.ID,
+		SourceID:       input.Manifest.Source.ID,
+		SnapshotID:     input.Manifest.Snapshot.ID,
+	}
+	configuration := pipelineTestCanonicalFact(t, scope, fact.PredicateConfiguration,
+		fact.Participant{Kind: fact.ParticipantArtifact, ID: unit.ArtifactID}, nil,
+		&fact.TypedValue{Kind: fact.ValueString, String: "feature.flag"},
+		[]fact.Qualifier{{Name: "environment", Value: fact.TypedValue{Kind: fact.ValueString, String: "production"}}},
+		unit.ID, unit.Locator)
+	definition := pipelineTestCanonicalFact(t, scope, fact.PredicateDefinition,
+		fact.Participant{Kind: fact.ParticipantSymbol, ID: "OrderService.create"},
+		&fact.Participant{Kind: fact.ParticipantArtifact, ID: unit.ArtifactID}, nil,
+		[]fact.Qualifier{{Name: "qualified_name", Value: fact.TypedValue{Kind: fact.ValueString, String: "OrderService.create"}}},
+		unit.ID, unit.Locator)
+	input.Facts = []fact.CanonicalFact{definition, configuration}
+
+	canonicalEvidenceID := identity.CanonicalUUID("evidence", input.Manifest.Organization.ID, input.Manifest.Source.ID, input.Manifest.Snapshot.ID, unit.ID)
+	entries, err := textEntries(input, CanonicalPersistenceResult{
+		OrganizationID: identity.CanonicalUUID("organization", input.Manifest.Organization.ID),
+		SourceID:       identity.CanonicalUUID("source", input.Manifest.Organization.ID, input.Manifest.Source.ID),
+		SnapshotID:     identity.CanonicalUUID("snapshot", input.Manifest.Organization.ID, input.Manifest.Source.ID, input.Manifest.Snapshot.ID),
+		EvidenceIDs:    map[string]string{unit.ID: canonicalEvidenceID},
+	})
+	if err != nil {
+		t.Fatalf("textEntries() error = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("textEntries() length = %d, want one persistible unit", len(entries))
+	}
+	entry := entries[0]
+	if entry.EvidenceID != canonicalEvidenceID {
+		t.Fatalf("evidence ID = %q, want canonical %q", entry.EvidenceID, canonicalEvidenceID)
+	}
+	if entry.Content != unit.Content || entry.ContentHash != unit.ContentHash {
+		t.Fatalf("evidence content changed during factual enrichment: %#v", entry)
+	}
+	if entry.ProjectionKind != "configuration" || entry.ConfigurationKey != "feature.flag" {
+		t.Fatalf("fact metadata = %#v, want conservative configuration mapping", entry)
+	}
+	normalized, err := entry.Normalize()
+	if err != nil {
+		t.Fatalf("TextEntry.Normalize() error = %v", err)
+	}
+	for _, term := range []string{
+		"configuration", unit.ArtifactID, "feature.flag", "string:feature.flag", "environment", "production", "string:production",
+		"definition", "orderservice.create", "qualified_name",
+	} {
+		if !containsPipelineTextTerm(normalized.ExactTerms, term) {
+			t.Fatalf("normalized terms = %#v, missing %q", normalized.ExactTerms, term)
+		}
+	}
+	if containsPipelineTextTerm(normalized.ExactTerms, unit.ID) {
+		t.Fatalf("external evidence identity leaked into exact terms: %#v", normalized.ExactTerms)
+	}
+}
+
+func TestTextEntriesRequireExplicitEvidenceIdentityForFactEnrichment(t *testing.T) {
+	input := pipelineTestBundle(t)
+	unit := input.Evidence[0]
+	scope := fact.Scope{
+		OrganizationID: input.Manifest.Organization.ID,
+		SourceID:       input.Manifest.Source.ID,
+		SnapshotID:     input.Manifest.Snapshot.ID,
+	}
+	unsupportedReference := pipelineTestCanonicalFact(t, scope, fact.PredicateConfiguration,
+		fact.Participant{Kind: fact.ParticipantArtifact, ID: unit.ArtifactID}, nil,
+		&fact.TypedValue{Kind: fact.ValueString, String: "must.not.match"}, nil,
+		"opaque-evidence-reference", unit.Locator)
+	input.Facts = []fact.CanonicalFact{unsupportedReference}
+	entries, err := textEntries(input, pipelineTestCanonicalResult(input))
+	if err != nil {
+		t.Fatalf("textEntries() error = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("textEntries() length = %d, want one persistible unit", len(entries))
+	}
+	entry := entries[0]
+	if containsPipelineTextTerm(entry.ExactTerms, "must.not.match") || entry.ProjectionKind != "generic" {
+		t.Fatalf("fact with mismatched identity was projected by locator: %#v", entry)
+	}
+}
+
+func TestTextEntriesFactTermsAreStableAcrossFactAndEvidencePermutation(t *testing.T) {
+	input := pipelineTestBundle(t)
+	first := input.Evidence[0]
+	second := first
+	second.Locator.StartLine = 2
+	second.Locator.EndLine = 2
+	second.ID = evidence.EvidenceID(second)
+	input.Evidence = []evidence.EvidenceUnit{second, first}
+	scope := fact.Scope{
+		OrganizationID: input.Manifest.Organization.ID,
+		SourceID:       input.Manifest.Source.ID,
+		SnapshotID:     input.Manifest.Snapshot.ID,
+	}
+	firstFact := pipelineTestCanonicalFact(t, scope, fact.PredicateReference,
+		fact.Participant{Kind: fact.ParticipantSymbol, ID: "OrderService.create"},
+		&fact.Participant{Kind: fact.ParticipantSymbol, ID: "OrderService.load"}, nil,
+		[]fact.Qualifier{{Name: "static", Value: fact.TypedValue{Kind: fact.ValueBoolean, Boolean: true}}},
+		first.ID, first.Locator)
+	secondFact := pipelineTestCanonicalFact(t, scope, fact.PredicateConfiguration,
+		fact.Participant{Kind: fact.ParticipantArtifact, ID: second.ArtifactID}, nil,
+		&fact.TypedValue{Kind: fact.ValueString, String: "feature.other"}, nil,
+		second.ID, second.Locator)
+	input.Facts = []fact.CanonicalFact{firstFact, secondFact}
+	result := pipelineTestCanonicalResult(input)
+	firstEntries, err := textEntries(input, result)
+	if err != nil {
+		t.Fatalf("textEntries() error = %v", err)
+	}
+	for index := range input.Facts {
+		input.Facts[index], input.Facts[len(input.Facts)-index-1] = input.Facts[len(input.Facts)-index-1], input.Facts[index]
+	}
+	input.Evidence[0], input.Evidence[1] = input.Evidence[1], input.Evidence[0]
+	secondEntries, err := textEntries(input, result)
+	if err != nil {
+		t.Fatalf("textEntries(reordered) error = %v", err)
+	}
+	if len(firstEntries) != len(secondEntries) {
+		t.Fatalf("entry counts = %d/%d, want equal", len(firstEntries), len(secondEntries))
+	}
+	for index := range firstEntries {
+		firstNormalized, normalizeErr := firstEntries[index].Normalize()
+		if normalizeErr != nil {
+			t.Fatalf("first entry %d Normalize() error = %v", index, normalizeErr)
+		}
+		secondNormalized, normalizeErr := secondEntries[index].Normalize()
+		if normalizeErr != nil {
+			t.Fatalf("second entry %d Normalize() error = %v", index, normalizeErr)
+		}
+		if firstNormalized.EvidenceID != secondNormalized.EvidenceID ||
+			!equalStrings(firstNormalized.ExactTerms, secondNormalized.ExactTerms) ||
+			firstNormalized.ContentHash != secondNormalized.ContentHash {
+			t.Fatalf("permutation changed factual text projection: first=%#v second=%#v", firstNormalized, secondNormalized)
+		}
+	}
+}
+
+func pipelineTestCanonicalFact(t *testing.T, scope fact.Scope, predicate fact.Predicate, subject fact.Participant, object *fact.Participant, value *fact.TypedValue, qualifiers []fact.Qualifier, evidenceID string, locator contract.Locator) fact.CanonicalFact {
+	t.Helper()
+	candidate := fact.CanonicalFact{
+		Version:    fact.Version,
+		Scope:      scope,
+		Predicate:  predicate,
+		Subject:    subject,
+		Object:     object,
+		Value:      value,
+		Qualifiers: qualifiers,
+		Producer:   fact.Producer{ID: "pipeline-test", Version: "1", Method: "canonical"},
+		Evidence:   []fact.EvidenceRef{{ID: evidenceID, Locator: locator}},
+	}
+	var err error
+	candidate.ID, err = fact.FactID(candidate)
+	if err != nil {
+		t.Fatalf("fact.FactID() error = %v", err)
+	}
+	if err := candidate.Validate(); err != nil {
+		t.Fatalf("fact.Validate() error = %v", err)
+	}
+	return candidate
+}
+
+func pipelineTestCanonicalResult(input bundle.Bundle) CanonicalPersistenceResult {
+	result := CanonicalPersistenceResult{
+		OrganizationID: identity.CanonicalUUID("organization", input.Manifest.Organization.ID),
+		SourceID:       identity.CanonicalUUID("source", input.Manifest.Organization.ID, input.Manifest.Source.ID),
+		SnapshotID:     identity.CanonicalUUID("snapshot", input.Manifest.Organization.ID, input.Manifest.Source.ID, input.Manifest.Snapshot.ID),
+		EvidenceIDs:    make(map[string]string, len(input.Evidence)),
+	}
+	for _, unit := range input.Evidence {
+		result.EvidenceIDs[unit.ID] = identity.CanonicalUUID("evidence", input.Manifest.Organization.ID, input.Manifest.Source.ID, input.Manifest.Snapshot.ID, unit.ID)
+	}
+	return result
+}
+
+func containsPipelineTextTerm(terms []string, want string) bool {
+	for _, term := range terms {
+		if term == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestPipelineEmbeddingFailureLeavesSafePartialAfterLocalProjections(t *testing.T) {

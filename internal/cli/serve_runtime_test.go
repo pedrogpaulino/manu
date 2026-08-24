@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pedrogpaulino/manu/internal/aigateway"
 	"github.com/pedrogpaulino/manu/internal/api"
 	"github.com/pedrogpaulino/manu/internal/config"
@@ -35,6 +36,19 @@ func TestServeCompositionFailsClosedWithoutPool(t *testing.T) {
 	_, _, err := composeServeServices(config.Default(), nil)
 	if !errors.Is(err, ErrServeRuntimeNotConfigured) {
 		t.Fatalf("composeServeServices(nil) error = %v, want ErrServeRuntimeNotConfigured", err)
+	}
+}
+
+func TestServeCompositionBuildsServicesWithoutOpeningPool(t *testing.T) {
+	queryService, evidenceService, err := composeServeServices(config.Default(), &pgxpool.Pool{})
+	if err != nil {
+		t.Fatalf("composeServeServices() error = %v", err)
+	}
+	if queryService == nil {
+		t.Fatal("composeServeServices() returned a nil query service")
+	}
+	if evidenceService == nil {
+		t.Fatal("composeServeServices() returned a nil evidence service")
 	}
 }
 
