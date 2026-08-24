@@ -45,7 +45,7 @@
 ## 6. Context Package e recuperação sob orçamento
 
 - [x] 6.1 Definir a porta de aplicação e os tipos versionados de intenção, `Context Request`, `Context Package`, item, relação, auditoria, degradação e continuação, verificando validação de escopo, snapshot e limites.
-- [ ] 6.2 Projetar fatos e relações canônicos para busca exata, textual e relacional e integrá-los ao retriever híbrido existente, verificando identidade de evidência e degradação quando sinais opcionais faltarem.
+- [x] 6.2 Projetar fatos e relações canônicos para busca exata, textual e relacional e integrá-los ao retriever híbrido existente, verificando identidade de evidência e degradação quando sinais opcionais faltarem.
 - [ ] 6.3 Implementar a função versionada de utilidade e a seleção gulosa por ganho marginal sob limites de tokens, itens, caracteres e bytes, verificando desempate determinístico, diversidade e razões de exclusão.
 - [ ] 6.4 Implementar fechamento limitado de suporte para relações e caminhos, verificando que nenhuma relação seja entregue sem as evidências obrigatórias nem ultrapasse o orçamento silenciosamente.
 - [ ] 6.5 Implementar estimativa de tokens e auditoria separada de contagens reais de provedor, verificando limites com UTF-8, conteúdo vazio, itens grandes e estimadores incompatíveis.
