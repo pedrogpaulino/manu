@@ -15,8 +15,8 @@ func TestEmbeddedCatalogIsOrderedAndContentAddressed(t *testing.T) {
 		t.Fatalf("EmbeddedCatalog() error = %v", err)
 	}
 	items := catalog.Migrations()
-	if len(items) != 5 {
-		t.Fatalf("embedded migration count = %d, want 5", len(items))
+	if len(items) != 6 {
+		t.Fatalf("embedded migration count = %d, want 6", len(items))
 	}
 	for index, item := range items {
 		if item.Version != int64(index+1) {
@@ -36,6 +36,7 @@ func TestEmbeddedCatalogIsOrderedAndContentAddressed(t *testing.T) {
 		"0003_textual_projection.up.sql",
 		"0004_query_results.up.sql",
 		"0005_factual_substrate.up.sql",
+		"0006_derivation_reverse_index.up.sql",
 	}
 	for index, want := range wantNames {
 		if items[index].Name != want {
