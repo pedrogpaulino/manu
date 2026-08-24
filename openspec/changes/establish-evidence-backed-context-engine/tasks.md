@@ -25,7 +25,7 @@
 
 ## 4. Normalização e corpus heterogêneo
 
-- [ ] 4.1 Implementar registro de normalizadores por contribuição e frontend com fallback preservador de extensões, verificando composição aditiva e cobertura quando não houver mapeamento universal seguro.
+- [x] 4.1 Implementar registro de normalizadores por contribuição e frontend com fallback preservador de extensões, verificando composição aditiva e cobertura quando não houver mapeamento universal seguro.
 - [ ] 4.2 Migrar o frontend Java/Quarkus para produzir fatos de artefatos, símbolos, definições, referências, chamadas, dependências, configuração e endpoints sustentados, verificando locadores e gaps em fixtures por versão representativa.
 - [ ] 4.3 Migrar o frontend WSO2 para produzir fatos de elementos nomeados, pertencimento, endpoints, mensagens, dependências e configuração sustentados, verificando correlação entre XML, CAR e evidências internas do pacote.
 - [ ] 4.4 Implementar o frontend estrutural seguro de Python/Frappe para símbolos, definições, referências ou relações, dependências e configuração aplicáveis, verificando que não execute imports, build ou código da fonte.
