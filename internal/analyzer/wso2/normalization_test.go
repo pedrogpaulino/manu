@@ -422,31 +422,7 @@ func wso2TestRegistry(t *testing.T) *normalization.Registry {
 }
 
 func wso2TestManifest() fact.FrontendManifest {
-	return fact.FrontendManifest{
-		ManifestVersion: fact.FrontendManifestVersion,
-		ID:              AnalyzerID,
-		Version:         AnalyzerVersion,
-		Method:          AnalyzerMethod,
-		SourceTypes:     []string{"xml", "car"},
-		Families:        []string{"wso2"},
-		Versions:        []string{"1"},
-		Capabilities: []contract.Dimension{
-			contract.DimensionLandscapeInventoryStructure,
-			contract.DimensionEntitiesAndRelationships,
-			contract.DimensionFlowsAndDependencies,
-			contract.DimensionConfigurationVariations,
-		},
-		Predicates: []fact.Predicate{
-			fact.PredicateNamedElement,
-			fact.PredicateMembership,
-			fact.PredicateDependency,
-			fact.PredicateReference,
-			fact.PredicateEndpoint,
-			fact.PredicateMessage,
-			fact.PredicateConfiguration,
-		},
-		Execution: fact.ExecutionProfileSafeStatic,
-	}
+	return Manifest()
 }
 
 func wso2TestInput(contributionType, method, payload, member string) normalization.Input {
