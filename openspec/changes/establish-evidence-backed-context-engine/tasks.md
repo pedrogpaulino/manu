@@ -52,7 +52,7 @@
 - [x] 6.6 Implementar cursor opaco vinculado a escopo, snapshot, intenção, política, algoritmo e ordenação, verificando continuação sem repetição e rejeição após incompatibilidade ou adulteração.
 - [x] 6.7 Aplicar autorização, decisão de transferência, redaction e reinspeção a cada item do pacote, verificando que conteúdo negado não apareça no resultado, cursor, erro ou auditoria.
 - [x] 6.8 Adaptar o `Evidence Package` do `AI Gateway` como projeção sanitizada do `Context Package`, verificando compatibilidade da API de consulta e que o `Generator` continue sem acesso à fonte ou ao banco.
-- [ ] 6.9 Criar testes end-to-end de pergunta, contexto de símbolo, impacto possível e inspeção de evidência nas três famílias, verificando locadores, proveniência, cobertura, gaps e limites.
+- [x] 6.9 Criar testes end-to-end de pergunta, contexto de símbolo, impacto possível e inspeção de evidência nas três famílias, verificando locadores, proveniência, cobertura, gaps e limites.
 
 ## 7. Interface MCP somente leitura
 
