@@ -277,6 +277,53 @@ func TestContentStateValidate(t *testing.T) {
 	}
 }
 
+func TestContributionRefValidateMethod(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		method  string
+		wantErr error
+	}{
+		{name: "internal whitespace", method: "type with spaces"},
+		{name: "non-control unicode whitespace", method: "type\u2003with\u2003spaces"},
+		{name: "surrounding whitespace preserved", method: "  type with spaces  "},
+		{name: "empty", method: "", wantErr: evidence.ErrInvalid},
+		{name: "only whitespace", method: " \u2003 ", wantErr: evidence.ErrInvalid},
+		{name: "control character", method: "type\nwith newline", wantErr: evidence.ErrInvalid},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ref := validUnit().Contribution
+			ref.Method = tt.method
+			err := ref.Validate()
+			if tt.wantErr == nil {
+				if err != nil {
+					t.Fatalf("ContributionRef.Validate() error = %v", err)
+				}
+				if ref.Method != tt.method {
+					t.Fatalf("ContributionRef.Validate() changed method = %q, want %q", ref.Method, tt.method)
+				}
+				return
+			}
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("ContributionRef.Validate() error = %v, want errors.Is(..., %v)", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestContributionRefValidateKeepsIdentifiersStrict(t *testing.T) {
+	t.Parallel()
+
+	ref := validUnit().Contribution
+	ref.ID = "contribution id"
+	if err := ref.Validate(); !errors.Is(err, evidence.ErrInvalid) {
+		t.Fatalf("ContributionRef.Validate() error = %v, want errors.Is(..., %v)", err, evidence.ErrInvalid)
+	}
+}
+
 func TestEvidenceUnitJSONRoundTrip(t *testing.T) {
 	t.Parallel()
 

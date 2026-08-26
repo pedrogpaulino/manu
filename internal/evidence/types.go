@@ -219,6 +219,12 @@ func (r ContributionRef) Validate() error {
 		{name: "method", value: r.Method},
 	}
 	for _, field := range fields {
+		if field.name == "method" {
+			if err := validateMethod(field.value); err != nil {
+				return err
+			}
+			continue
+		}
 		if err := validateIdentifier(field.name, field.value); err != nil {
 			return err
 		}
@@ -531,6 +537,18 @@ func validateIdentifier(name, value string) error {
 	for _, r := range value {
 		if unicode.IsSpace(r) || unicode.IsControl(r) {
 			return fmt.Errorf("%w: %s contains whitespace or control characters", ErrInvalid, name)
+		}
+	}
+	return nil
+}
+
+func validateMethod(value string) error {
+	if strings.TrimSpace(value) == "" {
+		return fmt.Errorf("%w: method is required", ErrInvalid)
+	}
+	for _, r := range value {
+		if unicode.IsControl(r) {
+			return fmt.Errorf("%w: method contains control characters", ErrInvalid)
 		}
 	}
 	return nil
