@@ -54,12 +54,12 @@ func TestProjectContextPackageProducesMatchingValidatedViews(t *testing.T) {
 		if validation.ID != gateway.ID || validation.ID != item.ID || validation.Locator == (contract.Locator{}) {
 			t.Fatalf("identity/locator at %d = %#v/%#v", index, validation, gateway)
 		}
-		locatorBytes, err := json.Marshal(item.Locator)
+		gatewayLocator, err := contextGatewayLocator(item.Locator)
 		if err != nil {
-			t.Fatalf("json.Marshal(locator %d) error = %v", index, err)
+			t.Fatalf("contextGatewayLocator(%d) error = %v", index, err)
 		}
-		if gateway.Locator != string(locatorBytes) || validation.Locator != item.Locator {
-			t.Fatalf("locator at %d = %q/%#v, want %q/%#v", index, gateway.Locator, validation.Locator, locatorBytes, item.Locator)
+		if gateway.Locator != gatewayLocator || validation.Locator != item.Locator {
+			t.Fatalf("locator at %d = %q/%#v, want %q/%#v", index, gateway.Locator, validation.Locator, gatewayLocator, item.Locator)
 		}
 
 		wantContent := ""
@@ -364,20 +364,291 @@ func TestProjectContextPackageRelationLocatorUsesProjectedSupportNotNestedProven
 	if err != nil {
 		t.Fatalf("ProjectContextPackage() error = %v", err)
 	}
-	wantLocatorBytes, err := json.Marshal(packageContext.Items[2].Locator)
+	wantLocator, err := contextGatewayLocator(packageContext.Items[2].Locator)
 	if err != nil {
-		t.Fatalf("json.Marshal(support locator) error = %v", err)
+		t.Fatalf("contextGatewayLocator(support locator) error = %v", err)
 	}
 	relationEvidence := projection.GatewayPackage.Evidence[len(packageContext.Items)]
-	if relationEvidence.Locator != string(wantLocatorBytes) {
-		t.Fatalf("relation locator = %q, want authorized support locator %q", relationEvidence.Locator, wantLocatorBytes)
+	if relationEvidence.Locator != wantLocator {
+		t.Fatalf("relation locator = %q, want authorized support locator %q", relationEvidence.Locator, wantLocator)
 	}
-	otherEncodedBytes, err := json.Marshal(otherLocator)
+	otherLocatorEncoded, err := contextGatewayLocator(otherLocator)
 	if err != nil {
-		t.Fatalf("json.Marshal(other locator) error = %v", err)
+		t.Fatalf("contextGatewayLocator(other locator) error = %v", err)
 	}
-	if relationEvidence.Locator == string(otherEncodedBytes) {
-		t.Fatalf("relation used nested provenance locator %q", otherEncodedBytes)
+	if relationEvidence.Locator == otherLocatorEncoded {
+		t.Fatalf("relation used nested provenance locator %q", otherLocatorEncoded)
+	}
+}
+
+func TestContextGatewayLocatorCompactsRealSourceLocators(t *testing.T) {
+	scope := contextTestScope()
+	javaLocator := contract.Locator{
+		SourceID:    scope.SourceID,
+		ArtifactID:  "11111111-1111-4111-8111-111111111111",
+		Path:        "src/main/java/com/example/BookingResource.java",
+		StartLine:   42,
+		StartColumn: 7,
+		EndLine:     42,
+		EndColumn:   21,
+	}
+	wso2Locator := contract.Locator{
+		SourceID:   scope.SourceID,
+		ArtifactID: "22222222-2222-4222-8222-222222222222",
+		Path:       "apis/booking/api-v1.xml",
+		Member:     "resource:GET:/v1/bookings",
+		ByteOffset: 4096,
+		ByteLength: 128,
+	}
+	longPath := "src/" + strings.Repeat("deep/", 700) + "handler.py"
+	longPathLocator := contract.Locator{SourceID: scope.SourceID, Path: longPath}
+	tests := []struct {
+		name           string
+		locator        contract.Locator
+		wantFragments  []string
+		changedLocator func(contract.Locator) contract.Locator
+	}{
+		{
+			name:    "java artifact and line position",
+			locator: javaLocator,
+			wantFragments: []string{
+				`"a":"11111111-1111-4111-8111-111111111111"`,
+				`"l":42`,
+				`"c":7`,
+				`"el":42`,
+				`"ec":21`,
+			},
+			changedLocator: func(value contract.Locator) contract.Locator {
+				value.StartColumn++
+				return value
+			},
+		},
+		{
+			name:    "wso2 artifact member and byte position",
+			locator: wso2Locator,
+			wantFragments: []string{
+				`"a":"22222222-2222-4222-8222-222222222222"`,
+				`"m":"resource:GET:/v1/bookings"`,
+				`"o":4096`,
+				`"n":128`,
+			},
+			changedLocator: func(value contract.Locator) contract.Locator {
+				value.ByteOffset++
+				return value
+			},
+		},
+		{
+			name:    "long path uses prefix and digest",
+			locator: longPathLocator,
+			wantFragments: []string{
+				`"s":"` + scope.SourceID + `"`,
+				`"p":"src/deep/deep/`,
+			},
+			changedLocator: func(value contract.Locator) contract.Locator {
+				value.Path += "-changed"
+				return value
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			full, err := json.Marshal(tt.locator)
+			if err != nil {
+				t.Fatalf("json.Marshal(full locator) error = %v", err)
+			}
+			first, err := contextGatewayLocator(tt.locator)
+			if err != nil {
+				t.Fatalf("contextGatewayLocator() error = %v", err)
+			}
+			second, err := contextGatewayLocator(tt.locator)
+			if err != nil {
+				t.Fatalf("second contextGatewayLocator() error = %v", err)
+			}
+			if first != second {
+				t.Fatalf("locator projection is not deterministic: %q != %q", first, second)
+			}
+			if len([]byte(first)) > contextGatewayMaxLocatorBytes {
+				t.Fatalf("compact locator bytes = %d, want <= %d: %q", len([]byte(first)), contextGatewayMaxLocatorBytes, first)
+			}
+			if first == string(full) {
+				t.Fatalf("gateway locator retained full locator: %q", first)
+			}
+			for _, fragment := range tt.wantFragments {
+				if !strings.Contains(first, fragment) {
+					t.Fatalf("compact locator %q lacks %q", first, fragment)
+				}
+			}
+
+			changed, err := contextGatewayLocator(tt.changedLocator(tt.locator))
+			if err != nil {
+				t.Fatalf("changed contextGatewayLocator() error = %v", err)
+			}
+			if changed == first {
+				t.Fatalf("distinct source positions collapsed to same gateway locator: %q", first)
+			}
+		})
+	}
+}
+
+func TestContextGatewayLocatorKeepsLineAndByteIdentity(t *testing.T) {
+	scope := contextTestScope()
+	base := contract.Locator{
+		SourceID:    scope.SourceID,
+		ArtifactID:  "55555555-5555-4555-8555-555555555555",
+		Path:        "src/main.py",
+		StartLine:   42,
+		StartColumn: 7,
+		EndLine:     42,
+		EndColumn:   21,
+		ByteOffset:  4096,
+		ByteLength:  128,
+	}
+	changed := base
+	changed.ByteOffset++
+	first, err := contextGatewayLocator(base)
+	if err != nil {
+		t.Fatalf("contextGatewayLocator(base) error = %v", err)
+	}
+	second, err := contextGatewayLocator(changed)
+	if err != nil {
+		t.Fatalf("contextGatewayLocator(changed) error = %v", err)
+	}
+	if first == second {
+		t.Fatalf("locators with same line but different bytes collided: %q", first)
+	}
+	for _, fragment := range []string{`"l":42`, `"c":7`, `"o":4096`, `"n":128`} {
+		if !strings.Contains(first, fragment) {
+			t.Fatalf("combined locator %q lacks %q", first, fragment)
+		}
+	}
+	if len([]byte(first)) > contextGatewayMaxLocatorBytes || len([]byte(second)) > contextGatewayMaxLocatorBytes {
+		t.Fatalf("combined locators exceed gateway limit: %d/%d", len([]byte(first)), len([]byte(second)))
+	}
+}
+
+func TestContextGatewayLocatorDigestFallbackBoundsLongLocatorWithoutArtifact(t *testing.T) {
+	scope := contextTestScope()
+	base := contract.Locator{
+		SourceID:    scope.SourceID,
+		Path:        "src/" + strings.Repeat("path-segment/", 100),
+		Member:      "member-" + strings.Repeat("nested.", 100),
+		URI:         "manu://" + strings.Repeat("uri-segment/", 100),
+		StartLine:   42,
+		StartColumn: 7,
+		EndLine:     42,
+		EndColumn:   21,
+		ByteOffset:  4096,
+		ByteLength:  128,
+	}
+	if len([]byte(base.Path))+len([]byte(base.Member))+len([]byte(base.URI)) > int(maxContextLocatorBytes) {
+		t.Fatalf("test locator unexpectedly exceeds context bound")
+	}
+	changed := base
+	changed.Member += "changed"
+	first, err := contextGatewayLocator(base)
+	if err != nil {
+		t.Fatalf("contextGatewayLocator(base) error = %v", err)
+	}
+	second, err := contextGatewayLocator(base)
+	if err != nil {
+		t.Fatalf("second contextGatewayLocator(base) error = %v", err)
+	}
+	changedProjection, err := contextGatewayLocator(changed)
+	if err != nil {
+		t.Fatalf("contextGatewayLocator(changed) error = %v", err)
+	}
+	if first != second {
+		t.Fatalf("digest fallback is not deterministic: %q != %q", first, second)
+	}
+	if first == changedProjection {
+		t.Fatalf("long path/member/URI locators collided: %q", first)
+	}
+	if len([]byte(first)) > contextGatewayMaxLocatorBytes || len([]byte(changedProjection)) > contextGatewayMaxLocatorBytes {
+		t.Fatalf("digest fallback exceeds gateway limit: %d/%d", len([]byte(first)), len([]byte(changedProjection)))
+	}
+	if !strings.Contains(first, `"s":"`+scope.SourceID+`"`) || !strings.Contains(first, `"d":"`) {
+		t.Fatalf("digest fallback lost source identity or digest: %q", first)
+	}
+	for _, value := range []string{base.Path, base.Member, base.URI} {
+		if strings.Contains(first, value) {
+			t.Fatalf("digest fallback leaked long locator component %q", value)
+		}
+	}
+}
+
+func TestProjectContextPackageKeepsFullValidationLocatorsAndBoundsGatewayLocators(t *testing.T) {
+	scope := contextTestScope()
+	tests := []struct {
+		name    string
+		locator contract.Locator
+	}{
+		{
+			name: "java uuid path line",
+			locator: contract.Locator{
+				SourceID:    scope.SourceID,
+				ArtifactID:  "33333333-3333-4333-8333-333333333333",
+				Path:        "src/main/java/com/example/BookingResource.java",
+				StartLine:   42,
+				StartColumn: 7,
+				EndLine:     42,
+				EndColumn:   21,
+			},
+		},
+		{
+			name: "wso2 byte member",
+			locator: contract.Locator{
+				SourceID:   scope.SourceID,
+				ArtifactID: "44444444-4444-4444-8444-444444444444",
+				Path:       "apis/booking/api-v1.xml",
+				Member:     "resource:GET:/v1/bookings",
+				ByteOffset: 4096,
+				ByteLength: 128,
+			},
+		},
+		{
+			name:    "long path",
+			locator: contract.Locator{SourceID: scope.SourceID, Path: "src/" + strings.Repeat("deep/", 700) + "handler.py"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			packageContext := contextGatewayTestPackage(t, "full locator projection")
+			for index := range packageContext.Items {
+				packageContext.Items[index].Locator = tt.locator
+			}
+			if err := packageContext.Validate(); err != nil {
+				t.Fatalf("ContextPackage.Validate() error = %v", err)
+			}
+			projection, err := ProjectContextPackage(context.Background(), packageContext)
+			if err != nil {
+				t.Fatalf("ProjectContextPackage() error = %v", err)
+			}
+			if err := projection.ValidateAgainst(packageContext); err != nil {
+				t.Fatalf("projection.ValidateAgainst() error = %v", err)
+			}
+			wantGatewayLocator, err := contextGatewayLocator(tt.locator)
+			if err != nil {
+				t.Fatalf("contextGatewayLocator() error = %v", err)
+			}
+			fullLocator, err := json.Marshal(tt.locator)
+			if err != nil {
+				t.Fatalf("json.Marshal(locator) error = %v", err)
+			}
+			for index, reference := range projection.ValidationPackage.Evidence {
+				if reference.Locator != tt.locator {
+					t.Fatalf("validation locator %d = %#v, want full %#v", index, reference.Locator, tt.locator)
+				}
+				gateway := projection.GatewayPackage.Evidence[index]
+				if gateway.Locator != wantGatewayLocator || len([]byte(gateway.Locator)) > contextGatewayMaxLocatorBytes {
+					t.Fatalf("gateway locator %d = %q, want %q and <= %d bytes", index, gateway.Locator, wantGatewayLocator, contextGatewayMaxLocatorBytes)
+				}
+				if gateway.Locator == string(fullLocator) {
+					t.Fatalf("gateway locator %d retained full locator", index)
+				}
+			}
+		})
 	}
 }
 
@@ -497,13 +768,6 @@ func contextGatewayTestPackage(t *testing.T, content string) ContextPackage {
 	redactedItem.Provenance.Evidence[0].ID = redactedUnit.ID
 
 	items := []ContextItem{fixture.fact, fixture.entity, fixture.evidence, redactedItem}
-	// The gateway contract bounds its opaque locator string to 128 bytes. Keep
-	// the context locator compact while the underlying evidence retains its
-	// complete source-scoped locator.
-	compactLocator := contract.Locator{URI: "context://gateway"}
-	for index := range items {
-		items[index].Locator = compactLocator
-	}
 	audit := make([]ContextSelectionAudit, 0, len(items))
 	for index, item := range items {
 		audit = append(audit, ContextSelectionAudit{ItemID: item.ID, Included: true, Reason: ContextSelectionIncluded, Rank: index + 1, Score: 1})

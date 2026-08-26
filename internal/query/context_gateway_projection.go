@@ -18,6 +18,8 @@ import (
 const (
 	contextGatewayProjectionVersion = "v1alpha1"
 	contextGatewayMaxGapIDBytes     = 128
+	contextGatewayMaxLocatorBytes   = 128
+	contextGatewayLocatorVersion    = "v1"
 )
 
 var (
@@ -123,7 +125,7 @@ func (p ContextGatewayProjection) ValidateAgainstGateway() error {
 		if reference.ID != gateway.ID || reference.ContentDigest != gateway.ContentDigest {
 			return ErrInvalidContextGatewayProjection
 		}
-		locator, err := packageLocator(reference.Locator)
+		locator, err := contextGatewayLocator(reference.Locator)
 		if err != nil || locator != gateway.Locator {
 			return ErrInvalidContextGatewayProjection
 		}
@@ -313,7 +315,7 @@ func projectContextRelation(relation ContextRelation, locator contract.Locator) 
 }
 
 func contextGatewayEvidence(id string, scope Scope, locator contract.Locator, content string) (contextGatewayProjectedEvidence, contract.Locator, error) {
-	gatewayLocator, err := packageLocator(locator)
+	gatewayLocator, err := contextGatewayLocator(locator)
 	if err != nil {
 		return contextGatewayProjectedEvidence{}, contract.Locator{}, ErrInvalidContextGatewayProjection
 	}
@@ -334,6 +336,180 @@ func contextGatewayEvidence(id string, scope Scope, locator contract.Locator, co
 			Locator:       gatewayLocator,
 		},
 	}, locator, nil
+}
+
+// contextGatewayLocator returns the bounded, opaque locator accepted by the
+// generator boundary. The validation view retains locator in its structured
+// form; this representation carries canonical artifact identity plus useful
+// position data and never contains source content.
+func contextGatewayLocator(locator contract.Locator) (string, error) {
+	if locator.Validate() != nil {
+		return "", ErrInvalidContextGatewayProjection
+	}
+
+	payload := contextGatewayLocatorPayload{Version: contextGatewayLocatorVersion}
+	switch {
+	case locator.ArtifactID != "":
+		payload.ArtifactID = locator.ArtifactID
+	case locator.SourceID != "":
+		payload.SourceID = locator.SourceID
+	}
+
+	hasLinePosition := locator.StartLine > 0 || locator.StartColumn > 0 || locator.EndLine > 0 || locator.EndColumn > 0
+	hasBytePosition := locator.ByteOffset > 0 || locator.ByteLength > 0
+	if hasLinePosition {
+		payload.StartLine = locator.StartLine
+		payload.StartColumn = locator.StartColumn
+		payload.EndLine = locator.EndLine
+		payload.EndColumn = locator.EndColumn
+	}
+	if hasBytePosition {
+		payload.ByteOffset = locator.ByteOffset
+		payload.ByteLength = locator.ByteLength
+	}
+
+	// Member remains useful alongside a byte or line position. Path/URI are
+	// fallback identity when no canonical artifact is available. When both are
+	// present, retain both so omitted locator fields cannot collide silently.
+	payload.Member = locator.Member
+	if locator.ArtifactID == "" {
+		payload.Path = locator.Path
+		payload.URI = locator.URI
+	} else if !hasLinePosition && !hasBytePosition && payload.Member == "" {
+		payload.Path = locator.Path
+		payload.URI = locator.URI
+	}
+
+	encoded, err := marshalContextGatewayLocator(payload)
+	if err != nil {
+		return "", err
+	}
+	if len(encoded) <= contextGatewayMaxLocatorBytes {
+		return string(encoded), nil
+	}
+
+	// Replace long human-readable components with a short prefix and a stable
+	// digest. Digest prevents ambiguous truncation while prefix keeps direction
+	// useful when the locator is inspected by a human or a tool.
+	if payload.Member != "" {
+		payload.Member = compactContextGatewayLocatorText(payload.Member)
+	}
+	if payload.Path != "" {
+		payload.Path = compactContextGatewayLocatorText(payload.Path)
+	}
+	if payload.URI != "" {
+		payload.URI = compactContextGatewayLocatorText(payload.URI)
+	}
+	encoded, err = marshalContextGatewayLocator(payload)
+	if err != nil {
+		return "", err
+	}
+	if len(encoded) <= contextGatewayMaxLocatorBytes {
+		return string(encoded), nil
+	}
+
+	// Non-canonical identifiers are still bounded safely if a caller supplies
+	// one outside the usual UUID shape. Canonical UUID artifact IDs normally
+	// take the first path through this function and remain verbatim.
+	if payload.ArtifactID != "" {
+		payload.ArtifactID = compactContextGatewayLocatorText(payload.ArtifactID)
+	}
+	if payload.SourceID != "" {
+		payload.SourceID = compactContextGatewayLocatorText(payload.SourceID)
+	}
+	encoded, err = marshalContextGatewayLocator(payload)
+	if err == nil && len(encoded) <= contextGatewayMaxLocatorBytes {
+		return string(encoded), nil
+	}
+
+	return contextGatewayLocatorDigestFallback(locator)
+}
+
+type contextGatewayLocatorPayload struct {
+	Version     string `json:"v"`
+	ArtifactID  string `json:"a,omitempty"`
+	SourceID    string `json:"s,omitempty"`
+	Path        string `json:"p,omitempty"`
+	URI         string `json:"u,omitempty"`
+	Member      string `json:"m,omitempty"`
+	StartLine   int    `json:"l,omitempty"`
+	StartColumn int    `json:"c,omitempty"`
+	EndLine     int    `json:"el,omitempty"`
+	EndColumn   int    `json:"ec,omitempty"`
+	ByteOffset  int64  `json:"o,omitempty"`
+	ByteLength  int64  `json:"n,omitempty"`
+	Digest      string `json:"d,omitempty"`
+}
+
+func marshalContextGatewayLocator(payload contextGatewayLocatorPayload) ([]byte, error) {
+	encoded, err := json.Marshal(payload)
+	if err != nil || len(encoded) == 0 {
+		return nil, ErrInvalidContextGatewayProjection
+	}
+	return encoded, nil
+}
+
+func compactContextGatewayLocatorText(value string) string {
+	digest := sha256.Sum256([]byte(value))
+	prefix := value
+	if len([]byte(prefix)) > 16 {
+		prefix = contextGatewayUTF8Prefix(prefix, 16)
+	}
+	return prefix + "~" + hex.EncodeToString(digest[:])[:24]
+}
+
+func contextGatewayLocatorDigestFallback(locator contract.Locator) (string, error) {
+	canonical, err := json.Marshal(locator)
+	if err != nil || len(canonical) == 0 {
+		return "", ErrInvalidContextGatewayProjection
+	}
+	digest := sha256.Sum256(canonical)
+	payload := contextGatewayLocatorPayload{
+		Version: contextGatewayLocatorVersion,
+		Digest:  hex.EncodeToString(digest[:]),
+	}
+	switch {
+	case locator.ArtifactID != "":
+		payload.ArtifactID = locator.ArtifactID
+	case locator.SourceID != "":
+		payload.SourceID = locator.SourceID
+	}
+
+	encoded, err := marshalContextGatewayLocator(payload)
+	if err == nil && len(encoded) <= contextGatewayMaxLocatorBytes {
+		return string(encoded), nil
+	}
+	if payload.ArtifactID != "" {
+		payload.ArtifactID = compactContextGatewayLocatorText(payload.ArtifactID)
+	}
+	if payload.SourceID != "" {
+		payload.SourceID = compactContextGatewayLocatorText(payload.SourceID)
+	}
+	encoded, err = marshalContextGatewayLocator(payload)
+	if err == nil && len(encoded) <= contextGatewayMaxLocatorBytes {
+		return string(encoded), nil
+	}
+
+	// Full digest remains an unambiguous identity even when an unsafe-size
+	// source/artifact token cannot share the 128-byte gateway budget.
+	payload.ArtifactID = ""
+	payload.SourceID = ""
+	encoded, err = marshalContextGatewayLocator(payload)
+	if err != nil || len(encoded) > contextGatewayMaxLocatorBytes {
+		return "", ErrInvalidContextGatewayProjection
+	}
+	return string(encoded), nil
+}
+
+func contextGatewayUTF8Prefix(value string, maxBytes int) string {
+	if len([]byte(value)) <= maxBytes {
+		return value
+	}
+	prefix := value[:maxBytes]
+	for len(prefix) > 0 && !utf8.ValidString(prefix) {
+		prefix = prefix[:len(prefix)-1]
+	}
+	return prefix
 }
 
 func contextGatewayRelationLocator(relation ContextRelation, locators map[string]contract.Locator) (contract.Locator, error) {
