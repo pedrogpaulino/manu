@@ -121,6 +121,8 @@ O resultado incremental será comparado em testes ao rebuild completo. O objetiv
 
 O `Evidence Package` existente é orientado ao `Generator`. Será introduzido um `Context Package` consumidor-neutro acima da recuperação, contendo fatos, entidades, relações, evidências, locadores, cobertura, lacunas, auditoria de seleção e continuidade. Uma projeção sanitizada desse pacote alimentará o `AI Gateway`; outra será serializada pelo MCP. Nenhum consumidor acessará tabelas ou projeções diretamente.
 
+Uma implementação produtiva da porta `ContextService` montará o `Context Package` a partir da leitura canônica escopada no PostgreSQL e das projeções reconstruíveis. O serviço resolverá o snapshot autorizado, adaptará fatos e resultados híbridos para candidatos canônicos, aplicará seleção, fechamento de suporte, orçamento, política e continuação e validará o pacote antes de devolvê-lo. Essa composição não invocará `Generator`; HTTP, MCP e `AI Gateway` continuarão consumidores da mesma porta, sem reconstruir o pipeline em cada adaptador.
+
 O planejamento de contexto parte de uma intenção tipada: pergunta livre, entidade ou símbolo, impacto possível ou inspeção de evidência. A recuperação gera candidatos por sinais exatos, textuais, vetoriais e relacionais. O compositor resolve uma variante determinística de cobertura máxima sob orçamento:
 
 ```text
@@ -142,7 +144,7 @@ O token estimado continua sendo uma aproximação determinística de transporte,
 
 ### 6. Expor MCP como adaptador fino e somente leitura
 
-O comando `manu mcp` iniciará um servidor `stdio` usando uma versão estável fixada do SDK Go oficial do MCP e declarará a versão de protocolo suportada. A dependência ficará isolada em um adaptador; tipos MCP não atravessarão a porta da aplicação. O transporte remoto não será habilitado neste corte.
+O comando `manu mcp` iniciará um servidor `stdio` usando uma versão estável fixada do SDK Go oficial do MCP e declarará a versão de protocolo suportada. A dependência ficará isolada em um adaptador; tipos MCP não atravessarão a porta da aplicação. As ferramentas receberão a implementação produtiva de `ContextService` composta no limite do processo e não acessarão repositórios ou projeções diretamente. O transporte remoto não será habilitado neste corte.
 
 A superfície inicial terá quatro ferramentas, em ordem determinística:
 

@@ -53,12 +53,13 @@
 - [x] 6.7 Aplicar autorização, decisão de transferência, redaction e reinspeção a cada item do pacote, verificando que conteúdo negado não apareça no resultado, cursor, erro ou auditoria.
 - [x] 6.8 Adaptar o `Evidence Package` do `AI Gateway` como projeção sanitizada do `Context Package`, verificando compatibilidade da API de consulta e que o `Generator` continue sem acesso à fonte ou ao banco.
 - [x] 6.9 Criar testes end-to-end de pergunta, contexto de símbolo, impacto possível e inspeção de evidência nas três famílias, verificando locadores, proveniência, cobertura, gaps e limites.
+- [ ] 6.10 Implementar e compor a porta produtiva `ContextService` sobre leitura factual canônica, recuperação híbrida, seleção, fechamento de suporte, política, orçamento e continuação, verificando escopo e snapshot, determinismo, pacote válido e operação sem `Generator` em testes unitários e PostgreSQL.
 
 ## 7. Interface MCP somente leitura
 
 - [x] 7.1 Adicionar e fixar uma versão estável do SDK Go oficial do MCP compatível com o Go do projeto e o protocolo declarado, verificando licença, `go mod verify`, análise de vulnerabilidades disponível e builds estáticos Linux.
 - [x] 7.2 Implementar `manu mcp` por `stdio` atrás da configuração local, com identidade e capacidades versionadas e ordem determinística, verificando inicialização e encerramento limpo com um cliente MCP de teste.
-- [ ] 7.3 Implementar `manu_query` e `manu_context` sobre a porta do `Context Package`, verificando schemas, escopo, orçamento, respostas estruturadas e operação sem `Generator`.
+- [ ] 7.3 Implementar `manu_query` e `manu_context` sobre a implementação produtiva da porta do `Context Package`, verificando schemas, escopo, orçamento, respostas estruturadas e operação sem `Generator`.
 - [ ] 7.4 Implementar `manu_impact` e `manu_evidence`, verificando qualificação de impacto possível, reinspeção de autorização e estados controlados para evidência protegida ou indisponível.
 - [ ] 7.5 Implementar recursos `manu://` e continuação nas respostas MCP, verificando revisão histórica estável, indicação não substitutiva de snapshot mais recente e rejeição de cursor incompatível.
 - [ ] 7.6 Implementar auditoria e mapeamento seguro de erros MCP, verificando ausência de SQL, Cypher, mutação, credenciais, enumeração entre organizações e detalhes internos em ferramentas e mensagens.
