@@ -443,7 +443,10 @@ disponíveis conforme as políticas já descritas.
 
 O `manu mcp` previsto para esta mudança é um adaptador local por `stdio`, sem
 transporte remoto, sobre a mesma porta de aplicação que produz o `Context
-Package`. Ele anuncia, em ordem determinística, somente as operações
+Package`. A borda fixa o SDK Go oficial
+`github.com/modelcontextprotocol/go-sdk` em `v1.6.1` e declara a versão de
+protocolo `2025-11-25`; essas escolhas não atravessam a porta da aplicação. O
+adaptador anuncia, em ordem determinística, somente as operações
 `manu_query`, `manu_context`, `manu_impact` e `manu_evidence`. Tipos e schemas
 do protocolo ficam na borda; nenhuma chamada MCP acessa PostgreSQL, SQL,
 Cypher, o filesystem da `Source` ou ferramentas de mutação diretamente.
