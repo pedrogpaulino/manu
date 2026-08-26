@@ -43,6 +43,33 @@ integração ainda não existir, documente a ausência.
 - Registre uma decisão aceita, difícil de reverter e baseada em trade-offs conforme a política e o template de [`docs/decisions/README.md`](docs/decisions/README.md).
 - Antes de concluir uma mudança documental, verifique links relativos, ausência de placeholders, responsabilidade única dos documentos, termos coerentes e alinhamento entre Knowledge Engine, base de conhecimento viva e experiências derivadas.
 
+## Comunicação e eficiência de contexto
+
+- Quando a skill `caveman` estiver disponível, use o nível `full` nas
+  respostas ao usuário, atualizações de progresso e retornos entre agentes.
+  Preserve precisão técnica, negações, números, unidades, comandos, símbolos
+  de código e mensagens de erro exatas.
+- A compressão vale somente para a comunicação da sessão. Código, comentários,
+  documentação, artefatos OpenSpec, mensagens de commit e textos destinados a
+  outras pessoas continuam em linguagem normal e seguem as regras editoriais
+  deste repositório.
+- Prefira retornos pequenos e verificáveis: resultado, evidência decisiva,
+  risco e próximo passo. Não despeje logs completos quando a menor linha que
+  prova sucesso ou falha for suficiente. Não esconda falhas, limitações ou
+  ordem necessária de operações para economizar tokens.
+- Trate economia de tokens como hipótese mensurável. Diferencie estimativa,
+  contagem reportada pelo provedor e comparação controlada; não publique
+  percentuais de economia ou equivalência de qualidade sem dados reproduzíveis.
+- O uso da skill de estilo não autoriza instalar ou incorporar o `Caveman
+  Proxy`, `Engine`, MCP, memória, hooks ou outros runtimes. Qualquer adoção
+  dessas superfícies exige mudança OpenSpec própria, revisão de licença,
+  segurança, privacidade, telemetria, recuperação byte a byte e compatibilidade
+  com o corte local do Manu. Não copie código coberto por BSL-1.1 para o núcleo.
+- Fontes externas para essa política: [repositório Caveman](https://github.com/JuliusBrussee/caveman),
+  [limites das medições](https://github.com/JuliusBrussee/caveman/blob/main/docs/HONEST-NUMBERS.md),
+  [segurança e privacidade](https://github.com/JuliusBrussee/caveman/blob/main/SECURITY.md) e
+  [escopo de licenças](https://github.com/JuliusBrussee/caveman/blob/main/LICENSING.md).
+
 ## OpenSpec e verificação
 
 Leia os artefatos da mudança antes de editar e mantenha a implementação
