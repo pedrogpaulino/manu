@@ -57,7 +57,7 @@
 ## 7. Interface MCP somente leitura
 
 - [x] 7.1 Adicionar e fixar uma versão estável do SDK Go oficial do MCP compatível com o Go do projeto e o protocolo declarado, verificando licença, `go mod verify`, análise de vulnerabilidades disponível e builds estáticos Linux.
-- [ ] 7.2 Implementar `manu mcp` por `stdio` atrás da configuração local, com identidade e capacidades versionadas e ordem determinística, verificando inicialização e encerramento limpo com um cliente MCP de teste.
+- [x] 7.2 Implementar `manu mcp` por `stdio` atrás da configuração local, com identidade e capacidades versionadas e ordem determinística, verificando inicialização e encerramento limpo com um cliente MCP de teste.
 - [ ] 7.3 Implementar `manu_query` e `manu_context` sobre a porta do `Context Package`, verificando schemas, escopo, orçamento, respostas estruturadas e operação sem `Generator`.
 - [ ] 7.4 Implementar `manu_impact` e `manu_evidence`, verificando qualificação de impacto possível, reinspeção de autorização e estados controlados para evidência protegida ou indisponível.
 - [ ] 7.5 Implementar recursos `manu://` e continuação nas respostas MCP, verificando revisão histórica estável, indicação não substitutiva de snapshot mais recente e rejeição de cursor incompatível.

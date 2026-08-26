@@ -20,6 +20,9 @@ func TestDefaultIsValidAndContainsNoCredentials(t *testing.T) {
 	if configuration.Organization.ID != DefaultOrganizationID {
 		t.Fatalf("default organization ID = %q, want %q", configuration.Organization.ID, DefaultOrganizationID)
 	}
+	if configuration.MCP.Enabled {
+		t.Fatal("MCP is enabled by default")
+	}
 	if configuration.Ingestion.StagingDirectory != DefaultIngestionStagingDirectory {
 		t.Fatalf("default ingestion staging directory = %q, want %q", configuration.Ingestion.StagingDirectory, DefaultIngestionStagingDirectory)
 	}
@@ -40,6 +43,7 @@ func TestLoadEnvAppliesTypedValues(t *testing.T) {
 	environment := map[string]string{
 		"MANU_SERVER_LISTEN_ADDRESS":               "127.0.0.1:9090",
 		"MANU_SERVER_READ_TIMEOUT":                 "2s",
+		"MANU_MCP_ENABLED":                         "true",
 		"MANU_ORGANIZATION_ID":                     "payments",
 		"MANU_ORGANIZATION_NAME":                   "Payments",
 		"MANU_INGESTION_STAGING_DIRECTORY":         "/var/lib/manu/ingestions",
@@ -83,6 +87,9 @@ func TestLoadEnvAppliesTypedValues(t *testing.T) {
 	}
 	if got := configuration.Server.ReadTimeout; got != 2*time.Second {
 		t.Errorf("read timeout = %s, want 2s", got)
+	}
+	if !configuration.MCP.Enabled {
+		t.Fatal("MCP was not enabled by MANU_MCP_ENABLED=true")
 	}
 	if got := configuration.Organization.ID; got != "payments" {
 		t.Errorf("organization ID = %q, want payments", got)
@@ -158,6 +165,7 @@ func TestLoadRejectsMalformedValuesWithoutEchoingValue(t *testing.T) {
 		env  map[string]string
 	}{
 		{name: "boolean", env: map[string]string{"MANU_EMBEDDING_ENABLED": "maybe"}},
+		{name: "MCP boolean", env: map[string]string{"MANU_MCP_ENABLED": "maybe"}},
 		{name: "integer", env: map[string]string{"MANU_SERVER_MAX_BODY_BYTES": "large"}},
 		{name: "duration", env: map[string]string{"MANU_SERVER_READ_TIMEOUT": "soon"}},
 		{name: "number", env: map[string]string{"MANU_RETRIEVAL_TEXT_WEIGHT": "many"}},
@@ -180,6 +188,28 @@ func TestLoadRejectsMalformedValuesWithoutEchoingValue(t *testing.T) {
 				t.Fatalf("error echoed a credential: %v", err)
 			}
 		})
+	}
+}
+
+func TestMCPConfigIsRepresentedAsSafeJSON(t *testing.T) {
+	configuration := Default()
+	configuration.MCP.Enabled = true
+
+	encoded, err := json.Marshal(configuration)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	var decoded struct {
+		MCP MCPConfig `json:"mcp"`
+	}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if !decoded.MCP.Enabled {
+		t.Fatalf("JSON MCP configuration = %#v, want enabled", decoded.MCP)
+	}
+	if !strings.Contains(configuration.String(), `"mcp":{"enabled":true}`) {
+		t.Fatalf("String() omitted MCP configuration: %s", configuration.String())
 	}
 }
 

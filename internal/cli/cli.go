@@ -39,7 +39,7 @@ const (
 	// dimensions, or partial failures.
 	ExitPartial = 3
 
-	usage = "usage: manu <version|analyze|inspect|benchmark|migrate|serve|ready|eval|ingest|ingestion|ask|evidence>"
+	usage = "usage: manu <version|analyze|inspect|benchmark|migrate|serve|mcp|ready|eval|ingest|ingestion|ask|evidence>"
 )
 
 // Run executes a Manu command and returns a Unix-style exit code. Output is
@@ -88,6 +88,8 @@ func RunContext(ctx context.Context, signals <-chan os.Signal, args []string, st
 		return runMigrate(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
 	case "serve":
 		return runServe(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
+	case "mcp":
+		return runMCP(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
 	case "ready":
 		return runReady(analysis.NewRunContext(ctx, signals), args[1:], stdout, stderr)
 	case "eval":
@@ -708,6 +710,7 @@ func writeHelp(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  benchmark run first, repeat, and localized-update measurements")
 	_, _ = fmt.Fprintln(w, "  migrate  apply the embedded PostgreSQL schema migrations")
 	_, _ = fmt.Fprintln(w, "  serve    start the local-only HTTP API")
+	_, _ = fmt.Fprintln(w, "  mcp      start the local-only MCP stdio server")
 	_, _ = fmt.Fprintln(w, "  ready    probe the local HTTP readiness contract")
 	_, _ = fmt.Fprintln(w, "  eval     run the deterministic local evaluation")
 	_, _ = fmt.Fprintln(w, "  ingest   send an Analysis Bundle to the local HTTP API")

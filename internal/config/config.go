@@ -84,6 +84,7 @@ const (
 // JSON serialization and from Config's String and LogValue representations.
 type Config struct {
 	Server       ServerConfig       `json:"server"`
+	MCP          MCPConfig          `json:"mcp"`
 	Organization OrganizationConfig `json:"organization"`
 	Postgres     PostgresConfig     `json:"postgres"`
 	Limits       LimitsConfig       `json:"limits"`
@@ -93,6 +94,13 @@ type Config struct {
 	Embedding    EmbeddingConfig    `json:"embedding"`
 	Generation   GenerationConfig   `json:"generation"`
 	Evaluation   EvaluationConfig   `json:"evaluation"`
+}
+
+// MCPConfig controls the optional local MCP stdio adapter. MCP is disabled by
+// default and is never enabled implicitly by another capability or server
+// mode.
+type MCPConfig struct {
+	Enabled bool `json:"enabled"`
 }
 
 // ServerConfig controls the HTTP listener, request deadlines, and body and
@@ -243,6 +251,7 @@ func Default() Config {
 			MaxBodyBytes:          64 << 20,
 			MaxConcurrentRequests: 64,
 		},
+		MCP: MCPConfig{},
 		Organization: OrganizationConfig{
 			ID:   DefaultOrganizationID,
 			Name: "Local organization",
@@ -369,6 +378,9 @@ func applyEnvironment(config *Config, lookup func(string) (string, bool)) error 
 		}},
 		{keys: []string{"MANU_SERVER_MAX_CONCURRENT_REQUESTS"}, set: func(value string) error {
 			return setInt(&config.Server.MaxConcurrentRequests, value)
+		}},
+		{keys: []string{"MANU_MCP_ENABLED"}, set: func(value string) error {
+			return setBool(&config.MCP.Enabled, value)
 		}},
 		{keys: []string{"MANU_ORGANIZATION_ID"}, set: func(value string) error {
 			config.Organization.ID = strings.TrimSpace(value)
@@ -668,6 +680,7 @@ func (c Config) Validate() error {
 		fn   func() error
 	}{
 		{"server", c.Server.Validate},
+		{"mcp", c.MCP.Validate},
 		{"organization", c.Organization.Validate},
 		{"postgres", c.Postgres.Validate},
 		{"limits", c.Limits.Validate},
@@ -692,6 +705,13 @@ func (c Config) Validate() error {
 	if c.Retrieval.MaxPackageBytes > c.Limits.MaxBundleBytes {
 		return invalid("relationships", "retrieval package bytes exceed bundle bytes")
 	}
+	return nil
+}
+
+// Validate checks the MCP feature flag. The flag is a typed boolean, so every
+// in-memory value is valid; textual values are validated by the environment
+// loader before they reach this type.
+func (m MCPConfig) Validate() error {
 	return nil
 }
 
