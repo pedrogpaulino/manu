@@ -60,11 +60,15 @@ integração ainda não existir, documente a ausência.
 - Trate economia de tokens como hipótese mensurável. Diferencie estimativa,
   contagem reportada pelo provedor e comparação controlada; não publique
   percentuais de economia ou equivalência de qualidade sem dados reproduzíveis.
-- O uso da skill de estilo não autoriza instalar ou incorporar o `Caveman
-  Proxy`, `Engine`, MCP, memória, hooks ou outros runtimes. Qualquer adoção
-  dessas superfícies exige mudança OpenSpec própria, revisão de licença,
-  segurança, privacidade, telemetria, recuperação byte a byte e compatibilidade
-  com o corte local do Manu. Não copie código coberto por BSL-1.1 para o núcleo.
+- O Caveman pertence somente ao workflow de desenvolvimento dos agentes. Não o
+  trate como capacidade, dependência, integração, inspiração arquitetural ou
+  opção futura do produto Manu; não altere por causa dele `PRODUCT.md`,
+  `DOMAIN.md`, `ARCHITECTURE.md`, mudanças OpenSpec, runtime, APIs, MCP,
+  `Context Package`, avaliação ou distribuição.
+- Não instale nem incorpore no repositório `Caveman Proxy`, `Engine`, MCP,
+  memória, hooks ou outros runtimes. Não copie código coberto por BSL-1.1 para
+  o núcleo. A skill disponível no ambiente serve apenas para comprimir a
+  comunicação da sessão.
 - Fontes externas para essa política: [repositório Caveman](https://github.com/JuliusBrussee/caveman),
   [limites das medições](https://github.com/JuliusBrussee/caveman/blob/main/docs/HONEST-NUMBERS.md),
   [segurança e privacidade](https://github.com/JuliusBrussee/caveman/blob/main/SECURITY.md) e
