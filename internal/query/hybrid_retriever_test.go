@@ -95,6 +95,52 @@ func TestHybridRetrieverIntegratesCanonicalRelationalCandidate(t *testing.T) {
 	}
 }
 
+func TestHybridRetrieverPrefersExternalEvidenceIdentityResolver(t *testing.T) {
+	scope := packageTestScope()
+	fusedID := packageTestUUID(4)
+	unit := packageTestUnit(scope, "identity.go", "src/identity.go", "external evidence identity")
+	resolver := &hybridRetrieverIdentityResolver{
+		scope:      scope,
+		unit:       unit,
+		externalID: "bundle-evidence-401",
+	}
+	retriever := &HybridRetriever{
+		Text: &hybridRetrieverTextSearcher{hits: []retrieval.TextHit{{
+			EvidenceID:     fusedID,
+			OrganizationID: scope.OrganizationID,
+			SourceID:       scope.SourceID,
+			SnapshotID:     scope.SnapshotID,
+			ContentHash:    unit.ContentHash,
+			Rank:           1,
+			ExactMatch:     true,
+		}}},
+		UnitResolver: resolver,
+		Support:      hybridRetrieverSupportAssessor{},
+		Fusion:       retrieval.FusionConfiguration{ExactWeight: 1, TextualWeight: 1},
+		Limit:        1,
+	}
+
+	result, err := retriever.Retrieve(context.Background(), hybridRetrieverInput(scope))
+	if err != nil {
+		t.Fatalf("Retrieve() error = %v", err)
+	}
+	if resolver.identityCalls != 1 || resolver.legacyCalls != 0 {
+		t.Fatalf("resolver calls = identity %d, legacy %d; want identity once and legacy never", resolver.identityCalls, resolver.legacyCalls)
+	}
+	if len(result.Candidates) != 1 {
+		t.Fatalf("candidates = %d, want 1", len(result.Candidates))
+	}
+	candidate := result.Candidates[0]
+	if candidate.ExternalEvidenceID != resolver.externalID || candidate.Unit.ID != unit.ID {
+		t.Fatalf("candidate identity = external %q, unit %q; want external %q, unit %q", candidate.ExternalEvidenceID, candidate.Unit.ID, resolver.externalID, unit.ID)
+	}
+
+	resolver.externalID = ""
+	if _, err := retriever.Retrieve(context.Background(), hybridRetrieverInput(scope)); !errors.Is(err, ErrQueryRetrievalNotConfigured) {
+		t.Fatalf("Retrieve() invalid external identity error = %v, want ErrQueryRetrievalNotConfigured", err)
+	}
+}
+
 func TestHybridRetrieverDegradesMissingRelationalPortWithoutDroppingOtherCandidates(t *testing.T) {
 	scope := packageTestScope()
 	anchorID := packageTestUUID(4)
@@ -302,6 +348,36 @@ func (r hybridRetrieverUnitResolver) Resolve(ctx context.Context, scope Scope, e
 		return evidence.EvidenceUnit{}, ErrEvidenceUnitNotFound
 	}
 	return unit, nil
+}
+
+type hybridRetrieverIdentityResolver struct {
+	scope         Scope
+	unit          evidence.EvidenceUnit
+	externalID    string
+	identityCalls int
+	legacyCalls   int
+}
+
+func (r *hybridRetrieverIdentityResolver) Resolve(ctx context.Context, scope Scope, _ string) (evidence.EvidenceUnit, error) {
+	r.legacyCalls++
+	if err := ctx.Err(); err != nil {
+		return evidence.EvidenceUnit{}, err
+	}
+	if scope != r.scope {
+		return evidence.EvidenceUnit{}, ErrQueryScopeRequired
+	}
+	return r.unit, nil
+}
+
+func (r *hybridRetrieverIdentityResolver) ResolveEvidenceUnit(ctx context.Context, scope Scope, _ string) (EvidenceUnitResolution, error) {
+	r.identityCalls++
+	if err := ctx.Err(); err != nil {
+		return EvidenceUnitResolution{}, err
+	}
+	if scope != r.scope {
+		return EvidenceUnitResolution{}, ErrQueryScopeRequired
+	}
+	return EvidenceUnitResolution{ExternalID: r.externalID, Unit: r.unit}, nil
 }
 
 type hybridRetrieverSupportAssessor struct{}

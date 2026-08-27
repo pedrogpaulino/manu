@@ -31,6 +31,21 @@ type EvidenceUnitResolver interface {
 	Resolve(context.Context, Scope, string) (evidence.EvidenceUnit, error)
 }
 
+// EvidenceUnitResolution preserves the external evidence identity alongside
+// its canonical projected unit. ExternalID identifies the bundle/fact, while
+// Unit.ID identifies the canonical projection; the resolver argument remains
+// the relational UUID used by fusion.
+type EvidenceUnitResolution struct {
+	ExternalID string
+	Unit       evidence.EvidenceUnit
+}
+
+// EvidenceUnitIdentityResolver resolves a fused relational UUID while
+// preserving the external evidence identity used by the bundle and fact.
+type EvidenceUnitIdentityResolver interface {
+	ResolveEvidenceUnit(context.Context, Scope, string) (EvidenceUnitResolution, error)
+}
+
 // RelationInputProvider optionally supplies bounded one-hop relation seeds and
 // entity references. It receives only scoped identities, never source files.
 type RelationInputProvider interface {
@@ -164,7 +179,24 @@ func (r *HybridRetriever) Retrieve(ctx context.Context, input QueryRetrievalInpu
 		if err := ctx.Err(); err != nil {
 			return QueryRetrievalResult{}, err
 		}
-		unit, resolveErr := r.UnitResolver.Resolve(ctx, input.Scope, fused.EvidenceID)
+		var (
+			unit             evidence.EvidenceUnit
+			externalEvidence string
+			resolveErr       error
+		)
+		if identityResolver, ok := r.UnitResolver.(EvidenceUnitIdentityResolver); ok {
+			resolution := EvidenceUnitResolution{}
+			resolution, resolveErr = identityResolver.ResolveEvidenceUnit(ctx, input.Scope, fused.EvidenceID)
+			if resolveErr == nil {
+				if !validContextID(resolution.ExternalID) {
+					return QueryRetrievalResult{}, ErrQueryRetrievalNotConfigured
+				}
+				externalEvidence = resolution.ExternalID
+				unit = resolution.Unit
+			}
+		} else {
+			unit, resolveErr = r.UnitResolver.Resolve(ctx, input.Scope, fused.EvidenceID)
+		}
 		if resolveErr != nil {
 			// A missing canonical unit is not safe to turn into a synthetic
 			// candidate. Surface it as a deterministic degraded retrieval result
@@ -184,6 +216,7 @@ func (r *HybridRetriever) Retrieve(ctx context.Context, input QueryRetrievalInpu
 			Unit:                unit,
 			Kind:                candidateKindForSignals(fused),
 			CanonicalEvidenceID: fused.EvidenceID,
+			ExternalEvidenceID:  externalEvidence,
 		})
 	}
 	result := QueryRetrievalResult{

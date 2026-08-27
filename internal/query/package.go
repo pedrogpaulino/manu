@@ -80,6 +80,9 @@ type PackageCandidate struct {
 	// deterministic Evidence Unit identity. It is intentionally omitted from
 	// transport JSON; when empty, the unit identity remains the package ID.
 	CanonicalEvidenceID string `json:"-"`
+	// ExternalEvidenceID preserves the bundle/fact evidence identity and is
+	// intentionally omitted from transport JSON.
+	ExternalEvidenceID string `json:"-"`
 }
 
 // FusedCandidate is a descriptive alias used by callers of the retrieval
