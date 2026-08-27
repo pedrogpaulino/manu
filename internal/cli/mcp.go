@@ -14,10 +14,10 @@ import (
 // MCPConfigLoader and MCPRunner are the seams around configuration and the
 // blocking MCP server lifecycle. Tests can inject both without opening a
 // stdio session or loading process configuration. The runner receives the
-// validated configuration so the production path can compose its application
-// ports instead of falling back to a feature-free protocol server.
+// validated configuration and normalized diagnostic writer so the production
+// path can compose its application ports and audit the session.
 type MCPConfigLoader func() (config.Config, error)
-type MCPRunner func(context.Context, config.Config) error
+type MCPRunner func(context.Context, config.Config, io.Writer) error
 
 // runMCP folds process signals into the MCP context and delegates the command
 // to an injectable implementation.
@@ -77,7 +77,7 @@ func runMCPWith(ctx context.Context, args []string, stdout, stderr io.Writer, lo
 		writeMCPDiagnostic(stderr, "MCP is disabled")
 		return ExitTechnical
 	}
-	if err := run(ctx, configuration); err != nil {
+	if err := run(ctx, configuration, stderr); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return ExitSuccess
 		}

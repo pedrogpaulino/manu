@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -157,8 +158,9 @@ func RunStdioWithContextServiceWithOptions(ctx context.Context, service query.Co
 
 func queryToolHandler(service query.ContextService, options ContextServerOptions) mcp.ToolHandlerFor[contextQueryInput, contextToolOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input contextQueryInput) (*mcp.CallToolResult, contextToolOutput, error) {
+		started := time.Now()
 		if err := contextError(ctx); err != nil {
-			return nil, contextToolOutput{}, err
+			return nil, contextToolOutput{}, contextToolError(ctx, options, ContextAuditOperationQuery, query.ContextRequest{}, started, err, err)
 		}
 		request := query.ContextRequest{
 			Version: query.ContextVersion,
@@ -182,16 +184,18 @@ func queryToolHandler(service query.ContextService, options ContextServerOptions
 		}
 		packageContext, err := service.BuildContext(ctx, request)
 		if err != nil {
-			return nil, contextToolOutput{}, sanitizeContextServiceError(ctx, err)
+			safeErr := sanitizeContextServiceError(ctx, err)
+			return nil, contextToolOutput{}, contextToolError(ctx, options, ContextAuditOperationQuery, request, started, err, safeErr)
 		}
-		return contextToolSuccess(ctx, packageContext, options)
+		return contextToolSuccess(ctx, packageContext, options, ContextAuditOperationQuery, request, started)
 	}
 }
 
 func contextToolHandler(service query.ContextService, options ContextServerOptions) mcp.ToolHandlerFor[contextTargetInput, contextToolOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input contextTargetInput) (*mcp.CallToolResult, contextToolOutput, error) {
+		started := time.Now()
 		if err := contextError(ctx); err != nil {
-			return nil, contextToolOutput{}, err
+			return nil, contextToolOutput{}, contextToolError(ctx, options, ContextAuditOperationContext, query.ContextRequest{}, started, err, err)
 		}
 		var targetKind query.IntentTargetKind
 		var intentKind query.IntentKind
@@ -205,7 +209,7 @@ func contextToolHandler(service query.ContextService, options ContextServerOptio
 		default:
 			// The typed SDK schema rejects this before invoking the handler. Keep
 			// the guard for direct handler use and future schema changes.
-			return nil, contextToolOutput{}, query.ErrInvalidContextRequest
+			return nil, contextToolOutput{}, contextToolError(ctx, options, ContextAuditOperationContext, query.ContextRequest{}, started, query.ErrInvalidContextRequest, query.ErrInvalidContextRequest)
 		}
 		request := query.ContextRequest{
 			Version: query.ContextVersion,
@@ -232,16 +236,18 @@ func contextToolHandler(service query.ContextService, options ContextServerOptio
 		}
 		packageContext, err := service.BuildContext(ctx, request)
 		if err != nil {
-			return nil, contextToolOutput{}, sanitizeContextServiceError(ctx, err)
+			safeErr := sanitizeContextServiceError(ctx, err)
+			return nil, contextToolOutput{}, contextToolError(ctx, options, ContextAuditOperationContext, request, started, err, safeErr)
 		}
-		return contextToolSuccess(ctx, packageContext, options)
+		return contextToolSuccess(ctx, packageContext, options, ContextAuditOperationContext, request, started)
 	}
 }
 
 func impactToolHandler(service query.ContextService, options ContextServerOptions) mcp.ToolHandlerFor[contextTargetInput, contextToolOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input contextTargetInput) (*mcp.CallToolResult, contextToolOutput, error) {
+		started := time.Now()
 		if err := contextError(ctx); err != nil {
-			return nil, contextToolOutput{}, err
+			return nil, contextToolOutput{}, contextToolError(ctx, options, ContextAuditOperationImpact, query.ContextRequest{}, started, err, err)
 		}
 		var targetKind query.IntentTargetKind
 		switch input.TargetKind {
@@ -250,7 +256,7 @@ func impactToolHandler(service query.ContextService, options ContextServerOption
 		case string(query.IntentTargetSymbol):
 			targetKind = query.IntentTargetSymbol
 		default:
-			return nil, contextToolOutput{}, query.ErrInvalidContextRequest
+			return nil, contextToolOutput{}, contextToolError(ctx, options, ContextAuditOperationImpact, query.ContextRequest{}, started, query.ErrInvalidContextRequest, query.ErrInvalidContextRequest)
 		}
 		request := query.ContextRequest{
 			Version: query.ContextVersion,
@@ -277,16 +283,18 @@ func impactToolHandler(service query.ContextService, options ContextServerOption
 		}
 		packageContext, err := service.BuildContext(ctx, request)
 		if err != nil {
-			return nil, contextToolOutput{}, sanitizeContextServiceError(ctx, err)
+			safeErr := sanitizeContextServiceError(ctx, err)
+			return nil, contextToolOutput{}, contextToolError(ctx, options, ContextAuditOperationImpact, request, started, err, safeErr)
 		}
-		return contextToolSuccess(ctx, packageContext, options)
+		return contextToolSuccess(ctx, packageContext, options, ContextAuditOperationImpact, request, started)
 	}
 }
 
 func evidenceToolHandler(service query.ContextService, options ContextServerOptions) mcp.ToolHandlerFor[contextEvidenceInput, contextToolOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input contextEvidenceInput) (*mcp.CallToolResult, contextToolOutput, error) {
+		started := time.Now()
 		if err := contextError(ctx); err != nil {
-			return nil, contextToolOutput{}, err
+			return nil, contextToolOutput{}, contextToolError(ctx, options, ContextAuditOperationEvidence, query.ContextRequest{}, started, err, err)
 		}
 		request := query.ContextRequest{
 			Version: query.ContextVersion,
@@ -313,9 +321,10 @@ func evidenceToolHandler(service query.ContextService, options ContextServerOpti
 		}
 		packageContext, err := service.BuildContext(ctx, request)
 		if err != nil {
-			return nil, contextToolOutput{}, sanitizeContextServiceError(ctx, err)
+			safeErr := sanitizeContextServiceError(ctx, err)
+			return nil, contextToolOutput{}, contextToolError(ctx, options, ContextAuditOperationEvidence, request, started, err, safeErr)
 		}
-		return contextToolSuccess(ctx, packageContext, options)
+		return contextToolSuccess(ctx, packageContext, options, ContextAuditOperationEvidence, request, started)
 	}
 }
 
@@ -326,14 +335,17 @@ func contextContinuation(token string) *query.ContextContinuation {
 	return &query.ContextContinuation{Token: token}
 }
 
-func contextToolSuccess(ctx context.Context, packageContext query.ContextPackage, options ContextServerOptions) (*mcp.CallToolResult, contextToolOutput, error) {
+func contextToolSuccess(ctx context.Context, packageContext query.ContextPackage, options ContextServerOptions, operation ContextAuditOperation, request query.ContextRequest, started time.Time) (*mcp.CallToolResult, contextToolOutput, error) {
 	output := contextToolOutput{
 		Context:          packageContext,
 		LatestSnapshotID: activeSnapshotID(ctx, options.ActiveSnapshotResolver, packageContext.Scope),
 	}
 	links, err := contextEvidenceResourceLinks(packageContext)
 	if err != nil {
-		return nil, contextToolOutput{}, ErrContextServiceFailure
+		return nil, contextToolOutput{}, contextToolError(ctx, options, operation, request, started, ErrContextServiceFailure, ErrContextServiceFailure)
+	}
+	if err := recordContextAudit(ctx, options.AuditSink, contextAuditRecordFor(operation, request.Scope, request.Limits, ContextAuditOutcomeSuccess, started, &packageContext)); err != nil {
+		return nil, contextToolOutput{}, err
 	}
 	if len(links) == 0 {
 		return nil, output, nil
@@ -349,6 +361,21 @@ func sanitizeContextServiceError(ctx context.Context, err error) error {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
+	}
+	if errors.Is(err, context.Canceled) {
+		return context.Canceled
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return context.DeadlineExceeded
+	}
+	if errors.Is(err, query.ErrInvalidContextContinuation) || errors.Is(err, query.ErrInvalidContextContinuationKey) || errors.Is(err, ErrContextCursorRejected) {
+		return ErrContextCursorRejected
+	}
+	if contextRequestRejectedError(err) {
+		return ErrContextRequestRejected
+	}
+	if contextAuditUnavailableError(err) {
+		return ErrContextUnavailable
 	}
 	return ErrContextServiceFailure
 }

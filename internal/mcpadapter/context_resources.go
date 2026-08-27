@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -42,11 +43,15 @@ type ActiveSnapshotResolver interface {
 type ContextServerOptions struct {
 	ActiveSnapshotResolver ActiveSnapshotResolver
 	ResourceLimits         query.ContextLimits
+	AuditSink              ContextAuditSink
 }
 
 // Validate checks optional resolver and resource composition boundaries.
 func (o ContextServerOptions) Validate() error {
 	if o.ActiveSnapshotResolver != nil && nilActiveSnapshotResolver(o.ActiveSnapshotResolver) {
+		return ErrInvalidContextServerOptions
+	}
+	if o.AuditSink != nil && nilContextAuditSink(o.AuditSink) {
 		return ErrInvalidContextServerOptions
 	}
 	if o.ResourceLimits != (query.ContextLimits{}) {
@@ -68,15 +73,16 @@ type contextResourceOutput struct {
 
 func contextEvidenceResourceHandler(service query.ContextService, options ContextServerOptions) mcp.ResourceHandler {
 	return func(ctx context.Context, request *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+		started := time.Now()
 		if err := contextError(ctx); err != nil {
-			return nil, err
+			return nil, contextResourceError(ctx, options, query.Scope{}, options.ResourceLimits, started, err, err)
 		}
 		if request == nil || request.Params == nil {
-			return nil, ErrInvalidContextResource
+			return nil, contextResourceError(ctx, options, query.Scope{}, options.ResourceLimits, started, ErrInvalidContextResource, ErrInvalidContextResource)
 		}
 		scope, evidenceID, err := parseContextEvidenceResource(request.Params.URI)
 		if err != nil {
-			return nil, ErrInvalidContextResource
+			return nil, contextResourceError(ctx, options, query.Scope{}, options.ResourceLimits, started, err, ErrInvalidContextResource)
 		}
 		contextRequest := query.ContextRequest{
 			Version: query.ContextVersion,
@@ -93,10 +99,11 @@ func contextEvidenceResourceHandler(service query.ContextService, options Contex
 		}
 		packageContext, err := service.BuildContext(ctx, contextRequest)
 		if err != nil {
-			return nil, sanitizeContextResourceError(ctx, err)
+			safeErr := sanitizeContextResourceError(ctx, err)
+			return nil, contextResourceError(ctx, options, scope, options.ResourceLimits, started, err, safeErr)
 		}
 		if err := validateContextEvidenceResourcePackage(packageContext, scope, evidenceID); err != nil {
-			return nil, ErrContextResourceFailure
+			return nil, contextResourceError(ctx, options, scope, options.ResourceLimits, started, err, ErrContextResourceFailure)
 		}
 		resourceOutput := contextResourceOutput{
 			ContextPackage:   packageContext,
@@ -104,7 +111,10 @@ func contextEvidenceResourceHandler(service query.ContextService, options Contex
 		}
 		encoded, err := json.Marshal(resourceOutput)
 		if err != nil {
-			return nil, ErrContextResourceFailure
+			return nil, contextResourceError(ctx, options, scope, options.ResourceLimits, started, err, ErrContextResourceFailure)
+		}
+		if err := recordContextAudit(ctx, options.AuditSink, contextAuditRecordFor(ContextAuditOperationEvidenceResource, scope, options.ResourceLimits, ContextAuditOutcomeSuccess, started, &packageContext)); err != nil {
+			return nil, err
 		}
 		return &mcp.ReadResourceResult{
 			Contents: []*mcp.ResourceContents{{
@@ -117,15 +127,27 @@ func contextEvidenceResourceHandler(service query.ContextService, options Contex
 }
 
 func sanitizeContextResourceError(ctx context.Context, err error) error {
-	if err == nil {
-		return nil
+	safeErr := sanitizeContextServiceError(ctx, err)
+	if errors.Is(safeErr, ErrContextServiceFailure) {
+		return ErrContextResourceFailure
 	}
-	if ctx != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
-		}
+	return safeErr
+}
+
+func contextResourceError(
+	ctx context.Context,
+	options ContextServerOptions,
+	scope query.Scope,
+	budget query.ContextLimits,
+	started time.Time,
+	originalErr error,
+	safeErr error,
+) error {
+	record := contextAuditRecordFor(ContextAuditOperationEvidenceResource, scope, budget, contextAuditOutcomeForError(ctx, originalErr), started, nil)
+	if err := recordContextAudit(ctx, options.AuditSink, record); err != nil {
+		return err
 	}
-	return ErrContextResourceFailure
+	return safeErr
 }
 
 func validateContextEvidenceResourcePackage(packageContext query.ContextPackage, scope query.Scope, evidenceID string) error {

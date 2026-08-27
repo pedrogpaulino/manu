@@ -3,10 +3,12 @@ package cli
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"io"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pedrogpaulino/manu/internal/aigateway"
@@ -28,19 +30,26 @@ var (
 	// ErrMCPOrganizationScope identifies a request outside the configured local
 	// organization without revealing whether the requested resource exists.
 	ErrMCPOrganizationScope = errors.New("mcp: request scope is not authorized")
+	// ErrMCPRuntimeAudit is the opaque failure returned when the local MCP
+	// runtime cannot validate or write its content-free audit record.
+	ErrMCPRuntimeAudit = errors.New("mcp: audit unavailable")
 )
 
 // runMCPRuntime owns the PostgreSQL pool and the context-service composition
 // for one local stdio session. The continuation key is process-local and is
 // never loaded from configuration or persisted.
-func runMCPRuntime(ctx context.Context, configuration config.Config) error {
+func runMCPRuntime(ctx context.Context, configuration config.Config, auditWriter io.Writer) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if err := configuration.Validate(); err != nil {
 		return ErrMCPRuntimeConfiguration
 	}
-	if _, err := composeMCPContextServerOptions(configuration, nil); err != nil {
+	if err := validateMCPResourceLimits(configuration); err != nil {
+		return err
+	}
+	auditSink, err := newMCPJSONLAuditSink(auditWriter)
+	if err != nil {
 		return err
 	}
 	pool, err := openServePool(ctx, configuration.Postgres)
@@ -58,7 +67,7 @@ func runMCPRuntime(ctx context.Context, configuration config.Config) error {
 		organizationExternal: configuration.Organization.ID,
 		organizationID:       identity.CanonicalUUID("organization", configuration.Organization.ID),
 	}
-	options, err := composeMCPContextServerOptions(configuration, activeSnapshotResolver)
+	options, err := composeMCPContextServerOptions(configuration, activeSnapshotResolver, auditSink)
 	if err != nil {
 		return err
 	}
@@ -136,20 +145,76 @@ func composeMCPContextService(configuration config.Config, pool *pgxpool.Pool, k
 	}, nil
 }
 
-func composeMCPContextServerOptions(configuration config.Config, resolver mcpadapter.ActiveSnapshotResolver) (mcpadapter.ContextServerOptions, error) {
+func composeMCPContextServerOptions(configuration config.Config, resolver mcpadapter.ActiveSnapshotResolver, auditSink mcpadapter.ContextAuditSink) (mcpadapter.ContextServerOptions, error) {
 	options := mcpadapter.ContextServerOptions{
 		ActiveSnapshotResolver: resolver,
-		ResourceLimits: query.ContextLimits{
-			MaxTokens:     configuration.Retrieval.MaxPackageTokens,
-			MaxItems:      configuration.Retrieval.MaxPackageUnits,
-			MaxCharacters: configuration.Retrieval.MaxPackageBytes,
-			MaxBytes:      configuration.Retrieval.MaxPackageBytes,
-		},
+		ResourceLimits:         mcpResourceLimits(configuration),
+		AuditSink:              auditSink,
 	}
-	if err := options.Validate(); err != nil {
+	if nilMCPAuditSink(auditSink) || options.ResourceLimits.Validate() != nil || options.Validate() != nil {
 		return mcpadapter.ContextServerOptions{}, ErrMCPRuntimeConfiguration
 	}
 	return options, nil
+}
+
+func mcpResourceLimits(configuration config.Config) query.ContextLimits {
+	return query.ContextLimits{
+		MaxTokens:     configuration.Retrieval.MaxPackageTokens,
+		MaxItems:      configuration.Retrieval.MaxPackageUnits,
+		MaxCharacters: configuration.Retrieval.MaxPackageBytes,
+		MaxBytes:      configuration.Retrieval.MaxPackageBytes,
+	}
+}
+
+func validateMCPResourceLimits(configuration config.Config) error {
+	if err := mcpResourceLimits(configuration).Validate(); err != nil {
+		return ErrMCPRuntimeConfiguration
+	}
+	return nil
+}
+
+// mcpJSONLAuditSink writes one validated, content-free audit record per JSON
+// line. The mutex covers the complete writer call so concurrent MCP requests
+// cannot interleave lines on the diagnostic stream.
+type mcpJSONLAuditSink struct {
+	mu     sync.Mutex
+	writer io.Writer
+}
+
+var _ mcpadapter.ContextAuditSink = (*mcpJSONLAuditSink)(nil)
+
+func newMCPJSONLAuditSink(writer io.Writer) (mcpadapter.ContextAuditSink, error) {
+	if nilMCPWriter(writer) {
+		return nil, ErrMCPRuntimeAudit
+	}
+	return &mcpJSONLAuditSink{writer: writer}, nil
+}
+
+func (s *mcpJSONLAuditSink) RecordContextAudit(_ context.Context, record mcpadapter.ContextAuditRecord) error {
+	if s == nil {
+		return ErrMCPRuntimeAudit
+	}
+	if err := record.Validate(); err != nil {
+		return ErrMCPRuntimeAudit
+	}
+	encoded, err := json.Marshal(record)
+	if err != nil {
+		return ErrMCPRuntimeAudit
+	}
+	line := make([]byte, len(encoded)+1)
+	copy(line, encoded)
+	line[len(encoded)] = '\n'
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if nilMCPWriter(s.writer) {
+		return ErrMCPRuntimeAudit
+	}
+	written, err := s.writer.Write(line)
+	if err != nil || written != len(line) {
+		return ErrMCPRuntimeAudit
+	}
+	return nil
 }
 
 // newMCPContinuationCodec reads exactly one process-local key. It does not
@@ -174,6 +239,32 @@ func nilMCPReader(reader io.Reader) bool {
 		return true
 	}
 	value := reflect.ValueOf(reader)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
+
+func nilMCPWriter(writer io.Writer) bool {
+	if writer == nil {
+		return true
+	}
+	value := reflect.ValueOf(writer)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
+
+func nilMCPAuditSink(sink mcpadapter.ContextAuditSink) bool {
+	if sink == nil {
+		return true
+	}
+	value := reflect.ValueOf(sink)
 	switch value.Kind() {
 	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
 		return value.IsNil()

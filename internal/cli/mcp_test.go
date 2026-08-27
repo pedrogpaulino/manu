@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -60,7 +61,7 @@ func TestRunMCPWithConfigurationFailures(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			called := false
-			code := runMCPWith(context.Background(), nil, &stdout, &stderr, test.load, func(_ context.Context, _ config.Config) error {
+			code := runMCPWith(context.Background(), nil, &stdout, &stderr, test.load, func(_ context.Context, _ config.Config, _ io.Writer) error {
 				called = true
 				return nil
 			})
@@ -88,13 +89,16 @@ func TestRunMCPWithEnabledRunnerReceivesContextAndWritesNoOutput(t *testing.T) {
 		&stdout,
 		&stderr,
 		func() (config.Config, error) { return configuration, nil },
-		func(ctx context.Context, got config.Config) error {
+		func(ctx context.Context, got config.Config, gotWriter io.Writer) error {
 			called = true
 			if got.MCP != configuration.MCP {
 				t.Fatalf("runner configuration = %#v, want %#v", got.MCP, configuration.MCP)
 			}
 			if ctx == nil || ctx.Err() != nil {
 				t.Fatalf("runner context = %v, want active context", ctx)
+			}
+			if gotWriter != &stderr {
+				t.Fatalf("runner audit writer = %T, want stderr writer", gotWriter)
 			}
 			return nil
 		},
@@ -115,7 +119,7 @@ func TestRunMCPWithRunnerFailuresAreSafe(t *testing.T) {
 		&stdout,
 		&stderr,
 		func() (config.Config, error) { return configuration, nil },
-		func(context.Context, config.Config) error { return errors.New(secret) },
+		func(context.Context, config.Config, io.Writer) error { return errors.New(secret) },
 	)
 	if code != ExitTechnical || stdout.Len() != 0 || !strings.Contains(stderr.String(), "server failed") || strings.Contains(stderr.String(), secret) {
 		t.Fatalf("code/stdout/stderr = %d/%q/%q", code, stdout.String(), stderr.String())
@@ -135,7 +139,7 @@ func TestRunMCPWithLifecycleCancellationIsClean(t *testing.T) {
 				&stdout,
 				&stderr,
 				func() (config.Config, error) { return configuration, nil },
-				func(ctx context.Context, _ config.Config) error {
+				func(ctx context.Context, _ config.Config, _ io.Writer) error {
 					called = true
 					return lifecycleError
 				},
@@ -155,7 +159,7 @@ func TestRunMCPWithCanceledContextSkipsSession(t *testing.T) {
 	code := runMCPWith(ctx, nil, &stdout, &stderr, func() (config.Config, error) {
 		loaded = true
 		return config.Default(), nil
-	}, func(_ context.Context, _ config.Config) error {
+	}, func(_ context.Context, _ config.Config, _ io.Writer) error {
 		t.Fatal("runner should not be called")
 		return nil
 	})
