@@ -63,7 +63,7 @@
 - [x] 7.4 Implementar `manu_impact` e `manu_evidence`, verificando qualificação de impacto possível, reinspeção de autorização e estados controlados para evidência protegida ou indisponível.
 - [x] 7.5 Implementar recursos `manu://` e continuação nas respostas MCP, verificando revisão histórica estável, indicação não substitutiva de snapshot mais recente e rejeição de cursor incompatível.
 - [x] 7.6 Implementar auditoria e mapeamento seguro de erros MCP, verificando ausência de SQL, Cypher, mutação, credenciais, enumeração entre organizações e detalhes internos em ferramentas e mensagens.
-- [ ] 7.7 Adicionar testes de conformidade e integração MCP para negociação, schemas, chamadas, cancelamento, limites e entradas malformadas, verificando que nenhuma chamada contorne a porta da aplicação.
+- [x] 7.7 Adicionar testes de conformidade e integração MCP para negociação, schemas, chamadas, cancelamento, limites e entradas malformadas, verificando que nenhuma chamada contorne a porta da aplicação.
 - [ ] 7.8 Documentar comando, configuração de cliente, ferramentas, limites e restrições locais em `README.md`, `docs/cli-http.md` ou documento operacional canônico, verificando todos os exemplos contra o binário construído.
 
 ## 8. Avaliação de eficiência de contexto
