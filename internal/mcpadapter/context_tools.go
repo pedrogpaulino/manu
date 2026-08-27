@@ -43,6 +43,17 @@ type contextTargetInput struct {
 	TargetID       string `json:"target_id"`
 }
 
+type contextEvidenceInput struct {
+	OrganizationID string `json:"organization_id"`
+	SourceID       string `json:"source_id"`
+	SnapshotID     string `json:"snapshot_id"`
+	MaxTokens      int    `json:"max_tokens"`
+	MaxItems       int    `json:"max_items"`
+	MaxCharacters  int64  `json:"max_characters"`
+	MaxBytes       int64  `json:"max_bytes"`
+	EvidenceID     string `json:"evidence_id"`
+}
+
 type contextToolOutput struct {
 	Context query.ContextPackage `json:"context"`
 }
@@ -73,6 +84,20 @@ func NewContextServer(service query.ContextService) (*mcp.Server, error) {
 		OutputSchema: outputSchema,
 		Annotations:  readOnlyToolAnnotations(),
 	}, contextToolHandler(service))
+	mcp.AddTool[contextTargetInput, contextToolOutput](server, &mcp.Tool{
+		Name:         "manu_impact",
+		Description:  "Return possible impact context, never confirmed execution.",
+		InputSchema:  contextTargetSchema(),
+		OutputSchema: outputSchema,
+		Annotations:  readOnlyToolAnnotations(),
+	}, impactToolHandler(service))
+	mcp.AddTool[contextEvidenceInput, contextToolOutput](server, &mcp.Tool{
+		Name:         "manu_evidence",
+		Description:  "Reinspect authorized evidence by identity.",
+		InputSchema:  contextEvidenceSchema(),
+		OutputSchema: outputSchema,
+		Annotations:  readOnlyToolAnnotations(),
+	}, evidenceToolHandler(service))
 	return server, nil
 }
 
@@ -178,6 +203,85 @@ func contextToolHandler(service query.ContextService) mcp.ToolHandlerFor[context
 	}
 }
 
+func impactToolHandler(service query.ContextService) mcp.ToolHandlerFor[contextTargetInput, contextToolOutput] {
+	return func(ctx context.Context, _ *mcp.CallToolRequest, input contextTargetInput) (*mcp.CallToolResult, contextToolOutput, error) {
+		if err := contextError(ctx); err != nil {
+			return nil, contextToolOutput{}, err
+		}
+		var targetKind query.IntentTargetKind
+		switch input.TargetKind {
+		case string(query.IntentTargetEntity):
+			targetKind = query.IntentTargetEntity
+		case string(query.IntentTargetSymbol):
+			targetKind = query.IntentTargetSymbol
+		default:
+			return nil, contextToolOutput{}, query.ErrInvalidContextRequest
+		}
+		request := query.ContextRequest{
+			Version: query.ContextVersion,
+			Scope: query.Scope{
+				OrganizationID: input.OrganizationID,
+				SourceID:       input.SourceID,
+				SnapshotID:     input.SnapshotID,
+			},
+			Intent: query.Intent{
+				Version: query.ContextVersion,
+				Kind:    query.IntentKindPossibleImpact,
+				Target: query.IntentTarget{
+					Kind: targetKind,
+					ID:   input.TargetID,
+				},
+			},
+			Limits: query.ContextLimits{
+				MaxTokens:     input.MaxTokens,
+				MaxItems:      input.MaxItems,
+				MaxCharacters: input.MaxCharacters,
+				MaxBytes:      input.MaxBytes,
+			},
+		}
+		packageContext, err := service.BuildContext(ctx, request)
+		if err != nil {
+			return nil, contextToolOutput{}, sanitizeContextServiceError(ctx, err)
+		}
+		return nil, contextToolOutput{Context: packageContext}, nil
+	}
+}
+
+func evidenceToolHandler(service query.ContextService) mcp.ToolHandlerFor[contextEvidenceInput, contextToolOutput] {
+	return func(ctx context.Context, _ *mcp.CallToolRequest, input contextEvidenceInput) (*mcp.CallToolResult, contextToolOutput, error) {
+		if err := contextError(ctx); err != nil {
+			return nil, contextToolOutput{}, err
+		}
+		request := query.ContextRequest{
+			Version: query.ContextVersion,
+			Scope: query.Scope{
+				OrganizationID: input.OrganizationID,
+				SourceID:       input.SourceID,
+				SnapshotID:     input.SnapshotID,
+			},
+			Intent: query.Intent{
+				Version: query.ContextVersion,
+				Kind:    query.IntentKindEvidenceInspection,
+				Target: query.IntentTarget{
+					Kind: query.IntentTargetEvidence,
+					ID:   input.EvidenceID,
+				},
+			},
+			Limits: query.ContextLimits{
+				MaxTokens:     input.MaxTokens,
+				MaxItems:      input.MaxItems,
+				MaxCharacters: input.MaxCharacters,
+				MaxBytes:      input.MaxBytes,
+			},
+		}
+		packageContext, err := service.BuildContext(ctx, request)
+		if err != nil {
+			return nil, contextToolOutput{}, sanitizeContextServiceError(ctx, err)
+		}
+		return nil, contextToolOutput{Context: packageContext}, nil
+	}
+}
+
 func sanitizeContextServiceError(ctx context.Context, err error) error {
 	if err == nil {
 		return nil
@@ -244,6 +348,18 @@ func contextTargetSchema() *jsonschema.Schema {
 		Required:             []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "target_kind", "target_id"},
 		AdditionalProperties: falseSchema(),
 		PropertyOrder:        []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "target_kind", "target_id"},
+	}
+}
+
+func contextEvidenceSchema() *jsonschema.Schema {
+	properties := contextBudgetProperties()
+	properties["evidence_id"] = &jsonschema.Schema{Type: "string", MinLength: jsonschema.Ptr(1), Description: "evidence identity"}
+	return &jsonschema.Schema{
+		Type:                 "object",
+		Properties:           properties,
+		Required:             []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "evidence_id"},
+		AdditionalProperties: falseSchema(),
+		PropertyOrder:        []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "evidence_id"},
 	}
 }
 
