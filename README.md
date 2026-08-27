@@ -7,7 +7,7 @@ base.
 
 ## Estado atual
 
-O repositório contém dois limites operacionais do primeiro corte, ambos no
+O repositório contém três limites operacionais do primeiro corte, todos no
 módulo Go:
 
 - o **Manu Agent**, executado pela CLI, lê somente um recorte local autorizado,
@@ -16,6 +16,9 @@ módulo Go:
   usa PostgreSQL como fonte de verdade e mantém projeções textual, relacional e
   vetorial reconstruíveis. A célula Docker Compose fornece PostgreSQL/pgvector,
   migração e API.
+- o **adaptador MCP local**, iniciado por `manu mcp` com
+  `MANU_MCP_ENABLED=true`, expõe somente contexto autorizado por `stdio`; sua
+  configuração, ferramentas e limites estão em [Servidor MCP local](docs/mcp.md).
 
 O fluxo de produto é:
 
@@ -129,6 +132,10 @@ verifica a prontidão local. Os identificadores, estados e limites estão no
 A CLI aceita apenas URLs HTTP de loopback com porta explícita enquanto não
 houver autenticação, recusa redirecionamentos e não imprime conteúdo bruto de
 erros de transporte.
+
+Para agentes, `MANU_MCP_ENABLED=true manu mcp` inicia o servidor MCP local por
+`stdio`; consulte [Servidor MCP local](docs/mcp.md). O comando usa o
+`ContextService` sobre PostgreSQL migrado e não substitui a API HTTP.
 
 O banco canônico armazena fontes, snapshots, artefatos, contribuições,
 observações, relações, evidências, cobertura, lacunas, falhas e operações. As

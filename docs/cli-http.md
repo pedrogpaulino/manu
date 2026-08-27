@@ -11,6 +11,10 @@ consulta não pode escolher outra organização e os endpoints não têm
 autenticação nesta etapa. Não publique a porta em uma rede não confiável e não
 trate essa célula como um serviço SaaS ou de produção.
 
+O transporte de contexto para agentes é separado da API HTTP: consulte
+[`mcp.md`](mcp.md) para o comando local `manu mcp` por `stdio`. O adaptador MCP
+não acrescenta endpoint HTTP nem transporte remoto.
+
 ## Fluxo mínimo
 
 Em um terminal, com a configuração do PostgreSQL e da organização disponível:

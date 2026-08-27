@@ -3,9 +3,9 @@
 Este documento descreve a configuração tipada de `internal/config`. O
 primeiro corte não lê arquivo de configuração: os valores são construídos a
 partir dos defaults do pacote e de variáveis de ambiente `MANU_*`. Os comandos
-de plataforma que precisam da configuração, como `manu serve` e `manu migrate`,
-usam esse carregamento; os comandos determinísticos de análise continuam
-independentes de banco e IA.
+de plataforma que precisam da configuração, como `manu serve`, `manu migrate` e
+`manu mcp`, usam esse carregamento; os comandos determinísticos de análise
+continuam independentes de banco e IA.
 
 O arquivo [`.env.example`](../.env.example) é apenas uma fotografia segura
 dos valores locais mais comuns. Para uma execução local sem Compose, copie-o
@@ -106,6 +106,17 @@ capacidade que a utilizará (`MANU_EMBEDDING_API_KEY` ou
 
 O endereço deve conter host e porta válidos. São aceitos endereços IPv4/IPv6
 de loopback e `localhost`; `0.0.0.0`, `[::]` e endereços remotos são recusados.
+
+## MCP local
+
+| Variável | Tipo | Default | Observação |
+| --- | --- | --- | --- |
+| `MANU_MCP_ENABLED` | booleano | `false` | Opt-in explícito para `manu mcp`, servidor local por `stdio`; não habilita HTTP, acesso remoto ou autenticação. |
+
+`manu mcp` usa a mesma organização e configuração PostgreSQL de `manu serve` e
+`manu migrate`. A migração não é executada automaticamente; aplique-a antes de
+iniciar o MCP. A referência operacional do protocolo, cliente, ferramentas,
+recursos e limites está em [`mcp.md`](mcp.md).
 
 ## Staging durável de ingestão
 
