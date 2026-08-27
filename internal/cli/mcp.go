@@ -9,21 +9,22 @@ import (
 
 	"github.com/pedrogpaulino/manu/internal/analysis"
 	"github.com/pedrogpaulino/manu/internal/config"
-	"github.com/pedrogpaulino/manu/internal/mcpadapter"
 )
 
 // MCPConfigLoader and MCPRunner are the seams around configuration and the
 // blocking MCP server lifecycle. Tests can inject both without opening a
-// stdio session or loading process configuration.
+// stdio session or loading process configuration. The runner receives the
+// validated configuration so the production path can compose its application
+// ports instead of falling back to a feature-free protocol server.
 type MCPConfigLoader func() (config.Config, error)
-type MCPRunner func(context.Context) error
+type MCPRunner func(context.Context, config.Config) error
 
 // runMCP folds process signals into the MCP context and delegates the command
 // to an injectable implementation.
 func runMCP(runContext analysis.RunContext, args []string, stdout, stderr io.Writer) int {
 	ctx, stop := contextWithSignals(runContext)
 	defer stop()
-	return runMCPWith(ctx, args, stdout, stderr, config.Load, mcpadapter.RunStdio)
+	return runMCPWith(ctx, args, stdout, stderr, config.Load, runMCPRuntime)
 }
 
 func runMCPWith(ctx context.Context, args []string, stdout, stderr io.Writer, load MCPConfigLoader, run MCPRunner) int {
@@ -64,7 +65,7 @@ func runMCPWith(ctx context.Context, args []string, stdout, stderr io.Writer, lo
 		load = config.Load
 	}
 	if run == nil {
-		run = mcpadapter.RunStdio
+		run = runMCPRuntime
 	}
 
 	configuration, err := load()
@@ -76,7 +77,7 @@ func runMCPWith(ctx context.Context, args []string, stdout, stderr io.Writer, lo
 		writeMCPDiagnostic(stderr, "MCP is disabled")
 		return ExitTechnical
 	}
-	if err := run(ctx); err != nil {
+	if err := run(ctx, configuration); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return ExitSuccess
 		}
