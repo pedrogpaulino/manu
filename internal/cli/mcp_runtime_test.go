@@ -56,6 +56,36 @@ func TestComposeMCPContextServiceRejectsMissingRuntimeInputs(t *testing.T) {
 	}
 }
 
+func TestComposeMCPContextServerOptionsDerivesConfiguredLimits(t *testing.T) {
+	configuration := config.Default()
+	resolver := &mcpRuntimeTestActiveScopeResolver{}
+	options, err := composeMCPContextServerOptions(configuration, resolver)
+	if err != nil {
+		t.Fatalf("composeMCPContextServerOptions() error = %v", err)
+	}
+	want := query.ContextLimits{
+		MaxTokens:     configuration.Retrieval.MaxPackageTokens,
+		MaxItems:      configuration.Retrieval.MaxPackageUnits,
+		MaxCharacters: configuration.Retrieval.MaxPackageBytes,
+		MaxBytes:      configuration.Retrieval.MaxPackageBytes,
+	}
+	if options.ResourceLimits != want {
+		t.Fatalf("resource limits = %#v, want %#v", options.ResourceLimits, want)
+	}
+	if options.ActiveSnapshotResolver != resolver {
+		t.Fatal("active snapshot resolver was not retained in server options")
+	}
+}
+
+func TestComposeMCPContextServerOptionsRejectsInvalidResourceLimits(t *testing.T) {
+	configuration := config.Default()
+	configuration.Retrieval.MaxPackageBytes = 16<<20 + 1
+	_, err := composeMCPContextServerOptions(configuration, &mcpRuntimeTestActiveScopeResolver{})
+	if !errors.Is(err, ErrMCPRuntimeConfiguration) {
+		t.Fatalf("composeMCPContextServerOptions() error = %v, want %v", err, ErrMCPRuntimeConfiguration)
+	}
+}
+
 func TestNewMCPContinuationCodecReadsOneProcessLocalKey(t *testing.T) {
 	seed := bytes.Repeat([]byte{0x24}, mcpContinuationKeyBytes)
 	reader := bytes.NewReader(append(append([]byte(nil), seed...), 0x99))
@@ -141,6 +171,95 @@ func TestMCPOrganizationScopeRejectsTypedNilDelegate(t *testing.T) {
 	}
 }
 
+func TestMCPActiveSnapshotResolverPassesConfiguredExternalOrganizationAndSource(t *testing.T) {
+	configuredOrganization := identity.CanonicalUUID("organization", "local")
+	sourceID := identity.CanonicalUUID("source", "payments")
+	historical := query.Scope{
+		OrganizationID: configuredOrganization,
+		SourceID:       sourceID,
+		SnapshotID:     identity.CanonicalUUID("snapshot", "old"),
+	}
+	delegate := &mcpRuntimeTestActiveScopeResolver{
+		result: query.Scope{
+			OrganizationID: configuredOrganization,
+			SourceID:       sourceID,
+			SnapshotID:     identity.CanonicalUUID("snapshot", "latest"),
+		},
+	}
+	resolver := &mcpActiveSnapshotResolver{
+		delegate:             delegate,
+		organizationExternal: "local",
+		organizationID:       configuredOrganization,
+	}
+	got, err := resolver.ResolveActiveSnapshot(context.Background(), historical)
+	if err != nil {
+		t.Fatalf("ResolveActiveSnapshot() error = %v", err)
+	}
+	if !reflect.DeepEqual(got, delegate.result) {
+		t.Fatalf("active scope = %#v, want %#v", got, delegate.result)
+	}
+	if delegate.calls != 1 || delegate.organizationExternal != "local" || delegate.sourceID != sourceID {
+		t.Fatalf("delegate call = %#v, want one call with configured external org/source", delegate)
+	}
+}
+
+func TestMCPActiveSnapshotResolverRejectsForeignOrganizationBeforeDelegate(t *testing.T) {
+	delegate := &mcpRuntimeTestActiveScopeResolver{}
+	resolver := &mcpActiveSnapshotResolver{
+		delegate:             delegate,
+		organizationExternal: "local",
+		organizationID:       identity.CanonicalUUID("organization", "local"),
+	}
+	historical := query.Scope{
+		OrganizationID: identity.CanonicalUUID("organization", "other"),
+		SourceID:       identity.CanonicalUUID("source", "payments"),
+		SnapshotID:     identity.CanonicalUUID("snapshot", "old"),
+	}
+	_, err := resolver.ResolveActiveSnapshot(context.Background(), historical)
+	if !errors.Is(err, ErrMCPOrganizationScope) {
+		t.Fatalf("foreign scope error = %v, want %v", err, ErrMCPOrganizationScope)
+	}
+	if delegate.calls != 0 {
+		t.Fatalf("delegate calls after foreign scope = %d, want 0", delegate.calls)
+	}
+}
+
+func TestMCPActiveSnapshotResolverRejectsMismatchedDelegateResult(t *testing.T) {
+	configuredOrganization := identity.CanonicalUUID("organization", "local")
+	sourceID := identity.CanonicalUUID("source", "payments")
+	resolver := &mcpActiveSnapshotResolver{
+		delegate: &mcpRuntimeTestActiveScopeResolver{result: query.Scope{
+			OrganizationID: identity.CanonicalUUID("organization", "other"),
+			SourceID:       sourceID,
+			SnapshotID:     identity.CanonicalUUID("snapshot", "latest"),
+		}},
+		organizationExternal: "local",
+		organizationID:       configuredOrganization,
+	}
+	historical := query.Scope{
+		OrganizationID: configuredOrganization,
+		SourceID:       sourceID,
+		SnapshotID:     identity.CanonicalUUID("snapshot", "old"),
+	}
+	_, err := resolver.ResolveActiveSnapshot(context.Background(), historical)
+	if !errors.Is(err, ErrMCPRuntimeConfiguration) {
+		t.Fatalf("mismatched result error = %v, want %v", err, ErrMCPRuntimeConfiguration)
+	}
+}
+
+func TestMCPActiveSnapshotResolverRejectsTypedNilResolver(t *testing.T) {
+	var delegate *mcpRuntimeTestActiveScopeResolver
+	resolver := &mcpActiveSnapshotResolver{
+		delegate:             delegate,
+		organizationExternal: "local",
+		organizationID:       identity.CanonicalUUID("organization", "local"),
+	}
+	_, err := resolver.ResolveActiveSnapshot(context.Background(), query.Scope{})
+	if !errors.Is(err, ErrMCPRuntimeConfiguration) {
+		t.Fatalf("typed nil resolver error = %v, want %v", err, ErrMCPRuntimeConfiguration)
+	}
+}
+
 type mcpFailingReader struct{}
 
 func (mcpFailingReader) Read([]byte) (int, error) {
@@ -154,4 +273,22 @@ type mcpRuntimeTestContextService struct {
 func (s *mcpRuntimeTestContextService) BuildContext(context.Context, query.ContextRequest) (query.ContextPackage, error) {
 	s.calls++
 	return query.ContextPackage{}, nil
+}
+
+type mcpRuntimeTestActiveScopeResolver struct {
+	calls                int
+	organizationExternal string
+	sourceID             string
+	result               query.Scope
+}
+
+func (r *mcpRuntimeTestActiveScopeResolver) ResolveActiveScope(_ context.Context, organizationExternal, sourceID string) (query.Scope, error) {
+	r.calls++
+	r.organizationExternal = organizationExternal
+	r.sourceID = sourceID
+	return r.result, nil
+}
+
+func (r *mcpRuntimeTestActiveScopeResolver) ResolveActiveSnapshot(ctx context.Context, historical query.Scope) (query.Scope, error) {
+	return r.ResolveActiveScope(ctx, "local", historical.SourceID)
 }

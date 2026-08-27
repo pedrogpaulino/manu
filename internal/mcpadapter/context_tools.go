@@ -29,6 +29,7 @@ type contextQueryInput struct {
 	MaxCharacters  int64  `json:"max_characters"`
 	MaxBytes       int64  `json:"max_bytes"`
 	Question       string `json:"question"`
+	Continuation   string `json:"continuation,omitempty"`
 }
 
 type contextTargetInput struct {
@@ -41,6 +42,7 @@ type contextTargetInput struct {
 	MaxBytes       int64  `json:"max_bytes"`
 	TargetKind     string `json:"target_kind"`
 	TargetID       string `json:"target_id"`
+	Continuation   string `json:"continuation,omitempty"`
 }
 
 type contextEvidenceInput struct {
@@ -52,17 +54,28 @@ type contextEvidenceInput struct {
 	MaxCharacters  int64  `json:"max_characters"`
 	MaxBytes       int64  `json:"max_bytes"`
 	EvidenceID     string `json:"evidence_id"`
+	Continuation   string `json:"continuation,omitempty"`
 }
 
 type contextToolOutput struct {
-	Context query.ContextPackage `json:"context"`
+	Context          query.ContextPackage `json:"context"`
+	LatestSnapshotID string               `json:"latest_snapshot_id,omitempty"`
 }
 
 // NewContextServer creates the MCP server with the query and context tools.
 // The tools are registered in their wire-visible, deterministic order.
 func NewContextServer(service query.ContextService) (*mcp.Server, error) {
+	return NewContextServerWithOptions(service, ContextServerOptions{})
+}
+
+// NewContextServerWithOptions creates the context server with optional
+// resource reads and active-snapshot indication.
+func NewContextServerWithOptions(service query.ContextService, options ContextServerOptions) (*mcp.Server, error) {
 	if nilContextService(service) {
 		return nil, ErrNilContextService
+	}
+	if err := options.Validate(); err != nil {
+		return nil, err
 	}
 
 	outputSchema, err := jsonschema.For[contextToolOutput](nil)
@@ -76,38 +89,52 @@ func NewContextServer(service query.ContextService) (*mcp.Server, error) {
 		InputSchema:  contextQuerySchema(),
 		OutputSchema: outputSchema,
 		Annotations:  readOnlyToolAnnotations(),
-	}, queryToolHandler(service))
+	}, queryToolHandler(service, options))
 	mcp.AddTool[contextTargetInput, contextToolOutput](server, &mcp.Tool{
 		Name:         "manu_context",
 		Description:  "Get authorized context for an entity or symbol.",
 		InputSchema:  contextTargetSchema(),
 		OutputSchema: outputSchema,
 		Annotations:  readOnlyToolAnnotations(),
-	}, contextToolHandler(service))
+	}, contextToolHandler(service, options))
 	mcp.AddTool[contextTargetInput, contextToolOutput](server, &mcp.Tool{
 		Name:         "manu_impact",
 		Description:  "Return possible impact context, never confirmed execution.",
 		InputSchema:  contextTargetSchema(),
 		OutputSchema: outputSchema,
 		Annotations:  readOnlyToolAnnotations(),
-	}, impactToolHandler(service))
+	}, impactToolHandler(service, options))
 	mcp.AddTool[contextEvidenceInput, contextToolOutput](server, &mcp.Tool{
 		Name:         "manu_evidence",
 		Description:  "Reinspect authorized evidence by identity.",
 		InputSchema:  contextEvidenceSchema(),
 		OutputSchema: outputSchema,
 		Annotations:  readOnlyToolAnnotations(),
-	}, evidenceToolHandler(service))
+	}, evidenceToolHandler(service, options))
+	if options.resourcesEnabled() {
+		server.AddResourceTemplate(&mcp.ResourceTemplate{
+			Name:        "manu_evidence",
+			Description: "Authorized evidence context resource.",
+			MIMEType:    "application/json",
+			URITemplate: contextEvidenceResourceTemplate,
+		}, contextEvidenceResourceHandler(service, options))
+	}
 	return server, nil
 }
 
 // RunWithContextService serves the context-enabled MCP server over one
 // injected transport until the peer closes it or ctx is cancelled.
 func RunWithContextService(ctx context.Context, transport mcp.Transport, service query.ContextService) error {
+	return RunWithContextServiceWithOptions(ctx, transport, service, ContextServerOptions{})
+}
+
+// RunWithContextServiceWithOptions serves an optionally resource-enabled
+// context MCP server over one injected transport.
+func RunWithContextServiceWithOptions(ctx context.Context, transport mcp.Transport, service query.ContextService, options ContextServerOptions) error {
 	if transport == nil {
 		return ErrNilTransport
 	}
-	server, err := NewContextServer(service)
+	server, err := NewContextServerWithOptions(service, options)
 	if err != nil {
 		return err
 	}
@@ -119,10 +146,16 @@ func RunWithContextService(ctx context.Context, transport mcp.Transport, service
 
 // RunStdioWithContextService serves the context-enabled MCP server over stdio.
 func RunStdioWithContextService(ctx context.Context, service query.ContextService) error {
-	return RunWithContextService(ctx, &mcp.StdioTransport{}, service)
+	return RunStdioWithContextServiceWithOptions(ctx, service, ContextServerOptions{})
 }
 
-func queryToolHandler(service query.ContextService) mcp.ToolHandlerFor[contextQueryInput, contextToolOutput] {
+// RunStdioWithContextServiceWithOptions serves an optionally resource-enabled
+// context MCP server over stdio.
+func RunStdioWithContextServiceWithOptions(ctx context.Context, service query.ContextService, options ContextServerOptions) error {
+	return RunWithContextServiceWithOptions(ctx, &mcp.StdioTransport{}, service, options)
+}
+
+func queryToolHandler(service query.ContextService, options ContextServerOptions) mcp.ToolHandlerFor[contextQueryInput, contextToolOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input contextQueryInput) (*mcp.CallToolResult, contextToolOutput, error) {
 		if err := contextError(ctx); err != nil {
 			return nil, contextToolOutput{}, err
@@ -145,16 +178,17 @@ func queryToolHandler(service query.ContextService) mcp.ToolHandlerFor[contextQu
 				MaxCharacters: input.MaxCharacters,
 				MaxBytes:      input.MaxBytes,
 			},
+			Continuation: contextContinuation(input.Continuation),
 		}
 		packageContext, err := service.BuildContext(ctx, request)
 		if err != nil {
 			return nil, contextToolOutput{}, sanitizeContextServiceError(ctx, err)
 		}
-		return nil, contextToolOutput{Context: packageContext}, nil
+		return contextToolSuccess(ctx, packageContext, options)
 	}
 }
 
-func contextToolHandler(service query.ContextService) mcp.ToolHandlerFor[contextTargetInput, contextToolOutput] {
+func contextToolHandler(service query.ContextService, options ContextServerOptions) mcp.ToolHandlerFor[contextTargetInput, contextToolOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input contextTargetInput) (*mcp.CallToolResult, contextToolOutput, error) {
 		if err := contextError(ctx); err != nil {
 			return nil, contextToolOutput{}, err
@@ -194,16 +228,17 @@ func contextToolHandler(service query.ContextService) mcp.ToolHandlerFor[context
 				MaxCharacters: input.MaxCharacters,
 				MaxBytes:      input.MaxBytes,
 			},
+			Continuation: contextContinuation(input.Continuation),
 		}
 		packageContext, err := service.BuildContext(ctx, request)
 		if err != nil {
 			return nil, contextToolOutput{}, sanitizeContextServiceError(ctx, err)
 		}
-		return nil, contextToolOutput{Context: packageContext}, nil
+		return contextToolSuccess(ctx, packageContext, options)
 	}
 }
 
-func impactToolHandler(service query.ContextService) mcp.ToolHandlerFor[contextTargetInput, contextToolOutput] {
+func impactToolHandler(service query.ContextService, options ContextServerOptions) mcp.ToolHandlerFor[contextTargetInput, contextToolOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input contextTargetInput) (*mcp.CallToolResult, contextToolOutput, error) {
 		if err := contextError(ctx); err != nil {
 			return nil, contextToolOutput{}, err
@@ -238,16 +273,17 @@ func impactToolHandler(service query.ContextService) mcp.ToolHandlerFor[contextT
 				MaxCharacters: input.MaxCharacters,
 				MaxBytes:      input.MaxBytes,
 			},
+			Continuation: contextContinuation(input.Continuation),
 		}
 		packageContext, err := service.BuildContext(ctx, request)
 		if err != nil {
 			return nil, contextToolOutput{}, sanitizeContextServiceError(ctx, err)
 		}
-		return nil, contextToolOutput{Context: packageContext}, nil
+		return contextToolSuccess(ctx, packageContext, options)
 	}
 }
 
-func evidenceToolHandler(service query.ContextService) mcp.ToolHandlerFor[contextEvidenceInput, contextToolOutput] {
+func evidenceToolHandler(service query.ContextService, options ContextServerOptions) mcp.ToolHandlerFor[contextEvidenceInput, contextToolOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input contextEvidenceInput) (*mcp.CallToolResult, contextToolOutput, error) {
 		if err := contextError(ctx); err != nil {
 			return nil, contextToolOutput{}, err
@@ -273,13 +309,36 @@ func evidenceToolHandler(service query.ContextService) mcp.ToolHandlerFor[contex
 				MaxCharacters: input.MaxCharacters,
 				MaxBytes:      input.MaxBytes,
 			},
+			Continuation: contextContinuation(input.Continuation),
 		}
 		packageContext, err := service.BuildContext(ctx, request)
 		if err != nil {
 			return nil, contextToolOutput{}, sanitizeContextServiceError(ctx, err)
 		}
-		return nil, contextToolOutput{Context: packageContext}, nil
+		return contextToolSuccess(ctx, packageContext, options)
 	}
+}
+
+func contextContinuation(token string) *query.ContextContinuation {
+	if token == "" {
+		return nil
+	}
+	return &query.ContextContinuation{Token: token}
+}
+
+func contextToolSuccess(ctx context.Context, packageContext query.ContextPackage, options ContextServerOptions) (*mcp.CallToolResult, contextToolOutput, error) {
+	output := contextToolOutput{
+		Context:          packageContext,
+		LatestSnapshotID: activeSnapshotID(ctx, options.ActiveSnapshotResolver, packageContext.Scope),
+	}
+	links, err := contextEvidenceResourceLinks(packageContext)
+	if err != nil {
+		return nil, contextToolOutput{}, ErrContextServiceFailure
+	}
+	if len(links) == 0 {
+		return nil, output, nil
+	}
+	return &mcp.CallToolResult{Content: links}, output, nil
 }
 
 func sanitizeContextServiceError(ctx context.Context, err error) error {
@@ -329,7 +388,7 @@ func contextQuerySchema() *jsonschema.Schema {
 		Properties:           contextQueryProperties(),
 		Required:             []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "question"},
 		AdditionalProperties: falseSchema(),
-		PropertyOrder:        []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "question"},
+		PropertyOrder:        []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "question", "continuation"},
 	}
 }
 
@@ -347,7 +406,7 @@ func contextTargetSchema() *jsonschema.Schema {
 		Properties:           properties,
 		Required:             []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "target_kind", "target_id"},
 		AdditionalProperties: falseSchema(),
-		PropertyOrder:        []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "target_kind", "target_id"},
+		PropertyOrder:        []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "target_kind", "target_id", "continuation"},
 	}
 }
 
@@ -359,13 +418,14 @@ func contextEvidenceSchema() *jsonschema.Schema {
 		Properties:           properties,
 		Required:             []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "evidence_id"},
 		AdditionalProperties: falseSchema(),
-		PropertyOrder:        []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "evidence_id"},
+		PropertyOrder:        []string{"organization_id", "source_id", "snapshot_id", "max_tokens", "max_items", "max_characters", "max_bytes", "evidence_id", "continuation"},
 	}
 }
 
 func contextQueryProperties() map[string]*jsonschema.Schema {
 	properties := contextBudgetProperties()
 	properties["question"] = &jsonschema.Schema{Type: "string", MinLength: jsonschema.Ptr(1), Description: "question"}
+	properties["continuation"] = contextContinuationSchema()
 	return properties
 }
 
@@ -378,6 +438,16 @@ func contextBudgetProperties() map[string]*jsonschema.Schema {
 		"max_items":       positiveIntegerSchema("maximum selected items"),
 		"max_characters":  positiveIntegerSchema("maximum returned characters"),
 		"max_bytes":       positiveIntegerSchema("maximum returned bytes"),
+		"continuation":    contextContinuationSchema(),
+	}
+}
+
+func contextContinuationSchema() *jsonschema.Schema {
+	return &jsonschema.Schema{
+		Type:        "string",
+		MinLength:   jsonschema.Ptr(1),
+		MaxLength:   jsonschema.Ptr(4 << 10),
+		Description: "opaque continuation",
 	}
 }
 
