@@ -53,7 +53,7 @@
 - [x] 6.7 Aplicar autorização, decisão de transferência, redaction e reinspeção a cada item do pacote, verificando que conteúdo negado não apareça no resultado, cursor, erro ou auditoria.
 - [x] 6.8 Adaptar o `Evidence Package` do `AI Gateway` como projeção sanitizada do `Context Package`, verificando compatibilidade da API de consulta e que o `Generator` continue sem acesso à fonte ou ao banco.
 - [x] 6.9 Criar testes end-to-end de pergunta, contexto de símbolo, impacto possível e inspeção de evidência nas três famílias, verificando locadores, proveniência, cobertura, gaps e limites.
-- [ ] 6.10 Implementar e compor a porta produtiva `ContextService` sobre leitura factual canônica, recuperação híbrida, seleção, fechamento de suporte, política, orçamento e continuação, verificando escopo e snapshot, determinismo, pacote válido e operação sem `Generator` em testes unitários e PostgreSQL.
+- [x] 6.10 Implementar e compor a porta produtiva `ContextService` sobre leitura factual canônica, recuperação híbrida, seleção, fechamento de suporte, política, orçamento e continuação, verificando escopo e snapshot, determinismo, pacote válido e operação sem `Generator` em testes unitários e PostgreSQL.
 
 ## 7. Interface MCP somente leitura
 

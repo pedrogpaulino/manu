@@ -44,7 +44,7 @@ var (
 const selectQueryEvidenceUnitSQL = `
 SELECT eu.id::text, eu.organization_id::text, eu.source_id::text,
        eu.snapshot_id::text, eu.artifact_id::text, eu.observation_id::text,
-       eu.external_id, a.external_id,
+       eu.external_id, a.external_id, s.external_id,
        ob.external_id, ob.analyzer_id, ob.analyzer_version, ob.method,
        eu.locator, eu.content_state, eu.content, btrim(eu.content_hash),
        eu.content_bytes, eu.content_characters, eu.truncated,
@@ -56,6 +56,9 @@ JOIN artifacts a
  AND a.source_id = eu.source_id
  AND a.snapshot_id = eu.snapshot_id
  AND a.id = eu.artifact_id
+JOIN sources s
+  ON s.organization_id = eu.organization_id
+ AND s.id = eu.source_id
 LEFT JOIN observations ob
   ON ob.organization_id = eu.organization_id
  AND ob.source_id = eu.source_id
@@ -137,7 +140,7 @@ func scanQueryEvidenceUnitResolution(row pgx.Row, scope query.Scope) (query.Evid
 	var (
 		id, organizationID, sourceID, snapshotID, artifactID string
 		observationID                                        *string
-		externalID, artifactExternalID                       string
+		externalID, artifactExternalID, sourceExternalID     string
 		observationExternalID, analyzerID, analyzerVersion   string
 		method                                               string
 		locatorJSON, findingsJSON, provenanceJSON            []byte
@@ -149,7 +152,7 @@ func scanQueryEvidenceUnitResolution(row pgx.Row, scope query.Scope) (query.Evid
 	)
 	if err := row.Scan(
 		&id, &organizationID, &sourceID, &snapshotID, &artifactID, &observationID,
-		&externalID, &artifactExternalID, &observationExternalID, &analyzerID,
+		&externalID, &artifactExternalID, &sourceExternalID, &observationExternalID, &analyzerID,
 		&analyzerVersion, &method, &locatorJSON, &contentState, &content,
 		&contentHash, &contentBytes, &contentCharacters, &truncated, &classification,
 		&findingsJSON, &persistDecision, &transferDecision, &redactionReason,
@@ -160,18 +163,33 @@ func scanQueryEvidenceUnitResolution(row pgx.Row, scope query.Scope) (query.Evid
 	if organizationID != scope.OrganizationID || sourceID != scope.SourceID || snapshotID != scope.SnapshotID {
 		return query.EvidenceUnitResolution{}, fmt.Errorf("%w: query evidence scope mismatch", ErrInconsistent)
 	}
-	if externalID == "" || artifactExternalID == "" || observationExternalID == "" ||
+	if externalID == "" || artifactExternalID == "" || sourceExternalID == "" || observationExternalID == "" ||
 		analyzerID == "" || analyzerVersion == "" || method == "" {
 		return query.EvidenceUnitResolution{}, fmt.Errorf("%w: query evidence provenance is incomplete", ErrInconsistent)
 	}
-	if err := validateStoredEvidence(id, sourceID, snapshotID, artifactID, observationID, locatorJSON,
+	var locator contract.Locator
+	if err := json.Unmarshal(locatorJSON, &locator); err != nil || locator.Validate() != nil {
+		return query.EvidenceUnitResolution{}, fmt.Errorf("%w: query evidence locator", ErrInconsistent)
+	}
+	if locator.SourceID != "" && locator.SourceID != sourceID && locator.SourceID != sourceExternalID {
+		return query.EvidenceUnitResolution{}, fmt.Errorf("%w: query evidence locator scope", ErrInconsistent)
+	}
+	if locator.ArtifactID != "" && locator.ArtifactID != artifactID && locator.ArtifactID != artifactExternalID {
+		return query.EvidenceUnitResolution{}, fmt.Errorf("%w: query evidence locator scope", ErrInconsistent)
+	}
+	// Canonical persistence retains the contract locator, whose source and
+	// artifact fields use external IDs. Normalize both accepted spellings at
+	// this boundary before validating and returning the unit.
+	locator.SourceID = sourceID
+	locator.ArtifactID = artifactID
+	normalizedLocatorJSON, err := json.Marshal(locator)
+	if err != nil {
+		return query.EvidenceUnitResolution{}, fmt.Errorf("%w: query evidence locator", ErrInconsistent)
+	}
+	if err := validateStoredEvidence(id, sourceID, snapshotID, artifactID, observationID, normalizedLocatorJSON,
 		contentState, content, &contentHash, contentBytes, contentCharacters, classification,
 		findingsJSON, persistDecision, transferDecision, redactionReason); err != nil {
 		return query.EvidenceUnitResolution{}, err
-	}
-	var locator contract.Locator
-	if err := json.Unmarshal(locatorJSON, &locator); err != nil {
-		return query.EvidenceUnitResolution{}, fmt.Errorf("%w: query evidence locator", ErrInconsistent)
 	}
 	findings := []string(nil)
 	if len(findingsJSON) != 0 {
