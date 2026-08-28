@@ -334,8 +334,8 @@ func TestLoadCurrentCasesFixtureContainsEvaluationMetadata(t *testing.T) {
 	if item.Task.Kind != TaskKindLocalization || item.Task.Objective == "" {
 		t.Fatalf("task metadata = %#v", item.Task)
 	}
-	if len(item.Variants) != 2 {
-		t.Fatalf("variant metadata = %d, want 2", len(item.Variants))
+	if len(item.Variants) != 3 {
+		t.Fatalf("variant metadata = %d, want 3", len(item.Variants))
 	}
 	if len(item.Tools) == 0 || len(item.Configurations) == 0 || len(item.Limitations) == 0 {
 		t.Fatalf("reproducibility metadata = %#v", item)

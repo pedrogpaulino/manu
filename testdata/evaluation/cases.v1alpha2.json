@@ -69,6 +69,14 @@
           "limitations": ["não oferece fechamento relacional"]
         },
         {
+          "id": "text",
+          "kind": "text-retrieval",
+          "tool_ids": ["filesystem-search", "text-retrieval"],
+          "configuration_id": "text-read-only",
+          "capabilities": ["text.search"],
+          "limitations": ["não oferece fechamento relacional"]
+        },
+        {
           "id": "manu",
           "kind": "manu-context",
           "tool_ids": ["manu-context"],
@@ -91,6 +99,13 @@
           "role": "context-retrieval",
           "capabilities": ["context.read", "evidence.read"],
           "limitations": ["pacote limitado por orçamento"]
+        },
+        {
+          "id": "text-retrieval",
+          "version": "v1",
+          "role": "text-retrieval",
+          "capabilities": ["text.search"],
+          "limitations": ["busca somente textual"]
         }
       ],
       "configurations": [
@@ -108,6 +123,15 @@
           "settings": {
             "network": "disabled",
             "source_access": "read-only"
+          }
+        },
+        {
+          "id": "text-read-only",
+          "version": "v1",
+          "settings": {
+            "network": "disabled",
+            "source_access": "read-only",
+            "retrieval": "text"
           }
         }
       ],
