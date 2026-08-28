@@ -20,10 +20,22 @@ import (
 const (
 	// Version identifies the physical JSON representation of an evaluation
 	// case set. It is independent from the Analysis Bundle contract.
-	Version = "v1alpha1"
+	Version = "v1alpha2"
+
+	// LegacyVersion identifies the case representation preserved from the first
+	// evaluation slice.
+	LegacyVersion = "v1alpha1"
+	// VersionV1Alpha1 and VersionV1Alpha2 make the two physical representations
+	// explicit for callers that do not use the Version/LegacyVersion aliases.
+	VersionV1Alpha1 = LegacyVersion
+	VersionV1Alpha2 = Version
 
 	// CasesFileName is the canonical filename used by the repository fixture.
 	CasesFileName = "cases.json"
+
+	// CurrentCasesFileName identifies the fixture that exercises the current
+	// versioned schema explicitly.
+	CurrentCasesFileName = "cases.v1alpha2.json"
 
 	maxCasesFileBytes = 2 << 20
 	maxCases          = 512
@@ -43,6 +55,20 @@ var (
 	ErrDuplicateCase = errors.New("evaluation: duplicate case identity")
 	// ErrInvalidCaseKind identifies a kind outside the controlled vocabulary.
 	ErrInvalidCaseKind = errors.New("evaluation: invalid case kind")
+	// ErrInvalidTaskKind identifies a task outside the controlled vocabulary.
+	ErrInvalidTaskKind = errors.New("evaluation: invalid task kind")
+	// ErrInvalidVariantKind identifies a comparison variant outside the
+	// controlled vocabulary.
+	ErrInvalidVariantKind = errors.New("evaluation: invalid variant kind")
+	// ErrInvalidCriterionKind identifies a success criterion outside the
+	// controlled vocabulary.
+	ErrInvalidCriterionKind = errors.New("evaluation: invalid criterion kind")
+	// ErrInvalidAnalyzerStatus identifies an analyzer applicability state
+	// outside the controlled vocabulary.
+	ErrInvalidAnalyzerStatus = errors.New("evaluation: invalid analyzer status")
+	// ErrInvalidEvaluationPolicy identifies unsafe or incomplete evaluation
+	// permissions.
+	ErrInvalidEvaluationPolicy = errors.New("evaluation: invalid evaluation policy")
 	// ErrInvalidAttributionStage identifies an uncontrolled failure stage.
 	ErrInvalidAttributionStage = errors.New("evaluation: invalid attribution stage")
 	// ErrUnsafeCase identifies traversal, secret, or raw-content material in a
@@ -99,6 +125,152 @@ const (
 	AttributionPolicy     AttributionStage = "policy"
 )
 
+// TaskKind identifies the user task exercised by a case. It is independent
+// from CaseKind, which describes the epistemic shape of the expected answer.
+type TaskKind string
+
+const (
+	TaskKindLocalization TaskKind = "localization"
+	TaskKindExplanation  TaskKind = "explanation"
+	TaskKindImpact       TaskKind = "impact"
+	TaskKindChange       TaskKind = "change"
+)
+
+// EvaluationTask fixes the objective category and bounded objective prose for
+// one case. It never contains an instruction for the engine to execute.
+type EvaluationTask struct {
+	Kind      TaskKind `json:"kind"`
+	Objective string   `json:"objective"`
+}
+
+// Task is a concise alias for EvaluationTask.
+type Task = EvaluationTask
+
+// VariantKind identifies one controlled execution configuration reserved for
+// later evaluation runners.
+type VariantKind string
+
+const (
+	VariantDirectSource    VariantKind = "direct-source"
+	VariantTextRetrieval   VariantKind = "text-retrieval"
+	VariantManuContext     VariantKind = "manu-context"
+	VariantExternalContext VariantKind = "external-context"
+)
+
+// EvaluationVariant describes a comparison variant without storing its
+// execution result.
+type EvaluationVariant struct {
+	ID              string      `json:"id"`
+	Kind            VariantKind `json:"kind"`
+	ToolIDs         []string    `json:"tool_ids"`
+	ConfigurationID string      `json:"configuration_id"`
+	Capabilities    []string    `json:"capabilities"`
+	Limitations     []string    `json:"limitations"`
+}
+
+// Variant is a concise alias for EvaluationVariant.
+type Variant = EvaluationVariant
+
+// AnalyzerStatus identifies whether an analyzer is part of a case's
+// applicable coverage.
+type AnalyzerStatus string
+
+const (
+	AnalyzerApplicable    AnalyzerStatus = "applicable"
+	AnalyzerNotApplicable AnalyzerStatus = "not_applicable"
+	AnalyzerUnsupported   AnalyzerStatus = "unsupported"
+)
+
+// AnalyzerApplicability records capability and limitation metadata without
+// claiming semantic completeness.
+type AnalyzerApplicability struct {
+	ID           string         `json:"id"`
+	Status       AnalyzerStatus `json:"status"`
+	Version      string         `json:"version"`
+	Capabilities []string       `json:"capabilities"`
+	Reason       string         `json:"reason"`
+}
+
+// Analyzer is a concise alias for AnalyzerApplicability.
+type Analyzer = AnalyzerApplicability
+
+// EvaluationConfiguration identifies the non-secret configuration used by a
+// variant. Settings are metadata, never credentials.
+type EvaluationConfiguration struct {
+	ID       string            `json:"id"`
+	Version  string            `json:"version"`
+	Settings map[string]string `json:"settings"`
+}
+
+// Configuration is a concise alias for EvaluationConfiguration.
+type Configuration = EvaluationConfiguration
+
+// CriterionKind identifies an independently evaluated success dimension.
+type CriterionKind string
+
+const (
+	CriterionCorrectness   CriterionKind = "correctness"
+	CriterionCompletion    CriterionKind = "completion"
+	CriterionEvidence      CriterionKind = "evidence"
+	CriterionCitation      CriterionKind = "citation"
+	CriterionGap           CriterionKind = "gap"
+	CriterionAbstention    CriterionKind = "abstention"
+	CriterionAuthorization CriterionKind = "authorization"
+)
+
+// SuccessCriterion is a semantic acceptance rule, not an execution result or
+// a scalar confidence score.
+type SuccessCriterion struct {
+	ID          string        `json:"id"`
+	Kind        CriterionKind `json:"kind"`
+	Description string        `json:"description"`
+	Required    bool          `json:"required"`
+	EvidenceIDs []string      `json:"evidence_ids"`
+	GapIDs      []string      `json:"gap_ids"`
+}
+
+// SuccessCriteria groups independent acceptance dimensions.
+type SuccessCriteria struct {
+	Items []SuccessCriterion `json:"items"`
+}
+
+// Criteria is a descriptive alias for SuccessCriteria.
+type Criteria = SuccessCriteria
+
+// ReferenceAnswer stores bounded curation metadata. It is deliberately not a
+// complete answer and contains no source excerpt.
+type ReferenceAnswer struct {
+	Summary  string   `json:"summary"`
+	ClaimIDs []string `json:"claim_ids"`
+	GapIDs   []string `json:"gap_ids"`
+}
+
+// EvaluationPolicy fixes the permissions under which comparable variants are
+// interpreted. The zero value remains accepted for v1alpha1 compatibility.
+type EvaluationPolicy struct {
+	SourceAccess     string   `json:"source_access"`
+	ExternalTransfer string   `json:"external_transfer"`
+	NetworkAccess    string   `json:"network_access"`
+	MutationAccess   string   `json:"mutation_access"`
+	Permissions      []string `json:"permissions"`
+}
+
+// EvaluationTool identifies an agent, model, or retrieval tool without
+// retaining prompts, responses, credentials, or source content.
+type EvaluationTool struct {
+	ID           string   `json:"id"`
+	Version      string   `json:"version"`
+	Role         string   `json:"role"`
+	Capabilities []string `json:"capabilities"`
+	Limitations  []string `json:"limitations"`
+}
+
+// Tool is a concise alias for EvaluationTool.
+type Tool = EvaluationTool
+
+// Policy is a concise alias for EvaluationPolicy.
+type Policy = EvaluationPolicy
+
 // CaseSet is the versioned, deterministic envelope stored by the evaluation
 // corpus. LoadCases returns its cases sorted by stable identity.
 type CaseSet struct {
@@ -112,27 +284,66 @@ type Cases = CaseSet
 // EvaluationCase is one immutable competency case. It stores semantic
 // acceptance criteria and references, never source code or a full answer.
 type EvaluationCase struct {
-	CaseID             string               `json:"case_id"`
-	CaseVersion        int                  `json:"case_version"`
-	State              CaseState            `json:"state"`
-	CorpusID           string               `json:"corpus_id"`
-	CorpusRevision     string               `json:"corpus_revision"`
-	SourceID           string               `json:"source_id"`
-	SourceRevision     string               `json:"source_revision"`
-	Scope              CaseScope            `json:"scope"`
-	Inclusions         []ScopeItem          `json:"inclusions"`
-	Exclusions         []ScopeItem          `json:"exclusions"`
-	AuthorizationRef   string               `json:"authorization_ref"`
-	Audience           string               `json:"audience"`
-	CompetenceQuestion string               `json:"competence_question"`
-	Kind               CaseKind             `json:"kind"`
-	AcceptableClaims   []AcceptableClaim    `json:"acceptable_claims"`
-	ExpectedEvidence   []ExpectedEvidence   `json:"expected_evidence"`
-	ExpectedGaps       []ExpectedGap        `json:"expected_gaps"`
-	Authors            []string             `json:"authors"`
-	Reviewers          []string             `json:"reviewers"`
-	ReviewedAt         string               `json:"reviewed_at"`
-	FailureAttribution []FailureAttribution `json:"failure_attribution"`
+	CaseID              string                    `json:"case_id"`
+	CaseVersion         int                       `json:"case_version"`
+	State               CaseState                 `json:"state"`
+	CorpusID            string                    `json:"corpus_id"`
+	CorpusRevision      string                    `json:"corpus_revision"`
+	SourceID            string                    `json:"source_id"`
+	SourceRevision      string                    `json:"source_revision"`
+	Scope               CaseScope                 `json:"scope"`
+	Inclusions          []ScopeItem               `json:"inclusions"`
+	Exclusions          []ScopeItem               `json:"exclusions"`
+	AuthorizationRef    string                    `json:"authorization_ref"`
+	Audience            string                    `json:"audience"`
+	CompetenceQuestion  string                    `json:"competence_question"`
+	Kind                CaseKind                  `json:"kind"`
+	AcceptableClaims    []AcceptableClaim         `json:"acceptable_claims"`
+	ExpectedEvidence    []ExpectedEvidence        `json:"expected_evidence"`
+	ExpectedGaps        []ExpectedGap             `json:"expected_gaps"`
+	Authors             []string                  `json:"authors"`
+	Reviewers           []string                  `json:"reviewers"`
+	ReviewedAt          string                    `json:"reviewed_at"`
+	FailureAttribution  []FailureAttribution      `json:"failure_attribution"`
+	Task                EvaluationTask            `json:"task"`
+	Variants            []EvaluationVariant       `json:"variants"`
+	Tools               []EvaluationTool          `json:"tools"`
+	Configurations      []EvaluationConfiguration `json:"configurations"`
+	Limitations         []string                  `json:"limitations"`
+	ApplicableAnalyzers []AnalyzerApplicability   `json:"applicable_analyzers"`
+	Criteria            SuccessCriteria           `json:"criteria"`
+	ReferenceAnswer     ReferenceAnswer           `json:"reference_answer"`
+	Policy              EvaluationPolicy          `json:"policy"`
+	CreatedAt           string                    `json:"created_at"`
+	UpdatedAt           string                    `json:"updated_at"`
+	Supersedes          string                    `json:"supersedes"`
+}
+
+// MarshalJSON keeps the legacy physical representation free of fields that
+// were introduced by v1alpha2. CaseSet.Normalize validates the envelope
+// version before invoking this method, so a current case cannot silently omit
+// its required metadata through MarshalCases.
+func (c EvaluationCase) MarshalJSON() ([]byte, error) {
+	type plain EvaluationCase
+	encoded, err := json.Marshal(plain(c))
+	if err != nil {
+		return nil, err
+	}
+	if c.hasExtendedMetadata() {
+		return encoded, nil
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &fields); err != nil {
+		return nil, err
+	}
+	for _, name := range []string{
+		"task", "variants", "tools", "configurations", "limitations",
+		"applicable_analyzers", "criteria", "reference_answer", "policy",
+		"created_at", "updated_at", "supersedes",
+	} {
+		delete(fields, name)
+	}
+	return json.Marshal(fields)
 }
 
 // Case is a concise alias for EvaluationCase.
@@ -202,7 +413,9 @@ type FailureAttribution struct {
 
 // Validate checks the complete case envelope without changing its order.
 func (s CaseSet) Validate() error {
-	if s.Version != Version {
+	switch s.Version {
+	case Version, LegacyVersion:
+	default:
 		return fmt.Errorf("%w: case set version", ErrUnsupportedVersion)
 	}
 	if len(s.Cases) == 0 {
@@ -213,7 +426,10 @@ func (s CaseSet) Validate() error {
 	}
 	seen := make(map[string]struct{}, len(s.Cases))
 	for index, item := range s.Cases {
-		if err := item.Validate(); err != nil {
+		if s.Version == LegacyVersion && item.hasExtendedMetadata() {
+			return fmt.Errorf("%w: legacy case has current metadata", ErrUnsupportedVersion)
+		}
+		if err := item.validate(s.Version == Version); err != nil {
 			return fmt.Errorf("%w: case %d: %w", ErrInvalidCases, index, err)
 		}
 		identity := caseIdentity(item)
@@ -228,6 +444,10 @@ func (s CaseSet) Validate() error {
 // Validate checks one case's required identity, curation, references, and
 // bounded metadata.
 func (c EvaluationCase) Validate() error {
+	return c.validate(c.hasExtendedMetadata())
+}
+
+func (c EvaluationCase) validate(current bool) error {
 	if err := validateIdentifier("case_id", c.CaseID, maxCaseIDBytes); err != nil {
 		return err
 	}
@@ -306,7 +526,470 @@ func (c EvaluationCase) Validate() error {
 	if c.Kind == CaseKindAbstention && !hasClaimGap(c.AcceptableClaims) {
 		return fmt.Errorf("%w: abstention case needs a gap claim", ErrInvalidCases)
 	}
+	if current {
+		if err := c.validateExtendedMetadata(evidenceIDs, gapIDs); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// hasExtendedMetadata reports whether a case carries fields introduced by the
+// current schema. It is used to keep the legacy representation strict: an
+// input declaring v1alpha1 cannot smuggle current-only metadata through the
+// compatibility path.
+func (c EvaluationCase) hasExtendedMetadata() bool {
+	return !c.Task.isZero() || len(c.Variants) != 0 || len(c.Tools) != 0 ||
+		len(c.Configurations) != 0 ||
+		len(c.Limitations) != 0 || len(c.ApplicableAnalyzers) != 0 ||
+		len(c.Criteria.Items) != 0 || !c.ReferenceAnswer.isZero() || !c.Policy.isZero() ||
+		c.CreatedAt != "" || c.UpdatedAt != "" || c.Supersedes != ""
+}
+
+func (c EvaluationCase) validateExtendedMetadata(evidenceIDs, gapIDs map[string]struct{}) error {
+	if err := c.Task.validate(true); err != nil {
+		return err
+	}
+	toolIDs, err := validateTools(c.Tools, true)
+	if err != nil {
+		return err
+	}
+	configurationIDs, err := validateConfigurations(c.Configurations, true)
+	if err != nil {
+		return err
+	}
+	if err := validateVariants(c.Variants, toolIDs, configurationIDs, true); err != nil {
+		return err
+	}
+	if len(c.Limitations) == 0 {
+		return fmt.Errorf("%w: case limitations are required", ErrInvalidCases)
+	}
+	if len(c.Limitations) > maxListItems {
+		return fmt.Errorf("%w: case limitations", ErrCaseLimitExceeded)
+	}
+	if err := validateStringList(c.Limitations, "case limitation", maxTextBytes); err != nil {
+		return err
+	}
+	if err := validateAnalyzers(c.ApplicableAnalyzers, true); err != nil {
+		return err
+	}
+	if err := c.Criteria.validate(evidenceIDs, gapIDs, true); err != nil {
+		return err
+	}
+	if err := c.ReferenceAnswer.validate(c.AcceptableClaims, gapIDs, true); err != nil {
+		return err
+	}
+	if err := c.Policy.validate(true); err != nil {
+		return err
+	}
+	if err := validateCaseLifecycle(c.CreatedAt, c.UpdatedAt, true); err != nil {
+		return err
+	}
+	if c.Supersedes != "" {
+		if err := validateIdentifier("supersedes", c.Supersedes, maxCaseIDBytes); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Validate checks a task declaration. The zero value is accepted for the
+// legacy case representation; current case sets use the required form.
+func (t EvaluationTask) Validate() error {
+	return t.validate(false)
+}
+
+func (t EvaluationTask) validate(required bool) error {
+	if t.isZero() {
+		if required {
+			return fmt.Errorf("%w: task is required", ErrInvalidCases)
+		}
+		return nil
+	}
+	switch t.Kind {
+	case TaskKindLocalization, TaskKindExplanation, TaskKindImpact, TaskKindChange:
+	default:
+		return ErrInvalidTaskKind
+	}
+	return validateSafeText("task objective", t.Objective, maxTextBytes)
+}
+
+func (t EvaluationTask) isZero() bool { return t.Kind == "" && t.Objective == "" }
+
+func validateVariants(items []EvaluationVariant, toolIDs, configurationIDs map[string]struct{}, required bool) error {
+	if len(items) == 0 {
+		if required {
+			return fmt.Errorf("%w: variants are required", ErrInvalidCases)
+		}
+		return nil
+	}
+	if len(items) > maxListItems {
+		return fmt.Errorf("%w: variants", ErrCaseLimitExceeded)
+	}
+	hasDirectSource := false
+	hasNonBaseline := false
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		if err := validateIdentifier("variant_id", item.ID, maxCaseIDBytes); err != nil {
+			return err
+		}
+		if _, exists := seen[item.ID]; exists {
+			return ErrDuplicateCase
+		}
+		seen[item.ID] = struct{}{}
+		switch item.Kind {
+		case VariantDirectSource, VariantTextRetrieval, VariantManuContext, VariantExternalContext:
+			hasDirectSource = hasDirectSource || item.Kind == VariantDirectSource
+			hasNonBaseline = hasNonBaseline || item.Kind != VariantDirectSource
+		default:
+			return ErrInvalidVariantKind
+		}
+		if len(item.ToolIDs) == 0 {
+			return fmt.Errorf("%w: variant tools", ErrInvalidCases)
+		}
+		if err := validateReferences(item.ToolIDs, toolIDs, "variant tool"); err != nil {
+			return err
+		}
+		if err := validateIdentifier("variant configuration", item.ConfigurationID, maxCaseIDBytes); err != nil {
+			return err
+		}
+		if _, exists := configurationIDs[item.ConfigurationID]; !exists {
+			return fmt.Errorf("%w: variant configuration reference", ErrInvalidCases)
+		}
+		if err := validateMetadataList(item.Capabilities, "variant capability"); err != nil {
+			return err
+		}
+		if err := validateMetadataList(item.Limitations, "variant limitation"); err != nil {
+			return err
+		}
+	}
+	if required && (!hasDirectSource || !hasNonBaseline) {
+		return fmt.Errorf("%w: variants require direct-source and a comparison variant", ErrInvalidCases)
+	}
+	return nil
+}
+
+func (c EvaluationConfiguration) Validate() error {
+	if c.isZero() {
+		return nil
+	}
+	if err := validateIdentifier("configuration_id", c.ID, maxCaseIDBytes); err != nil {
+		return err
+	}
+	if err := validateMetadataText("configuration version", c.Version, maxCaseIDBytes); err != nil {
+		return err
+	}
+	if len(c.Settings) > maxListItems {
+		return fmt.Errorf("%w: configuration settings", ErrCaseLimitExceeded)
+	}
+	for key, value := range c.Settings {
+		if err := validateIdentifier("configuration setting", key, maxCaseIDBytes); err != nil {
+			return err
+		}
+		if sensitiveMetadataKey(key) {
+			return ErrUnsafeCase
+		}
+		if err := validateSafeText("configuration value", value, maxTextBytes); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c EvaluationConfiguration) isZero() bool {
+	return c.ID == "" && c.Version == "" && len(c.Settings) == 0
+}
+
+func validateTools(items []EvaluationTool, required bool) (map[string]struct{}, error) {
+	known := make(map[string]struct{}, len(items))
+	if len(items) == 0 {
+		if required {
+			return nil, fmt.Errorf("%w: tools are required", ErrInvalidCases)
+		}
+		return known, nil
+	}
+	if len(items) > maxListItems {
+		return nil, fmt.Errorf("%w: tools", ErrCaseLimitExceeded)
+	}
+	for _, item := range items {
+		if err := validateIdentifier("tool_id", item.ID, maxCaseIDBytes); err != nil {
+			return nil, err
+		}
+		if _, exists := known[item.ID]; exists {
+			return nil, ErrDuplicateCase
+		}
+		known[item.ID] = struct{}{}
+		if err := validateMetadataText("tool version", item.Version, maxCaseIDBytes); err != nil {
+			return nil, err
+		}
+		if err := validateMetadataText("tool role", item.Role, maxCaseIDBytes); err != nil {
+			return nil, err
+		}
+		if err := validateMetadataList(item.Capabilities, "tool capability"); err != nil {
+			return nil, err
+		}
+		if err := validateMetadataList(item.Limitations, "tool limitation"); err != nil {
+			return nil, err
+		}
+	}
+	return known, nil
+}
+
+func validateConfigurations(items []EvaluationConfiguration, required bool) (map[string]struct{}, error) {
+	known := make(map[string]struct{}, len(items))
+	if len(items) == 0 {
+		if required {
+			return nil, fmt.Errorf("%w: configurations are required", ErrInvalidCases)
+		}
+		return known, nil
+	}
+	if len(items) > maxListItems {
+		return nil, fmt.Errorf("%w: configurations", ErrCaseLimitExceeded)
+	}
+	for _, item := range items {
+		if item.isZero() {
+			return nil, fmt.Errorf("%w: configuration is required", ErrInvalidCases)
+		}
+		if err := item.Validate(); err != nil {
+			return nil, err
+		}
+		if _, exists := known[item.ID]; exists {
+			return nil, ErrDuplicateCase
+		}
+		known[item.ID] = struct{}{}
+	}
+	return known, nil
+}
+
+func validateAnalyzers(items []AnalyzerApplicability, required bool) error {
+	if len(items) == 0 {
+		if required {
+			return fmt.Errorf("%w: applicable analyzers are required", ErrInvalidCases)
+		}
+		return nil
+	}
+	if len(items) > maxListItems {
+		return fmt.Errorf("%w: applicable analyzers", ErrCaseLimitExceeded)
+	}
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		if err := validateIdentifier("analyzer_id", item.ID, maxCaseIDBytes); err != nil {
+			return err
+		}
+		if _, exists := seen[item.ID]; exists {
+			return ErrDuplicateCase
+		}
+		seen[item.ID] = struct{}{}
+		switch item.Status {
+		case AnalyzerApplicable, AnalyzerNotApplicable, AnalyzerUnsupported:
+		default:
+			return ErrInvalidAnalyzerStatus
+		}
+		if err := validateMetadataText("analyzer version", item.Version, maxCaseIDBytes); err != nil {
+			return err
+		}
+		if err := validateMetadataList(item.Capabilities, "analyzer capability"); err != nil {
+			return err
+		}
+		if err := validateSafeText("analyzer reason", item.Reason, maxTextBytes); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c SuccessCriteria) Validate(evidenceIDs, gapIDs map[string]struct{}) error {
+	return c.validate(evidenceIDs, gapIDs, false)
+}
+
+func (c SuccessCriteria) validate(evidenceIDs, gapIDs map[string]struct{}, required bool) error {
+	if len(c.Items) == 0 {
+		if required {
+			return fmt.Errorf("%w: success criteria are required", ErrInvalidCases)
+		}
+		return nil
+	}
+	if len(c.Items) > maxListItems {
+		return fmt.Errorf("%w: success criteria", ErrCaseLimitExceeded)
+	}
+	hasRequired := false
+	seen := make(map[string]struct{}, len(c.Items))
+	for _, item := range c.Items {
+		hasRequired = hasRequired || item.Required
+		if err := validateIdentifier("criterion_id", item.ID, maxCaseIDBytes); err != nil {
+			return err
+		}
+		if _, exists := seen[item.ID]; exists {
+			return ErrDuplicateCase
+		}
+		seen[item.ID] = struct{}{}
+		switch item.Kind {
+		case CriterionCorrectness, CriterionCompletion, CriterionEvidence, CriterionCitation,
+			CriterionGap, CriterionAbstention, CriterionAuthorization:
+		default:
+			return ErrInvalidCriterionKind
+		}
+		if err := validateSafeText("criterion description", item.Description, maxTextBytes); err != nil {
+			return err
+		}
+		if err := validateReferences(item.EvidenceIDs, evidenceIDs, "criterion evidence"); err != nil {
+			return err
+		}
+		if err := validateReferences(item.GapIDs, gapIDs, "criterion gap"); err != nil {
+			return err
+		}
+	}
+	if required && !hasRequired {
+		return fmt.Errorf("%w: success criteria need a required item", ErrInvalidCases)
+	}
+	return nil
+}
+
+func (a ReferenceAnswer) Validate(claims []AcceptableClaim, gapIDs map[string]struct{}) error {
+	return a.validate(claims, gapIDs, false)
+}
+
+func (a ReferenceAnswer) validate(claims []AcceptableClaim, gapIDs map[string]struct{}, required bool) error {
+	if a.isZero() {
+		if required {
+			return fmt.Errorf("%w: reference answer is required", ErrInvalidCases)
+		}
+		return nil
+	}
+	if err := validateSafeText("reference answer summary", a.Summary, maxTextBytes); err != nil {
+		return err
+	}
+	if required && len(a.ClaimIDs) == 0 {
+		return fmt.Errorf("%w: reference answer claim is required", ErrInvalidCases)
+	}
+	claimIDs := make(map[string]struct{}, len(claims))
+	for _, claim := range claims {
+		claimIDs[claim.ClaimID] = struct{}{}
+	}
+	if err := validateReferences(a.ClaimIDs, claimIDs, "reference answer claim"); err != nil {
+		return err
+	}
+	if err := validateReferences(a.GapIDs, gapIDs, "reference answer gap"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a ReferenceAnswer) isZero() bool {
+	return a.Summary == "" && len(a.ClaimIDs) == 0 && len(a.GapIDs) == 0
+}
+
+func (p EvaluationPolicy) Validate() error {
+	return p.validate(false)
+}
+
+func (p EvaluationPolicy) validate(required bool) error {
+	if p.isZero() {
+		if required {
+			return ErrInvalidEvaluationPolicy
+		}
+		return nil
+	}
+	if !validPolicyValue(p.SourceAccess, "read-only", "metadata-only", "direct-read-only", "none") ||
+		!validPolicyValue(p.ExternalTransfer, "deny", "redact", "allow") ||
+		!validPolicyValue(p.NetworkAccess, "disabled", "local-only", "allow") ||
+		!validPolicyValue(p.MutationAccess, "disabled", "read-only") {
+		return ErrInvalidEvaluationPolicy
+	}
+	if len(p.Permissions) == 0 || len(p.Permissions) > maxListItems {
+		return fmt.Errorf("%w: permissions", ErrInvalidEvaluationPolicy)
+	}
+	for _, permission := range p.Permissions {
+		if err := validateIdentifier("permission", permission, maxCaseIDBytes); err != nil {
+			return ErrInvalidEvaluationPolicy
+		}
+		if !validEvaluationPermission(permission) {
+			return ErrInvalidEvaluationPolicy
+		}
+	}
+	if err := validateUniqueList(p.Permissions); err != nil {
+		return fmt.Errorf("%w: permissions", ErrInvalidEvaluationPolicy)
+	}
+	return nil
+}
+
+func (p EvaluationPolicy) isZero() bool {
+	return p.SourceAccess == "" && p.ExternalTransfer == "" && p.NetworkAccess == "" &&
+		p.MutationAccess == "" && len(p.Permissions) == 0
+}
+
+func validPolicyValue(value string, allowed ...string) bool {
+	if value == "" {
+		return false
+	}
+	for _, candidate := range allowed {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func validEvaluationPermission(value string) bool {
+	switch value {
+	case "filesystem.read", "context.read", "evidence.read", "metadata.read", "source.read", "corpus.read", "manifest.read":
+		return true
+	default:
+		return false
+	}
+}
+
+func validateMetadataList(values []string, label string) error {
+	if len(values) > maxListItems {
+		return fmt.Errorf("%w: %s count", ErrCaseLimitExceeded, label)
+	}
+	return validateStringList(values, label, maxTextBytes)
+}
+
+func validateMetadataText(name, value string, maxBytes int) error {
+	if value == "" {
+		return fmt.Errorf("%w: %s", ErrInvalidCases, name)
+	}
+	return validateSafeText(name, value, maxBytes)
+}
+
+func validateUniqueList(values []string) error {
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		if _, exists := seen[value]; exists {
+			return ErrDuplicateCase
+		}
+		seen[value] = struct{}{}
+	}
+	return nil
+}
+
+func validateCaseLifecycle(createdAt, updatedAt string, required bool) error {
+	if createdAt == "" && updatedAt == "" {
+		if required {
+			return fmt.Errorf("%w: case lifecycle timestamps", ErrInvalidCases)
+		}
+		return nil
+	}
+	if createdAt == "" || updatedAt == "" {
+		return fmt.Errorf("%w: case lifecycle timestamps", ErrInvalidCases)
+	}
+	created, createdErr := time.Parse(time.RFC3339, createdAt)
+	updated, updatedErr := time.Parse(time.RFC3339, updatedAt)
+	if createdErr != nil || updatedErr != nil || updated.Before(created) {
+		return fmt.Errorf("%w: case lifecycle timestamps", ErrInvalidCases)
+	}
+	return nil
+}
+
+func sensitiveMetadataKey(value string) bool {
+	lower := strings.ToLower(value)
+	for _, marker := range []string{"password", "passwd", "secret", "token", "api_key", "api-key", "credential", "authorization", "bearer"} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 // Validate checks scope prose and dimensions without reading the source.
@@ -340,7 +1023,7 @@ func (s CaseSet) Normalize() (CaseSet, error) {
 		return left.CaseVersion < right.CaseVersion
 	})
 	for index := range normalized.Cases {
-		normalizeCaseCollections(&normalized.Cases[index])
+		normalizeCaseCollections(&normalized.Cases[index], normalized.Version == Version)
 	}
 	return normalized, nil
 }
@@ -632,6 +1315,9 @@ func validateStringList(values []string, label string, maxBytes int) error {
 }
 
 func validateReferences(values []string, known map[string]struct{}, label string) error {
+	if len(values) > maxListItems {
+		return fmt.Errorf("%w: %s count", ErrCaseLimitExceeded, label)
+	}
 	seen := make(map[string]struct{}, len(values))
 	for _, value := range values {
 		if err := validateIdentifier(label, value, maxCaseIDBytes); err != nil {
@@ -800,14 +1486,14 @@ func cloneCaseSet(input CaseSet) CaseSet {
 
 func cloneCase(input EvaluationCase) EvaluationCase {
 	output := input
-	output.Scope.Dimensions = append([]string(nil), input.Scope.Dimensions...)
-	output.Scope.Artifacts = append([]string(nil), input.Scope.Artifacts...)
+	output.Scope.Dimensions = cloneCaseStrings(input.Scope.Dimensions)
+	output.Scope.Artifacts = cloneCaseStrings(input.Scope.Artifacts)
 	output.Inclusions = append([]ScopeItem(nil), input.Inclusions...)
 	output.Exclusions = append([]ScopeItem(nil), input.Exclusions...)
 	output.AcceptableClaims = append([]AcceptableClaim(nil), input.AcceptableClaims...)
 	for index, claim := range output.AcceptableClaims {
-		output.AcceptableClaims[index].EvidenceIDs = append([]string(nil), claim.EvidenceIDs...)
-		output.AcceptableClaims[index].GapIDs = append([]string(nil), claim.GapIDs...)
+		output.AcceptableClaims[index].EvidenceIDs = cloneCaseStrings(claim.EvidenceIDs)
+		output.AcceptableClaims[index].GapIDs = cloneCaseStrings(claim.GapIDs)
 	}
 	output.ExpectedEvidence = append([]ExpectedEvidence(nil), input.ExpectedEvidence...)
 	for index, item := range output.ExpectedEvidence {
@@ -821,13 +1507,41 @@ func cloneCase(input EvaluationCase) EvaluationCase {
 		}
 	}
 	output.ExpectedGaps = append([]ExpectedGap(nil), input.ExpectedGaps...)
-	output.Authors = append([]string(nil), input.Authors...)
-	output.Reviewers = append([]string(nil), input.Reviewers...)
+	output.Authors = cloneCaseStrings(input.Authors)
+	output.Reviewers = cloneCaseStrings(input.Reviewers)
 	output.FailureAttribution = append([]FailureAttribution(nil), input.FailureAttribution...)
+	output.Variants = append([]EvaluationVariant(nil), input.Variants...)
+	for index := range output.Variants {
+		output.Variants[index].ToolIDs = cloneCaseStrings(input.Variants[index].ToolIDs)
+		output.Variants[index].Capabilities = cloneCaseStrings(input.Variants[index].Capabilities)
+		output.Variants[index].Limitations = cloneCaseStrings(input.Variants[index].Limitations)
+	}
+	output.Tools = append([]EvaluationTool(nil), input.Tools...)
+	for index := range output.Tools {
+		output.Tools[index].Capabilities = cloneCaseStrings(input.Tools[index].Capabilities)
+		output.Tools[index].Limitations = cloneCaseStrings(input.Tools[index].Limitations)
+	}
+	output.Limitations = cloneCaseStrings(input.Limitations)
+	output.ApplicableAnalyzers = append([]AnalyzerApplicability(nil), input.ApplicableAnalyzers...)
+	for index := range output.ApplicableAnalyzers {
+		output.ApplicableAnalyzers[index].Capabilities = cloneCaseStrings(input.ApplicableAnalyzers[index].Capabilities)
+	}
+	output.Configurations = append([]EvaluationConfiguration(nil), input.Configurations...)
+	for index := range output.Configurations {
+		output.Configurations[index].Settings = cloneCaseStringMap(input.Configurations[index].Settings)
+	}
+	output.Criteria.Items = append([]SuccessCriterion(nil), input.Criteria.Items...)
+	for index := range output.Criteria.Items {
+		output.Criteria.Items[index].EvidenceIDs = cloneCaseStrings(input.Criteria.Items[index].EvidenceIDs)
+		output.Criteria.Items[index].GapIDs = cloneCaseStrings(input.Criteria.Items[index].GapIDs)
+	}
+	output.ReferenceAnswer.ClaimIDs = cloneCaseStrings(input.ReferenceAnswer.ClaimIDs)
+	output.ReferenceAnswer.GapIDs = cloneCaseStrings(input.ReferenceAnswer.GapIDs)
+	output.Policy.Permissions = cloneCaseStrings(input.Policy.Permissions)
 	return output
 }
 
-func normalizeCaseCollections(item *EvaluationCase) {
+func normalizeCaseCollections(item *EvaluationCase, current bool) {
 	if item.Inclusions == nil {
 		item.Inclusions = []ScopeItem{}
 	}
@@ -849,6 +1563,54 @@ func normalizeCaseCollections(item *EvaluationCase) {
 	if item.FailureAttribution == nil {
 		item.FailureAttribution = []FailureAttribution{}
 	}
+	if current && item.Variants != nil {
+		for index := range item.Variants {
+			if item.Variants[index].ToolIDs == nil {
+				item.Variants[index].ToolIDs = []string{}
+			}
+			if item.Variants[index].Capabilities == nil {
+				item.Variants[index].Capabilities = []string{}
+			}
+			if item.Variants[index].Limitations == nil {
+				item.Variants[index].Limitations = []string{}
+			}
+			sort.Strings(item.Variants[index].Capabilities)
+			sort.Strings(item.Variants[index].Limitations)
+		}
+	}
+	if current && item.Tools != nil {
+		for index := range item.Tools {
+			if item.Tools[index].Capabilities == nil {
+				item.Tools[index].Capabilities = []string{}
+			}
+			if item.Tools[index].Limitations == nil {
+				item.Tools[index].Limitations = []string{}
+			}
+			sort.Strings(item.Tools[index].Capabilities)
+			sort.Strings(item.Tools[index].Limitations)
+		}
+	}
+	if current && item.ApplicableAnalyzers != nil {
+		for index := range item.ApplicableAnalyzers {
+			if item.ApplicableAnalyzers[index].Capabilities == nil {
+				item.ApplicableAnalyzers[index].Capabilities = []string{}
+			}
+			sort.Strings(item.ApplicableAnalyzers[index].Capabilities)
+		}
+	}
+	if current && item.Criteria.Items != nil {
+		for index := range item.Criteria.Items {
+			if item.Criteria.Items[index].EvidenceIDs == nil {
+				item.Criteria.Items[index].EvidenceIDs = []string{}
+			}
+			if item.Criteria.Items[index].GapIDs == nil {
+				item.Criteria.Items[index].GapIDs = []string{}
+			}
+		}
+	}
+	if current && item.Policy.Permissions == nil {
+		item.Policy.Permissions = []string{}
+	}
 	for index := range item.AcceptableClaims {
 		if item.AcceptableClaims[index].EvidenceIDs == nil {
 			item.AcceptableClaims[index].EvidenceIDs = []string{}
@@ -856,6 +1618,10 @@ func normalizeCaseCollections(item *EvaluationCase) {
 		if item.AcceptableClaims[index].GapIDs == nil {
 			item.AcceptableClaims[index].GapIDs = []string{}
 		}
+	}
+	if current {
+		sort.Strings(item.Limitations)
+		sort.Strings(item.Policy.Permissions)
 	}
 	sort.Strings(item.Scope.Dimensions)
 	sort.Strings(item.Scope.Artifacts)
@@ -874,10 +1640,67 @@ func normalizeCaseCollections(item *EvaluationCase) {
 		}
 		return item.FailureAttribution[i].Code < item.FailureAttribution[j].Code
 	})
+	sort.SliceStable(item.Variants, func(i, j int) bool {
+		if item.Variants[i].ID != item.Variants[j].ID {
+			return item.Variants[i].ID < item.Variants[j].ID
+		}
+		return item.Variants[i].Kind < item.Variants[j].Kind
+	})
+	if current {
+		sort.SliceStable(item.Tools, func(i, j int) bool {
+			if item.Tools[i].ID != item.Tools[j].ID {
+				return item.Tools[i].ID < item.Tools[j].ID
+			}
+			return item.Tools[i].Version < item.Tools[j].Version
+		})
+		sort.SliceStable(item.Configurations, func(i, j int) bool {
+			if item.Configurations[i].ID != item.Configurations[j].ID {
+				return item.Configurations[i].ID < item.Configurations[j].ID
+			}
+			return item.Configurations[i].Version < item.Configurations[j].Version
+		})
+		sort.SliceStable(item.ApplicableAnalyzers, func(i, j int) bool {
+			return item.ApplicableAnalyzers[i].ID < item.ApplicableAnalyzers[j].ID
+		})
+		sort.SliceStable(item.Criteria.Items, func(i, j int) bool {
+			return item.Criteria.Items[i].ID < item.Criteria.Items[j].ID
+		})
+	}
+	for index := range item.Variants {
+		sort.Strings(item.Variants[index].ToolIDs)
+	}
 	for index := range item.AcceptableClaims {
 		sort.Strings(item.AcceptableClaims[index].EvidenceIDs)
 		sort.Strings(item.AcceptableClaims[index].GapIDs)
 	}
+	if current {
+		for index := range item.Criteria.Items {
+			sort.Strings(item.Criteria.Items[index].EvidenceIDs)
+			sort.Strings(item.Criteria.Items[index].GapIDs)
+		}
+		sort.Strings(item.ReferenceAnswer.ClaimIDs)
+		sort.Strings(item.ReferenceAnswer.GapIDs)
+	}
+}
+
+func cloneCaseStringMap(input map[string]string) map[string]string {
+	if input == nil {
+		return nil
+	}
+	output := make(map[string]string, len(input))
+	for key, value := range input {
+		output[key] = value
+	}
+	return output
+}
+
+func cloneCaseStrings(input []string) []string {
+	if input == nil {
+		return nil
+	}
+	output := make([]string, len(input))
+	copy(output, input)
+	return output
 }
 
 func evidenceSortKey(item ExpectedEvidence) string {

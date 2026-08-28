@@ -1,0 +1,167 @@
+{
+  "version": "v1alpha2",
+  "cases": [
+    {
+      "case_id": "EVAL-CTX-01",
+      "case_version": 1,
+      "state": "curated",
+      "corpus_id": "first-vertical-slice",
+      "corpus_revision": "2026-08-17",
+      "source_id": "fixture-analyzers",
+      "source_revision": "2b08cbdd9ff398d135fa103ccbeaf84e1c774233",
+      "scope": {
+        "purpose": "localizar evidência autorizada para uma pergunta de inventário",
+        "dimensions": ["landscape_inventory_structure"],
+        "artifacts": ["contract/manifest.golden.json"]
+      },
+      "inclusions": [
+        {"ref": "contract/manifest.golden.json", "reason": "manifesto estruturado do recorte"}
+      ],
+      "exclusions": [
+        {"ref": "runtime-execution", "reason": "não há telemetria no corpus"}
+      ],
+      "authorization_ref": "local-read-only-fixture",
+      "audience": "arquitetura",
+      "competence_question": "Quais artefatos existem na fixture autorizada?",
+      "kind": "inventory",
+      "acceptable_claims": [
+        {
+          "claim_id": "eval-ctx-claim",
+          "statement": "O manifesto estruturado está presente no recorte autorizado.",
+          "origin": "observed",
+          "match": "semantic",
+          "evidence_ids": ["eval-ctx-manifest"],
+          "gap_ids": ["eval-ctx-runtime-gap"]
+        }
+      ],
+      "expected_evidence": [
+        {
+          "evidence_id": "eval-ctx-manifest",
+          "kind": "manifest",
+          "locator": {"path": "contract/manifest.golden.json", "member": "manifest"}
+        }
+      ],
+      "expected_gaps": [
+        {
+          "gap_id": "eval-ctx-runtime-gap",
+          "code": "runtime_not_attempted",
+          "statement": "A fixture não representa um ambiente de execução.",
+          "attribution_stage": "extraction"
+        }
+      ],
+      "authors": ["manu-evaluation"],
+      "reviewers": ["manu-contract-validation"],
+      "reviewed_at": "2026-08-17T00:00:00Z",
+      "failure_attribution": [
+        {"stage": "extraction", "code": "inventory_missing", "reason": "evidência esperada não foi materializada"}
+      ],
+      "task": {
+        "kind": "localization",
+        "objective": "Localizar o manifesto que sustenta o inventário do recorte."
+      },
+      "variants": [
+        {
+          "id": "direct",
+          "kind": "direct-source",
+          "tool_ids": ["filesystem-search"],
+          "configuration_id": "direct-read-only",
+          "capabilities": ["filesystem.read"],
+          "limitations": ["não oferece fechamento relacional"]
+        },
+        {
+          "id": "manu",
+          "kind": "manu-context",
+          "tool_ids": ["manu-context"],
+          "configuration_id": "manu-local-read-only",
+          "capabilities": ["context.read", "evidence.read"],
+          "limitations": ["não confirma execução observada"]
+        }
+      ],
+      "tools": [
+        {
+          "id": "filesystem-search",
+          "version": "v1",
+          "role": "baseline-retrieval",
+          "capabilities": ["filesystem.read"],
+          "limitations": ["busca textual limitada"]
+        },
+        {
+          "id": "manu-context",
+          "version": "v1",
+          "role": "context-retrieval",
+          "capabilities": ["context.read", "evidence.read"],
+          "limitations": ["pacote limitado por orçamento"]
+        }
+      ],
+      "configurations": [
+        {
+          "id": "direct-read-only",
+          "version": "v1",
+          "settings": {
+            "network": "disabled",
+            "source_access": "read-only"
+          }
+        },
+        {
+          "id": "manu-local-read-only",
+          "version": "v1",
+          "settings": {
+            "network": "disabled",
+            "source_access": "read-only"
+          }
+        }
+      ],
+      "limitations": ["sem telemetria de execução", "sem transferência externa"],
+      "applicable_analyzers": [
+        {
+          "id": "fixture-manifest",
+          "status": "applicable",
+          "version": "v1",
+          "capabilities": ["manifest"],
+          "reason": "o manifesto estruturado é observável na fixture"
+        },
+        {
+          "id": "runtime-trace",
+          "status": "unsupported",
+          "version": "none",
+          "capabilities": [],
+          "reason": "o corpus não contém telemetria"
+        }
+      ],
+      "criteria": {
+        "items": [
+          {
+            "id": "correctness",
+            "kind": "correctness",
+            "description": "A afirmação deve corresponder ao manifesto observado.",
+            "required": true,
+            "evidence_ids": ["eval-ctx-manifest"],
+            "gap_ids": []
+          },
+          {
+            "id": "gap",
+            "kind": "gap",
+            "description": "A resposta deve preservar a ausência de telemetria.",
+            "required": true,
+            "evidence_ids": [],
+            "gap_ids": ["eval-ctx-runtime-gap"]
+          }
+        ]
+      },
+      "reference_answer": {
+        "summary": "O manifesto sustenta o inventário; a fixture não sustenta execução observada.",
+        "claim_ids": ["eval-ctx-claim"],
+        "gap_ids": ["eval-ctx-runtime-gap"]
+      },
+      "policy": {
+        "source_access": "read-only",
+        "external_transfer": "deny",
+        "network_access": "disabled",
+        "mutation_access": "disabled",
+        "permissions": ["context.read", "filesystem.read"]
+      },
+      "created_at": "2026-08-17T00:00:00Z",
+      "updated_at": "2026-08-17T00:00:00Z"
+    }
+  ]
+}

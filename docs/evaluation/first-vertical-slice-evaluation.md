@@ -82,6 +82,32 @@ versão; não se reescreve o baseline usado em uma execução anterior. O result
 da execução deve acrescentar `run_id`, `analysis_snapshot`, estado de cobertura,
 falhas, resposta obtida, evidências recuperadas e métricas, sem alterar o caso.
 
+### Schema físico do caso
+
+O registro é serializado em JSON no schema `v1alpha2`. Além dos campos de
+identidade, escopo e evidência descritos acima, a versão atual torna explícitos
+`task`, `variants`, `tools`, `configurations`, `limitations`,
+`applicable_analyzers`, `criteria`, `reference_answer`, `policy` e o histórico
+`created_at`, `updated_at` e `supersedes`. Cada variante referencia as
+ferramentas e a configuração declaradas no próprio caso por identidade. Um
+comparador externo, quando aplicável, é representado pela variante
+`external-context`; não existe uma lista paralela de comparadores. Esses campos
+são metadados do caso: `analysis_snapshot`, resultados de execução, contagens,
+custos e métricas pertencem ao relatório versionado da execução e não podem ser
+gravados no caso.
+
+O loader aceita a fixture `v1alpha1` congelada em
+`testdata/evaluation/cases.json` e preserva o envelope `v1alpha1` ao decodificar,
+normalizar e serializar novamente. Como a versão legada não registrava tarefa,
+variante, ferramenta ou política, nenhum desses metadados é fabricado nem
+promovido para `v1alpha2`. A fixture explícita da versão atual está em
+`testdata/evaluation/cases.v1alpha2.json`.
+
+Identidades, enums, referências, listas e limites são validados antes da
+normalização. O schema aceita apenas metadados limitados e locadores relativos;
+segredos, conteúdo de fonte, caminhos absolutos ou traversal são rejeitados.
+Normalização ordena identidades e listas e nunca muta o valor recebido.
+
 ### Locadores de evidência
 
 Os locadores são verificáveis sem transportar a fonte para este repositório.
