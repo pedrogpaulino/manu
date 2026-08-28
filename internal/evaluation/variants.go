@@ -520,9 +520,10 @@ type VariantCaseReport struct {
 // VariantExecutionReport is the versioned result of one case-set
 // orchestration. Cases and variant results are never merged.
 type VariantExecutionReport struct {
-	Version      string              `json:"version"`
-	CasesVersion string              `json:"cases_version"`
-	Cases        []VariantCaseReport `json:"cases"`
+	Version      string                  `json:"version"`
+	CasesVersion string                  `json:"cases_version"`
+	Cases        []VariantCaseReport     `json:"cases"`
+	Efficiency   VariantEfficiencyReport `json:"efficiency"`
 }
 
 // VariantRunner orchestrates v1alpha2 cases through a validated executor
@@ -581,6 +582,11 @@ func (r *VariantRunner) Run(ctx context.Context, cases CaseSet) (VariantExecutio
 		}
 		report.Cases = append(report.Cases, caseReport)
 	}
+	efficiency, err := deriveVariantEfficiency(report.Cases)
+	if err != nil {
+		return VariantExecutionReport{}, err
+	}
+	report.Efficiency = efficiency
 	if err := report.Validate(); err != nil {
 		return VariantExecutionReport{}, err
 	}
@@ -953,6 +959,14 @@ func (r VariantExecutionReport) Validate() error {
 		if err := item.Validate(); err != nil {
 			return err
 		}
+	}
+	normalizedEfficiency, err := r.Efficiency.Normalize()
+	if err != nil {
+		return ErrInvalidVariantResult
+	}
+	expectedEfficiency, err := deriveVariantEfficiency(r.Cases)
+	if err != nil || !reflect.DeepEqual(normalizedEfficiency, expectedEfficiency) {
+		return ErrInvalidVariantResult
 	}
 	return nil
 }
