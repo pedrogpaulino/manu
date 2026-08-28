@@ -1,0 +1,449 @@
+{
+  "version": "v1alpha2",
+  "cases": [
+    {
+      "case_id": "EVAL-JAVA-LOC-01",
+      "case_version": 1,
+      "state": "curated",
+      "corpus_id": "java-quarkus3",
+      "corpus_revision": "java-quarkus3-factual-v1",
+      "source_id": "source-quarkus3",
+      "source_revision": "528a6670e30f2074548c63516046b58a61b5bca2e38ce9974e176f09c3554efb",
+      "scope": {
+        "purpose": "localizar elementos estruturais do recurso Quarkus",
+        "dimensions": ["landscape_inventory_structure", "entities_and_relationships"],
+        "artifacts": ["internal/analyzer/java/testdata/quarkus3/BookingResource.java"]
+      },
+      "inclusions": [{"ref": "internal/analyzer/java/testdata/quarkus3/BookingResource.java", "reason": "fixture Java Quarkus revisável"}],
+      "exclusions": [{"ref": "runtime-execution", "reason": "a fixture não contém execução observada"}, {"ref": "build-resolution", "reason": "o recorte usa análise lexical"}],
+      "authorization_ref": "local-read-only-fixtures",
+      "audience": "engenharia",
+      "competence_question": "Onde está declarado o recurso de reservas e sua rota base?",
+      "kind": "inventory",
+      "acceptable_claims": [{
+        "claim_id": "claim-java-localize-resource",
+        "statement": "O recurso BookingResource declara a rota base de reservas.",
+        "origin": "observed",
+        "match": "semantic",
+        "evidence_ids": ["evidence-java-resource"],
+        "gap_ids": ["gap-java-runtime"]
+      }],
+      "expected_evidence": [{
+        "evidence_id": "evidence-java-resource",
+        "kind": "symbol",
+        "locator": {"path": "internal/analyzer/java/testdata/quarkus3/BookingResource.java", "member": "BookingResource", "start_line": 11, "end_line": 12}
+      }],
+      "expected_gaps": [{"gap_id": "gap-java-runtime", "code": "runtime_not_observed", "statement": "A fixture não demonstra execução em runtime.", "attribution_stage": "extraction"}],
+      "authors": ["manu-evaluation-java"],
+      "reviewers": ["manu-contract-validation"],
+      "reviewed_at": "2026-08-28T00:00:00Z",
+      "failure_attribution": [{"stage": "retrieval", "code": "fixture_locator_missing", "reason": "o símbolo esperado não foi localizado na fixture"}],
+      "task": {"kind": "localization", "objective": "Localizar a declaração do recurso de reservas na fixture Java Quarkus."},
+      "variants": [
+        {"id": "direct", "kind": "direct-source", "tool_ids": ["filesystem-search"], "configuration_id": "direct-read-only", "capabilities": ["filesystem.read"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "text", "kind": "text-retrieval", "tool_ids": ["filesystem-search", "text-retrieval"], "configuration_id": "text-read-only", "capabilities": ["text.search"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "manu", "kind": "manu-context", "tool_ids": ["manu-context"], "configuration_id": "manu-local-read-only", "capabilities": ["context.read", "evidence.read"], "limitations": ["não confirma execução observada"]}
+      ],
+      "tools": [
+        {"id": "filesystem-search", "version": "v1", "role": "baseline-retrieval", "capabilities": ["filesystem.read"], "limitations": ["busca textual limitada"]},
+        {"id": "manu-context", "version": "v1", "role": "context-retrieval", "capabilities": ["context.read", "evidence.read"], "limitations": ["pacote limitado por orçamento"]},
+        {"id": "text-retrieval", "version": "v1", "role": "text-retrieval", "capabilities": ["text.search"], "limitations": ["busca somente textual"]}
+      ],
+      "configurations": [
+        {"id": "direct-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "manu-local-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "text-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only", "retrieval": "text"}}
+      ],
+      "limitations": ["sem telemetria de execução", "sem completude semântica", "sem transferência externa"],
+      "applicable_analyzers": [{"id": "java", "status": "applicable", "version": "1", "capabilities": ["landscape_inventory_structure", "entities_and_relationships", "flows_and_dependencies", "configuration_variations"], "reason": "análise lexical da fixture Java Quarkus"}],
+      "criteria": {"items": [
+        {"id": "correctness", "kind": "correctness", "description": "A afirmação deve corresponder ao símbolo observado.", "required": true, "evidence_ids": ["evidence-java-resource"], "gap_ids": []},
+        {"id": "completion", "kind": "completion", "description": "A tarefa deve declarar sua conclusão controlada.", "required": true, "evidence_ids": [], "gap_ids": []},
+        {"id": "evidence", "kind": "evidence", "description": "A resposta deve apontar a evidência esperada.", "required": true, "evidence_ids": ["evidence-java-resource"], "gap_ids": []},
+        {"id": "citation", "kind": "citation", "description": "A resposta deve citar a evidência esperada.", "required": true, "evidence_ids": ["evidence-java-resource"], "gap_ids": []},
+        {"id": "gap", "kind": "gap", "description": "A resposta deve preservar a limitação de runtime.", "required": true, "evidence_ids": [], "gap_ids": ["gap-java-runtime"]}
+      ]},
+      "reference_answer": {"summary": "BookingResource é o símbolo localizado; runtime permanece não observado.", "claim_ids": ["claim-java-localize-resource"], "gap_ids": ["gap-java-runtime"]},
+      "policy": {"source_access": "read-only", "external_transfer": "deny", "network_access": "disabled", "mutation_access": "disabled", "permissions": ["context.read", "filesystem.read"]},
+      "created_at": "2026-08-28T00:00:00Z",
+      "updated_at": "2026-08-28T00:00:00Z"
+    },
+    {
+      "case_id": "EVAL-JAVA-EXP-01",
+      "case_version": 1,
+      "state": "curated",
+      "corpus_id": "java-quarkus3",
+      "corpus_revision": "java-quarkus3-factual-v1",
+      "source_id": "source-quarkus3",
+      "source_revision": "528a6670e30f2074548c63516046b58a61b5bca2e38ce9974e176f09c3554efb",
+      "scope": {"purpose": "explicar estrutura diretamente observável no recurso Quarkus", "dimensions": ["entities_and_relationships", "configuration_variations"], "artifacts": ["internal/analyzer/java/testdata/quarkus3/BookingResource.java"]},
+      "inclusions": [{"ref": "internal/analyzer/java/testdata/quarkus3/BookingResource.java", "reason": "fixture Java Quarkus revisável"}],
+      "exclusions": [{"ref": "runtime-execution", "reason": "a fixture não contém execução observada"}, {"ref": "type-resolution", "reason": "o recorte não resolve tipos"}],
+      "authorization_ref": "local-read-only-fixtures",
+      "audience": "engenharia",
+      "competence_question": "Como o método list é declarado e qual configuração ele referencia?",
+      "kind": "provenance",
+      "acceptable_claims": [{"claim_id": "claim-java-explain-list", "statement": "O método list retorna uma resposta construída a partir da estrutura observada.", "origin": "observed", "match": "semantic", "evidence_ids": ["evidence-java-list", "evidence-java-config"], "gap_ids": ["gap-java-resolution"]}],
+      "expected_evidence": [
+        {"evidence_id": "evidence-java-list", "kind": "definition", "locator": {"path": "internal/analyzer/java/testdata/quarkus3/BookingResource.java", "member": "list", "start_line": 18, "end_line": 20}},
+        {"evidence_id": "evidence-java-config", "kind": "configuration", "locator": {"path": "internal/analyzer/java/testdata/quarkus3/BookingResource.java", "member": "ConfigProperty", "start_line": 13, "end_line": 14}}
+      ],
+      "expected_gaps": [{"gap_id": "gap-java-resolution", "code": "type_resolution_not_observed", "statement": "A fixture não sustenta resolução completa de tipos ou runtime.", "attribution_stage": "extraction"}],
+      "authors": ["manu-evaluation-java"], "reviewers": ["manu-contract-validation"], "reviewed_at": "2026-08-28T00:00:00Z",
+      "failure_attribution": [{"stage": "retrieval", "code": "explanation_evidence_missing", "reason": "a definição ou configuração esperada não foi localizada"}],
+      "task": {"kind": "explanation", "objective": "Explicar a estrutura observável do método list na fixture Java Quarkus."},
+      "variants": [
+        {"id": "direct", "kind": "direct-source", "tool_ids": ["filesystem-search"], "configuration_id": "direct-read-only", "capabilities": ["filesystem.read"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "text", "kind": "text-retrieval", "tool_ids": ["filesystem-search", "text-retrieval"], "configuration_id": "text-read-only", "capabilities": ["text.search"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "manu", "kind": "manu-context", "tool_ids": ["manu-context"], "configuration_id": "manu-local-read-only", "capabilities": ["context.read", "evidence.read"], "limitations": ["não confirma execução observada"]}
+      ],
+      "tools": [
+        {"id": "filesystem-search", "version": "v1", "role": "baseline-retrieval", "capabilities": ["filesystem.read"], "limitations": ["busca textual limitada"]},
+        {"id": "manu-context", "version": "v1", "role": "context-retrieval", "capabilities": ["context.read", "evidence.read"], "limitations": ["pacote limitado por orçamento"]},
+        {"id": "text-retrieval", "version": "v1", "role": "text-retrieval", "capabilities": ["text.search"], "limitations": ["busca somente textual"]}
+      ],
+      "configurations": [
+        {"id": "direct-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "manu-local-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "text-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only", "retrieval": "text"}}
+      ],
+      "limitations": ["sem telemetria de execução", "sem resolução de tipos", "sem completude semântica"],
+      "applicable_analyzers": [{"id": "java", "status": "applicable", "version": "1", "capabilities": ["landscape_inventory_structure", "entities_and_relationships", "flows_and_dependencies", "configuration_variations"], "reason": "análise lexical da fixture Java Quarkus"}],
+      "criteria": {"items": [
+        {"id": "correctness", "kind": "correctness", "description": "A explicação deve corresponder às declarações observadas.", "required": true, "evidence_ids": ["evidence-java-list", "evidence-java-config"], "gap_ids": []},
+        {"id": "completion", "kind": "completion", "description": "A tarefa deve declarar sua conclusão controlada.", "required": true, "evidence_ids": [], "gap_ids": []},
+        {"id": "evidence", "kind": "evidence", "description": "A explicação deve apontar as duas evidências esperadas.", "required": true, "evidence_ids": ["evidence-java-list", "evidence-java-config"], "gap_ids": []},
+        {"id": "citation", "kind": "citation", "description": "A explicação deve citar as evidências esperadas.", "required": true, "evidence_ids": ["evidence-java-list", "evidence-java-config"], "gap_ids": []},
+        {"id": "gap", "kind": "gap", "description": "A explicação deve preservar a limitação de resolução.", "required": true, "evidence_ids": [], "gap_ids": ["gap-java-resolution"]}
+      ]},
+      "reference_answer": {"summary": "list e ConfigProperty sustentam a explicação estrutural; resolução permanece limitada.", "claim_ids": ["claim-java-explain-list"], "gap_ids": ["gap-java-resolution"]},
+      "policy": {"source_access": "read-only", "external_transfer": "deny", "network_access": "disabled", "mutation_access": "disabled", "permissions": ["context.read", "filesystem.read"]},
+      "created_at": "2026-08-28T00:00:00Z", "updated_at": "2026-08-28T00:00:00Z"
+    },
+    {
+      "case_id": "EVAL-JAVA-IMP-01",
+      "case_version": 1,
+      "state": "curated",
+      "corpus_id": "java-quarkus3",
+      "corpus_revision": "java-quarkus3-factual-v1",
+      "source_id": "source-quarkus3",
+      "source_revision": "528a6670e30f2074548c63516046b58a61b5bca2e38ce9974e176f09c3554efb",
+      "scope": {"purpose": "avaliar um fluxo possível declarado na fixture Quarkus", "dimensions": ["entities_and_relationships", "flows_and_dependencies"], "artifacts": ["internal/analyzer/java/testdata/quarkus3/BookingResource.java"]},
+      "inclusions": [{"ref": "internal/analyzer/java/testdata/quarkus3/BookingResource.java", "reason": "rota e método declarados na fixture"}],
+      "exclusions": [{"ref": "runtime-execution", "reason": "não há telemetria de execução"}, {"ref": "transitive-certainty", "reason": "o fluxo é somente possibilidade estrutural"}],
+      "authorization_ref": "local-read-only-fixtures",
+      "audience": "engenharia",
+      "competence_question": "Qual fluxo possível liga a rota create ao recurso de reservas?",
+      "kind": "possible_flow",
+      "acceptable_claims": [{"claim_id": "claim-java-possible-flow", "statement": "A rota create e o método create compõem um fluxo possível observado lexicalmente.", "origin": "observed", "match": "semantic", "evidence_ids": ["evidence-java-create-route", "evidence-java-create-method"], "gap_ids": ["gap-java-flow-runtime"]}],
+      "expected_evidence": [
+        {"evidence_id": "evidence-java-create-route", "kind": "endpoint", "locator": {"path": "internal/analyzer/java/testdata/quarkus3/BookingResource.java", "member": "create", "start_line": 23, "end_line": 24}},
+        {"evidence_id": "evidence-java-create-method", "kind": "definition", "locator": {"path": "internal/analyzer/java/testdata/quarkus3/BookingResource.java", "member": "create", "start_line": 24, "end_line": 25}}
+      ],
+      "expected_gaps": [{"gap_id": "gap-java-flow-runtime", "code": "possible_flow_runtime_unobserved", "statement": "O fluxo é uma possibilidade estrutural; runtime, execução e transitividade não foram observados.", "attribution_stage": "retrieval"}],
+      "authors": ["manu-evaluation-java"], "reviewers": ["manu-contract-validation"], "reviewed_at": "2026-08-28T00:00:00Z",
+      "failure_attribution": [{"stage": "retrieval", "code": "possible_flow_unsupported", "reason": "a relação possível não possui todas as evidências declaradas"}],
+      "task": {"kind": "impact", "objective": "Avaliar o fluxo possível da rota create no recurso Java Quarkus, sem afirmar execução."},
+      "variants": [
+        {"id": "direct", "kind": "direct-source", "tool_ids": ["filesystem-search"], "configuration_id": "direct-read-only", "capabilities": ["filesystem.read"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "text", "kind": "text-retrieval", "tool_ids": ["filesystem-search", "text-retrieval"], "configuration_id": "text-read-only", "capabilities": ["text.search"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "manu", "kind": "manu-context", "tool_ids": ["manu-context"], "configuration_id": "manu-local-read-only", "capabilities": ["context.read", "evidence.read"], "limitations": ["não confirma execução observada"]}
+      ],
+      "tools": [
+        {"id": "filesystem-search", "version": "v1", "role": "baseline-retrieval", "capabilities": ["filesystem.read"], "limitations": ["busca textual limitada"]},
+        {"id": "manu-context", "version": "v1", "role": "context-retrieval", "capabilities": ["context.read", "evidence.read"], "limitations": ["pacote limitado por orçamento"]},
+        {"id": "text-retrieval", "version": "v1", "role": "text-retrieval", "capabilities": ["text.search"], "limitations": ["busca somente textual"]}
+      ],
+      "configurations": [
+        {"id": "direct-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "manu-local-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "text-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only", "retrieval": "text"}}
+      ],
+      "limitations": ["fluxo possível, não execução observada", "sem análise transitiva completa", "sem transferência externa"],
+      "applicable_analyzers": [{"id": "java", "status": "applicable", "version": "1", "capabilities": ["landscape_inventory_structure", "entities_and_relationships", "flows_and_dependencies", "configuration_variations"], "reason": "análise lexical de rota e método Java Quarkus"}],
+      "criteria": {"items": [
+        {"id": "correctness", "kind": "correctness", "description": "A possibilidade deve corresponder às declarações observadas.", "required": true, "evidence_ids": ["evidence-java-create-route", "evidence-java-create-method"], "gap_ids": []},
+        {"id": "completion", "kind": "completion", "description": "A tarefa deve declarar sua conclusão controlada.", "required": true, "evidence_ids": [], "gap_ids": []},
+        {"id": "evidence", "kind": "evidence", "description": "O fluxo possível deve apontar suas evidências.", "required": true, "evidence_ids": ["evidence-java-create-route", "evidence-java-create-method"], "gap_ids": []},
+        {"id": "citation", "kind": "citation", "description": "O fluxo possível deve citar suas evidências.", "required": true, "evidence_ids": ["evidence-java-create-route", "evidence-java-create-method"], "gap_ids": []},
+        {"id": "gap", "kind": "gap", "description": "A resposta deve manter a distinção entre possibilidade e execução.", "required": true, "evidence_ids": [], "gap_ids": ["gap-java-flow-runtime"]}
+      ]},
+      "reference_answer": {"summary": "create sustenta apenas um fluxo possível; runtime e transitividade permanecem não observados.", "claim_ids": ["claim-java-possible-flow"], "gap_ids": ["gap-java-flow-runtime"]},
+      "policy": {"source_access": "read-only", "external_transfer": "deny", "network_access": "disabled", "mutation_access": "disabled", "permissions": ["context.read", "filesystem.read"]},
+      "created_at": "2026-08-28T00:00:00Z", "updated_at": "2026-08-28T00:00:00Z"
+    },
+    {
+      "case_id": "EVAL-WSO2-LOC-01",
+      "case_version": 1,
+      "state": "curated",
+      "corpus_id": "wso2-integration",
+      "corpus_revision": "wso2-declarative-v1",
+      "source_id": "wso2-integration-source",
+      "source_revision": "1861914ca608c8fca2c4add57f7d7b43e6a711703431ecb41c3d7e6fb80a86db",
+      "scope": {"purpose": "localizar elementos declarativos da API WSO2", "dimensions": ["landscape_inventory_structure", "entities_and_relationships"], "artifacts": ["internal/analyzer/wso2/testdata/api-v1.xml", "internal/analyzer/wso2/testdata/shared-v1.xml"]},
+      "inclusions": [{"ref": "internal/analyzer/wso2/testdata/api-v1.xml", "reason": "API declarada na fixture WSO2"}, {"ref": "internal/analyzer/wso2/testdata/shared-v1.xml", "reason": "sequência relacionada na fixture"}],
+      "exclusions": [{"ref": "runtime-execution", "reason": "não há runtime WSO2 observado"}, {"ref": "network-resolution", "reason": "endereços externos não são acessados"}],
+      "authorization_ref": "local-read-only-fixtures", "audience": "integração", "competence_question": "Onde está declarada a OrdersAPI e seu endpoint?", "kind": "inventory",
+      "acceptable_claims": [{"claim_id": "claim-wso2-localize-api", "statement": "A API OrdersAPI e seu endpoint estão declarados no XML da fixture.", "origin": "observed", "match": "semantic", "evidence_ids": ["evidence-wso2-api", "evidence-wso2-endpoint"], "gap_ids": ["gap-wso2-runtime"]}],
+      "expected_evidence": [
+        {"evidence_id": "evidence-wso2-api", "kind": "named_element", "locator": {"path": "internal/analyzer/wso2/testdata/api-v1.xml", "member": "OrdersAPI", "start_line": 2, "end_line": 2}},
+        {"evidence_id": "evidence-wso2-endpoint", "kind": "endpoint", "locator": {"path": "internal/analyzer/wso2/testdata/api-v1.xml", "member": "ordersEndpoint", "start_line": 4, "end_line": 5}}
+      ],
+      "expected_gaps": [{"gap_id": "gap-wso2-runtime", "code": "runtime_version_unknown", "statement": "A fixture declarativa não comprova versão ou execução do runtime WSO2.", "attribution_stage": "extraction"}],
+      "authors": ["manu-evaluation-wso2"], "reviewers": ["manu-contract-validation"], "reviewed_at": "2026-08-28T00:00:00Z", "failure_attribution": [{"stage": "retrieval", "code": "wso2_locator_missing", "reason": "o elemento XML esperado não foi localizado"}],
+      "task": {"kind": "localization", "objective": "Localizar a API OrdersAPI e seu endpoint na fixture declarativa WSO2."},
+      "variants": [
+        {"id": "direct", "kind": "direct-source", "tool_ids": ["filesystem-search"], "configuration_id": "direct-read-only", "capabilities": ["filesystem.read"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "text", "kind": "text-retrieval", "tool_ids": ["filesystem-search", "text-retrieval"], "configuration_id": "text-read-only", "capabilities": ["text.search"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "manu", "kind": "manu-context", "tool_ids": ["manu-context"], "configuration_id": "manu-local-read-only", "capabilities": ["context.read", "evidence.read"], "limitations": ["não confirma execução observada"]}
+      ],
+      "tools": [
+        {"id": "filesystem-search", "version": "v1", "role": "baseline-retrieval", "capabilities": ["filesystem.read"], "limitations": ["busca textual limitada"]},
+        {"id": "manu-context", "version": "v1", "role": "context-retrieval", "capabilities": ["context.read", "evidence.read"], "limitations": ["pacote limitado por orçamento"]},
+        {"id": "text-retrieval", "version": "v1", "role": "text-retrieval", "capabilities": ["text.search"], "limitations": ["busca somente textual"]}
+      ],
+      "configurations": [
+        {"id": "direct-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "manu-local-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "text-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only", "retrieval": "text"}}
+      ],
+      "limitations": ["análise XML/CAR lexical", "versão de runtime desconhecida", "sem transferência externa"],
+      "applicable_analyzers": [{"id": "wso2", "status": "applicable", "version": "1", "capabilities": ["landscape_inventory_structure", "entities_and_relationships", "flows_and_dependencies", "configuration_variations"], "reason": "análise declarativa da fixture WSO2"}],
+      "criteria": {"items": [
+        {"id": "correctness", "kind": "correctness", "description": "A localização deve corresponder aos elementos XML observados.", "required": true, "evidence_ids": ["evidence-wso2-api", "evidence-wso2-endpoint"], "gap_ids": []},
+        {"id": "completion", "kind": "completion", "description": "A tarefa deve declarar sua conclusão controlada.", "required": true, "evidence_ids": [], "gap_ids": []},
+        {"id": "evidence", "kind": "evidence", "description": "A resposta deve apontar a API e o endpoint.", "required": true, "evidence_ids": ["evidence-wso2-api", "evidence-wso2-endpoint"], "gap_ids": []},
+        {"id": "citation", "kind": "citation", "description": "A resposta deve citar os elementos localizados.", "required": true, "evidence_ids": ["evidence-wso2-api", "evidence-wso2-endpoint"], "gap_ids": []},
+        {"id": "gap", "kind": "gap", "description": "A resposta deve preservar o limite de runtime.", "required": true, "evidence_ids": [], "gap_ids": ["gap-wso2-runtime"]}
+      ]},
+      "reference_answer": {"summary": "OrdersAPI e ordersEndpoint estão no XML; runtime WSO2 não é observado.", "claim_ids": ["claim-wso2-localize-api"], "gap_ids": ["gap-wso2-runtime"]},
+      "policy": {"source_access": "read-only", "external_transfer": "deny", "network_access": "disabled", "mutation_access": "disabled", "permissions": ["context.read", "filesystem.read"]},
+      "created_at": "2026-08-28T00:00:00Z", "updated_at": "2026-08-28T00:00:00Z"
+    },
+    {
+      "case_id": "EVAL-WSO2-EXP-01",
+      "case_version": 1,
+      "state": "curated",
+      "corpus_id": "wso2-integration", "corpus_revision": "wso2-declarative-v1", "source_id": "wso2-integration-source", "source_revision": "1861914ca608c8fca2c4add57f7d7b43e6a711703431ecb41c3d7e6fb80a86db",
+      "scope": {"purpose": "explicar relações declaradas entre API e sequência WSO2", "dimensions": ["entities_and_relationships", "flows_and_dependencies"], "artifacts": ["internal/analyzer/wso2/testdata/api-v1.xml", "internal/analyzer/wso2/testdata/shared-v1.xml"]},
+      "inclusions": [{"ref": "internal/analyzer/wso2/testdata/api-v1.xml", "reason": "API e include declarados"}, {"ref": "internal/analyzer/wso2/testdata/shared-v1.xml", "reason": "sequência incluída"}],
+      "exclusions": [{"ref": "runtime-execution", "reason": "a relação não foi executada"}, {"ref": "protected-values", "reason": "valores protegidos não fazem parte da avaliação"}],
+      "authorization_ref": "local-read-only-fixtures", "audience": "integração", "competence_question": "Como a API referencia a sequência compartilhada?", "kind": "provenance",
+      "acceptable_claims": [{"claim_id": "claim-wso2-explain-include", "statement": "A API referencia a sequência compartilhada por uma inclusão declarada.", "origin": "observed", "match": "semantic", "evidence_ids": ["evidence-wso2-include", "evidence-wso2-sequence"], "gap_ids": ["gap-wso2-semantics"]}],
+      "expected_evidence": [
+        {"evidence_id": "evidence-wso2-include", "kind": "dependency", "locator": {"path": "internal/analyzer/wso2/testdata/api-v1.xml", "member": "synapse/shared-v1.xml", "start_line": 2, "end_line": 2}},
+        {"evidence_id": "evidence-wso2-sequence", "kind": "named_element", "locator": {"path": "internal/analyzer/wso2/testdata/shared-v1.xml", "member": "sharedSequence", "start_line": 2, "end_line": 2}}
+      ],
+      "expected_gaps": [{"gap_id": "gap-wso2-semantics", "code": "declarative_semantics_limited", "statement": "A relação declarada não comprova semântica completa ou execução do runtime.", "attribution_stage": "retrieval"}],
+      "authors": ["manu-evaluation-wso2"], "reviewers": ["manu-contract-validation"], "reviewed_at": "2026-08-28T00:00:00Z", "failure_attribution": [{"stage": "retrieval", "code": "wso2_relation_evidence_missing", "reason": "o include ou a sequência esperada não foi localizada"}],
+      "task": {"kind": "explanation", "objective": "Explicar a relação declarada entre OrdersAPI e a sequência compartilhada WSO2."},
+      "variants": [
+        {"id": "direct", "kind": "direct-source", "tool_ids": ["filesystem-search"], "configuration_id": "direct-read-only", "capabilities": ["filesystem.read"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "text", "kind": "text-retrieval", "tool_ids": ["filesystem-search", "text-retrieval"], "configuration_id": "text-read-only", "capabilities": ["text.search"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "manu", "kind": "manu-context", "tool_ids": ["manu-context"], "configuration_id": "manu-local-read-only", "capabilities": ["context.read", "evidence.read"], "limitations": ["não confirma execução observada"]}
+      ],
+      "tools": [
+        {"id": "filesystem-search", "version": "v1", "role": "baseline-retrieval", "capabilities": ["filesystem.read"], "limitations": ["busca textual limitada"]},
+        {"id": "manu-context", "version": "v1", "role": "context-retrieval", "capabilities": ["context.read", "evidence.read"], "limitations": ["pacote limitado por orçamento"]},
+        {"id": "text-retrieval", "version": "v1", "role": "text-retrieval", "capabilities": ["text.search"], "limitations": ["busca somente textual"]}
+      ],
+      "configurations": [
+        {"id": "direct-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "manu-local-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "text-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only", "retrieval": "text"}}
+      ],
+      "limitations": ["análise declarativa lexical", "sem semântica de runtime", "sem transferência externa"],
+      "applicable_analyzers": [{"id": "wso2", "status": "applicable", "version": "1", "capabilities": ["landscape_inventory_structure", "entities_and_relationships", "flows_and_dependencies", "configuration_variations"], "reason": "análise declarativa da fixture WSO2"}],
+      "criteria": {"items": [
+        {"id": "correctness", "kind": "correctness", "description": "A explicação deve corresponder ao include e à sequência.", "required": true, "evidence_ids": ["evidence-wso2-include", "evidence-wso2-sequence"], "gap_ids": []},
+        {"id": "completion", "kind": "completion", "description": "A tarefa deve declarar sua conclusão controlada.", "required": true, "evidence_ids": [], "gap_ids": []},
+        {"id": "evidence", "kind": "evidence", "description": "A explicação deve apontar as duas declarações.", "required": true, "evidence_ids": ["evidence-wso2-include", "evidence-wso2-sequence"], "gap_ids": []},
+        {"id": "citation", "kind": "citation", "description": "A explicação deve citar as declarações esperadas.", "required": true, "evidence_ids": ["evidence-wso2-include", "evidence-wso2-sequence"], "gap_ids": []},
+        {"id": "gap", "kind": "gap", "description": "A explicação deve preservar o limite semântico.", "required": true, "evidence_ids": [], "gap_ids": ["gap-wso2-semantics"]}
+      ]},
+      "reference_answer": {"summary": "o include liga a API à sequência declarada; semântica de runtime permanece limitada.", "claim_ids": ["claim-wso2-explain-include"], "gap_ids": ["gap-wso2-semantics"]},
+      "policy": {"source_access": "read-only", "external_transfer": "deny", "network_access": "disabled", "mutation_access": "disabled", "permissions": ["context.read", "filesystem.read"]},
+      "created_at": "2026-08-28T00:00:00Z", "updated_at": "2026-08-28T00:00:00Z"
+    },
+    {
+      "case_id": "EVAL-WSO2-IMP-01",
+      "case_version": 1,
+      "state": "curated",
+      "corpus_id": "wso2-integration", "corpus_revision": "wso2-declarative-v1", "source_id": "wso2-integration-source", "source_revision": "1861914ca608c8fca2c4add57f7d7b43e6a711703431ecb41c3d7e6fb80a86db",
+      "scope": {"purpose": "avaliar fluxo possível declarado entre API e sequência WSO2", "dimensions": ["entities_and_relationships", "flows_and_dependencies"], "artifacts": ["internal/analyzer/wso2/testdata/api-v1.xml", "internal/analyzer/wso2/testdata/shared-v1.xml"]},
+      "inclusions": [{"ref": "internal/analyzer/wso2/testdata/api-v1.xml", "reason": "API e recurso declarados"}, {"ref": "internal/analyzer/wso2/testdata/shared-v1.xml", "reason": "sequência compartilhada declarada"}],
+      "exclusions": [{"ref": "runtime-execution", "reason": "não há execução observada"}, {"ref": "transitive-certainty", "reason": "a expansão é uma possibilidade, não certeza transitiva"}],
+      "authorization_ref": "local-read-only-fixtures", "audience": "integração", "competence_question": "Qual fluxo possível parte da OrdersAPI e alcança a sequência incluída?", "kind": "possible_flow",
+      "acceptable_claims": [{"claim_id": "claim-wso2-possible-flow", "statement": "A inclusão de synapse/shared-v1.xml aponta sharedSequence como fluxo possível declarado.", "origin": "observed", "match": "semantic", "evidence_ids": ["evidence-wso2-include-flow", "evidence-wso2-sequence-flow"], "gap_ids": ["gap-wso2-flow-runtime"]}],
+      "expected_evidence": [
+        {"evidence_id": "evidence-wso2-include-flow", "kind": "dependency", "locator": {"path": "internal/analyzer/wso2/testdata/api-v1.xml", "member": "synapse/shared-v1.xml", "start_line": 2, "end_line": 2}},
+        {"evidence_id": "evidence-wso2-sequence-flow", "kind": "named_element", "locator": {"path": "internal/analyzer/wso2/testdata/shared-v1.xml", "member": "sharedSequence", "start_line": 2, "end_line": 2}}
+      ],
+      "expected_gaps": [{"gap_id": "gap-wso2-flow-runtime", "code": "possible_flow_runtime_unobserved", "statement": "O encadeamento é somente possível; runtime e transitividade não foram observados.", "attribution_stage": "retrieval"}],
+      "authors": ["manu-evaluation-wso2"], "reviewers": ["manu-contract-validation"], "reviewed_at": "2026-08-28T00:00:00Z", "failure_attribution": [{"stage": "retrieval", "code": "possible_flow_incomplete", "reason": "o fluxo possível não tem suporte declarativo suficiente"}],
+      "task": {"kind": "impact", "objective": "Avaliar o fluxo possível da OrdersAPI até a sequência WSO2, sem afirmar execução ou transitividade."},
+      "variants": [
+        {"id": "direct", "kind": "direct-source", "tool_ids": ["filesystem-search"], "configuration_id": "direct-read-only", "capabilities": ["filesystem.read"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "text", "kind": "text-retrieval", "tool_ids": ["filesystem-search", "text-retrieval"], "configuration_id": "text-read-only", "capabilities": ["text.search"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "manu", "kind": "manu-context", "tool_ids": ["manu-context"], "configuration_id": "manu-local-read-only", "capabilities": ["context.read", "evidence.read"], "limitations": ["não confirma execução observada"]}
+      ],
+      "tools": [
+        {"id": "filesystem-search", "version": "v1", "role": "baseline-retrieval", "capabilities": ["filesystem.read"], "limitations": ["busca textual limitada"]},
+        {"id": "manu-context", "version": "v1", "role": "context-retrieval", "capabilities": ["context.read", "evidence.read"], "limitations": ["pacote limitado por orçamento"]},
+        {"id": "text-retrieval", "version": "v1", "role": "text-retrieval", "capabilities": ["text.search"], "limitations": ["busca somente textual"]}
+      ],
+      "configurations": [
+        {"id": "direct-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "manu-local-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "text-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only", "retrieval": "text"}}
+      ],
+      "limitations": ["fluxo possível, não execução", "sem análise transitiva completa", "sem transferência externa"],
+      "applicable_analyzers": [{"id": "wso2", "status": "applicable", "version": "1", "capabilities": ["landscape_inventory_structure", "entities_and_relationships", "flows_and_dependencies", "configuration_variations"], "reason": "análise lexical do XML WSO2"}],
+      "criteria": {"items": [
+        {"id": "correctness", "kind": "correctness", "description": "A possibilidade deve corresponder ao include e à sequência.", "required": true, "evidence_ids": ["evidence-wso2-include-flow", "evidence-wso2-sequence-flow"], "gap_ids": []},
+        {"id": "completion", "kind": "completion", "description": "A tarefa deve declarar sua conclusão controlada.", "required": true, "evidence_ids": [], "gap_ids": []},
+        {"id": "evidence", "kind": "evidence", "description": "O fluxo possível deve apontar seus elementos.", "required": true, "evidence_ids": ["evidence-wso2-include-flow", "evidence-wso2-sequence-flow"], "gap_ids": []},
+        {"id": "citation", "kind": "citation", "description": "O fluxo possível deve citar seus elementos.", "required": true, "evidence_ids": ["evidence-wso2-include-flow", "evidence-wso2-sequence-flow"], "gap_ids": []},
+        {"id": "gap", "kind": "gap", "description": "A resposta deve preservar a possibilidade sem alegar execução.", "required": true, "evidence_ids": [], "gap_ids": ["gap-wso2-flow-runtime"]}
+      ]},
+      "reference_answer": {"summary": "a inclusão de arquivo aponta a sequência declarada como fluxo possível; runtime e transitividade permanecem não observados.", "claim_ids": ["claim-wso2-possible-flow"], "gap_ids": ["gap-wso2-flow-runtime"]},
+      "policy": {"source_access": "read-only", "external_transfer": "deny", "network_access": "disabled", "mutation_access": "disabled", "permissions": ["context.read", "filesystem.read"]},
+      "created_at": "2026-08-28T00:00:00Z", "updated_at": "2026-08-28T00:00:00Z"
+    },
+    {
+      "case_id": "EVAL-PYTHON-LOC-01",
+      "case_version": 1,
+      "state": "curated",
+      "corpus_id": "python-frappe17", "corpus_revision": "python-frappe17-factual-v1", "source_id": "source-python-integration", "source_revision": "9eab722a13516e68b60d097b5c425e0dc1247df6ad330a23175249cc927ef9ab",
+      "scope": {"purpose": "localizar símbolos e configuração estrutural Python/Frappe", "dimensions": ["landscape_inventory_structure", "entities_and_relationships", "configuration_variations"], "artifacts": ["internal/analyzer/python/testdata/frappe17/doctype.py", "internal/analyzer/python/testdata/frappe17/hooks.py"]},
+      "inclusions": [{"ref": "internal/analyzer/python/testdata/frappe17/doctype.py", "reason": "DocType Python observado"}, {"ref": "internal/analyzer/python/testdata/frappe17/hooks.py", "reason": "configuração de eventos observada"}],
+      "exclusions": [{"ref": "runtime-execution", "reason": "não há acesso a site ou runtime"}, {"ref": "import-resolution", "reason": "o frontend é safe-static lexical"}],
+      "authorization_ref": "local-read-only-fixtures", "audience": "aplicação", "competence_question": "Onde estão o símbolo SalesOrder e seus eventos?", "kind": "inventory",
+      "acceptable_claims": [{"claim_id": "claim-python-localize-doctype", "statement": "SalesOrder e doc_events estão presentes nas fixtures Python/Frappe.", "origin": "observed", "match": "semantic", "evidence_ids": ["evidence-python-sales-order", "evidence-python-events"], "gap_ids": ["gap-python-runtime"]}],
+      "expected_evidence": [
+        {"evidence_id": "evidence-python-sales-order", "kind": "symbol", "locator": {"path": "internal/analyzer/python/testdata/frappe17/doctype.py", "member": "SalesOrder", "start_line": 9, "end_line": 9}},
+        {"evidence_id": "evidence-python-events", "kind": "configuration", "locator": {"path": "internal/analyzer/python/testdata/frappe17/hooks.py", "member": "doc_events", "start_line": 3, "end_line": 6}}
+      ],
+      "expected_gaps": [{"gap_id": "gap-python-runtime", "code": "runtime_site_not_observed", "statement": "As fixtures não representam execução ou acesso a um site Frappe.", "attribution_stage": "extraction"}],
+      "authors": ["manu-evaluation-python"], "reviewers": ["manu-contract-validation"], "reviewed_at": "2026-08-28T00:00:00Z", "failure_attribution": [{"stage": "retrieval", "code": "python_locator_missing", "reason": "o símbolo ou configuração esperada não foi localizada"}],
+      "task": {"kind": "localization", "objective": "Localizar o DocType SalesOrder e a configuração doc_events nas fixtures Python/Frappe."},
+      "variants": [
+        {"id": "direct", "kind": "direct-source", "tool_ids": ["filesystem-search"], "configuration_id": "direct-read-only", "capabilities": ["filesystem.read"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "text", "kind": "text-retrieval", "tool_ids": ["filesystem-search", "text-retrieval"], "configuration_id": "text-read-only", "capabilities": ["text.search"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "manu", "kind": "manu-context", "tool_ids": ["manu-context"], "configuration_id": "manu-local-read-only", "capabilities": ["context.read", "evidence.read"], "limitations": ["não confirma execução observada"]}
+      ],
+      "tools": [
+        {"id": "filesystem-search", "version": "v1", "role": "baseline-retrieval", "capabilities": ["filesystem.read"], "limitations": ["busca textual limitada"]},
+        {"id": "manu-context", "version": "v1", "role": "context-retrieval", "capabilities": ["context.read", "evidence.read"], "limitations": ["pacote limitado por orçamento"]},
+        {"id": "text-retrieval", "version": "v1", "role": "text-retrieval", "capabilities": ["text.search"], "limitations": ["busca somente textual"]}
+      ],
+      "configurations": [
+        {"id": "direct-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "manu-local-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "text-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only", "retrieval": "text"}}
+      ],
+      "limitations": ["análise lexical safe-static", "sem import-resolution", "sem acesso a site ou runtime"],
+      "applicable_analyzers": [{"id": "python", "status": "applicable", "version": "1", "capabilities": ["landscape_inventory_structure", "entities_and_relationships", "flows_and_dependencies", "configuration_variations"], "reason": "análise estrutural da fixture Python/Frappe"}],
+      "criteria": {"items": [
+        {"id": "correctness", "kind": "correctness", "description": "A localização deve corresponder aos símbolos observados.", "required": true, "evidence_ids": ["evidence-python-sales-order", "evidence-python-events"], "gap_ids": []},
+        {"id": "completion", "kind": "completion", "description": "A tarefa deve declarar sua conclusão controlada.", "required": true, "evidence_ids": [], "gap_ids": []},
+        {"id": "evidence", "kind": "evidence", "description": "A resposta deve apontar símbolo e configuração.", "required": true, "evidence_ids": ["evidence-python-sales-order", "evidence-python-events"], "gap_ids": []},
+        {"id": "citation", "kind": "citation", "description": "A resposta deve citar símbolo e configuração.", "required": true, "evidence_ids": ["evidence-python-sales-order", "evidence-python-events"], "gap_ids": []},
+        {"id": "gap", "kind": "gap", "description": "A resposta deve preservar o limite de runtime/site.", "required": true, "evidence_ids": [], "gap_ids": ["gap-python-runtime"]}
+      ]},
+      "reference_answer": {"summary": "SalesOrder e doc_events são localizáveis; runtime Frappe não é observado.", "claim_ids": ["claim-python-localize-doctype"], "gap_ids": ["gap-python-runtime"]},
+      "policy": {"source_access": "read-only", "external_transfer": "deny", "network_access": "disabled", "mutation_access": "disabled", "permissions": ["context.read", "filesystem.read"]},
+      "created_at": "2026-08-28T00:00:00Z", "updated_at": "2026-08-28T00:00:00Z"
+    },
+    {
+      "case_id": "EVAL-PYTHON-EXP-01",
+      "case_version": 1,
+      "state": "curated",
+      "corpus_id": "python-frappe17", "corpus_revision": "python-frappe17-factual-v1", "source_id": "source-python-integration", "source_revision": "9eab722a13516e68b60d097b5c425e0dc1247df6ad330a23175249cc927ef9ab",
+      "scope": {"purpose": "explicar chamadas e configuração observáveis no DocType Python", "dimensions": ["entities_and_relationships", "flows_and_dependencies", "configuration_variations"], "artifacts": ["internal/analyzer/python/testdata/frappe17/doctype.py", "internal/analyzer/python/testdata/frappe17/hooks.py"]},
+      "inclusions": [{"ref": "internal/analyzer/python/testdata/frappe17/doctype.py", "reason": "chamadas Frappe literais"}, {"ref": "internal/analyzer/python/testdata/frappe17/hooks.py", "reason": "eventos e configuração declarados"}],
+      "exclusions": [{"ref": "runtime-execution", "reason": "não há execução Python/Frappe"}, {"ref": "dynamic-targets", "reason": "alvos dinâmicos são gaps do frontend"}],
+      "authorization_ref": "local-read-only-fixtures", "audience": "aplicação", "competence_question": "Quais chamadas Frappe e eventos são observáveis estruturalmente?", "kind": "provenance",
+      "acceptable_claims": [{"claim_id": "claim-python-explain-calls", "statement": "O DocType contém chamadas Frappe literais e a fixture declara eventos de documento.", "origin": "observed", "match": "semantic", "evidence_ids": ["evidence-python-load-status", "evidence-python-doc-events"], "gap_ids": ["gap-python-dynamic"]}],
+      "expected_evidence": [
+        {"evidence_id": "evidence-python-load-status", "kind": "definition", "locator": {"path": "internal/analyzer/python/testdata/frappe17/doctype.py", "member": "load_status", "start_line": 13, "end_line": 17}},
+        {"evidence_id": "evidence-python-doc-events", "kind": "configuration", "locator": {"path": "internal/analyzer/python/testdata/frappe17/hooks.py", "member": "doc_events", "start_line": 3, "end_line": 6}}
+      ],
+      "expected_gaps": [{"gap_id": "gap-python-dynamic", "code": "dynamic_targets_not_resolved", "statement": "Alvos dinâmicos, imports e semântica ORM não são resolvidos pelo perfil safe-static.", "attribution_stage": "extraction"}],
+      "authors": ["manu-evaluation-python"], "reviewers": ["manu-contract-validation"], "reviewed_at": "2026-08-28T00:00:00Z", "failure_attribution": [{"stage": "retrieval", "code": "python_explanation_evidence_missing", "reason": "a chamada ou evento esperado não foi localizado"}],
+      "task": {"kind": "explanation", "objective": "Explicar as chamadas Frappe e os eventos observáveis na fixture Python/Frappe."},
+      "variants": [
+        {"id": "direct", "kind": "direct-source", "tool_ids": ["filesystem-search"], "configuration_id": "direct-read-only", "capabilities": ["filesystem.read"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "text", "kind": "text-retrieval", "tool_ids": ["filesystem-search", "text-retrieval"], "configuration_id": "text-read-only", "capabilities": ["text.search"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "manu", "kind": "manu-context", "tool_ids": ["manu-context"], "configuration_id": "manu-local-read-only", "capabilities": ["context.read", "evidence.read"], "limitations": ["não confirma execução observada"]}
+      ],
+      "tools": [
+        {"id": "filesystem-search", "version": "v1", "role": "baseline-retrieval", "capabilities": ["filesystem.read"], "limitations": ["busca textual limitada"]},
+        {"id": "manu-context", "version": "v1", "role": "context-retrieval", "capabilities": ["context.read", "evidence.read"], "limitations": ["pacote limitado por orçamento"]},
+        {"id": "text-retrieval", "version": "v1", "role": "text-retrieval", "capabilities": ["text.search"], "limitations": ["busca somente textual"]}
+      ],
+      "configurations": [
+        {"id": "direct-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "manu-local-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "text-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only", "retrieval": "text"}}
+      ],
+      "limitations": ["análise estrutural lexical", "sem import-resolution ou semântica ORM", "sem execução"],
+      "applicable_analyzers": [{"id": "python", "status": "applicable", "version": "1", "capabilities": ["landscape_inventory_structure", "entities_and_relationships", "flows_and_dependencies", "configuration_variations"], "reason": "análise estrutural da fixture Python/Frappe"}],
+      "criteria": {"items": [
+        {"id": "correctness", "kind": "correctness", "description": "A explicação deve corresponder às chamadas e eventos observados.", "required": true, "evidence_ids": ["evidence-python-load-status", "evidence-python-doc-events"], "gap_ids": []},
+        {"id": "completion", "kind": "completion", "description": "A tarefa deve declarar sua conclusão controlada.", "required": true, "evidence_ids": [], "gap_ids": []},
+        {"id": "evidence", "kind": "evidence", "description": "A explicação deve apontar chamadas e eventos.", "required": true, "evidence_ids": ["evidence-python-load-status", "evidence-python-doc-events"], "gap_ids": []},
+        {"id": "citation", "kind": "citation", "description": "A explicação deve citar chamadas e eventos.", "required": true, "evidence_ids": ["evidence-python-load-status", "evidence-python-doc-events"], "gap_ids": []},
+        {"id": "gap", "kind": "gap", "description": "A explicação deve preservar alvos dinâmicos não resolvidos.", "required": true, "evidence_ids": [], "gap_ids": ["gap-python-dynamic"]}
+      ]},
+      "reference_answer": {"summary": "load_status e doc_events sustentam a explicação; alvos dinâmicos permanecem gap.", "claim_ids": ["claim-python-explain-calls"], "gap_ids": ["gap-python-dynamic"]},
+      "policy": {"source_access": "read-only", "external_transfer": "deny", "network_access": "disabled", "mutation_access": "disabled", "permissions": ["context.read", "filesystem.read"]},
+      "created_at": "2026-08-28T00:00:00Z", "updated_at": "2026-08-28T00:00:00Z"
+    },
+    {
+      "case_id": "EVAL-PYTHON-IMP-01",
+      "case_version": 1,
+      "state": "curated",
+      "corpus_id": "python-frappe17", "corpus_revision": "python-frappe17-factual-v1", "source_id": "source-python-integration", "source_revision": "9eab722a13516e68b60d097b5c425e0dc1247df6ad330a23175249cc927ef9ab",
+      "scope": {"purpose": "avaliar fluxo possível entre DocType e eventos Python/Frappe", "dimensions": ["entities_and_relationships", "flows_and_dependencies"], "artifacts": ["internal/analyzer/python/testdata/frappe17/doctype.py", "internal/analyzer/python/testdata/frappe17/hooks.py"]},
+      "inclusions": [{"ref": "internal/analyzer/python/testdata/frappe17/doctype.py", "reason": "método do DocType observado"}, {"ref": "internal/analyzer/python/testdata/frappe17/hooks.py", "reason": "eventos declarados"}],
+      "exclusions": [{"ref": "runtime-execution", "reason": "não há execução observada"}, {"ref": "transitive-certainty", "reason": "a relação é possibilidade estrutural"}],
+      "authorization_ref": "local-read-only-fixtures", "audience": "aplicação", "competence_question": "Qual fluxo possível liga SalesOrder aos eventos declarados?", "kind": "possible_flow",
+      "acceptable_claims": [{"claim_id": "claim-python-possible-flow", "statement": "SalesOrder e doc_events sustentam um fluxo possível, sem prova de dispatch em runtime.", "origin": "observed", "match": "semantic", "evidence_ids": ["evidence-python-sales-order-flow", "evidence-python-event-flow"], "gap_ids": ["gap-python-flow-runtime"]}],
+      "expected_evidence": [
+        {"evidence_id": "evidence-python-sales-order-flow", "kind": "definition", "locator": {"path": "internal/analyzer/python/testdata/frappe17/doctype.py", "member": "SalesOrder", "start_line": 9, "end_line": 13}},
+        {"evidence_id": "evidence-python-event-flow", "kind": "configuration", "locator": {"path": "internal/analyzer/python/testdata/frappe17/hooks.py", "member": "sales_order", "start_line": 4, "end_line": 4}}
+      ],
+      "expected_gaps": [{"gap_id": "gap-python-flow-runtime", "code": "possible_flow_dispatch_unobserved", "statement": "O vínculo é um fluxo possível; dispatch, runtime e transitividade não foram observados.", "attribution_stage": "retrieval"}],
+      "authors": ["manu-evaluation-python"], "reviewers": ["manu-contract-validation"], "reviewed_at": "2026-08-28T00:00:00Z", "failure_attribution": [{"stage": "retrieval", "code": "python_possible_flow_incomplete", "reason": "o fluxo possível não tem suporte suficiente nas fixtures"}],
+      "task": {"kind": "impact", "objective": "Avaliar o fluxo possível entre SalesOrder e seus eventos, sem afirmar dispatch ou execução."},
+      "variants": [
+        {"id": "direct", "kind": "direct-source", "tool_ids": ["filesystem-search"], "configuration_id": "direct-read-only", "capabilities": ["filesystem.read"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "text", "kind": "text-retrieval", "tool_ids": ["filesystem-search", "text-retrieval"], "configuration_id": "text-read-only", "capabilities": ["text.search"], "limitations": ["não oferece fechamento relacional"]},
+        {"id": "manu", "kind": "manu-context", "tool_ids": ["manu-context"], "configuration_id": "manu-local-read-only", "capabilities": ["context.read", "evidence.read"], "limitations": ["não confirma execução observada"]}
+      ],
+      "tools": [
+        {"id": "filesystem-search", "version": "v1", "role": "baseline-retrieval", "capabilities": ["filesystem.read"], "limitations": ["busca textual limitada"]},
+        {"id": "manu-context", "version": "v1", "role": "context-retrieval", "capabilities": ["context.read", "evidence.read"], "limitations": ["pacote limitado por orçamento"]},
+        {"id": "text-retrieval", "version": "v1", "role": "text-retrieval", "capabilities": ["text.search"], "limitations": ["busca somente textual"]}
+      ],
+      "configurations": [
+        {"id": "direct-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "manu-local-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only"}},
+        {"id": "text-read-only", "version": "v1", "settings": {"network": "disabled", "source_access": "read-only", "retrieval": "text"}}
+      ],
+      "limitations": ["fluxo possível, não dispatch observado", "sem análise transitiva completa", "sem transferência externa"],
+      "applicable_analyzers": [{"id": "python", "status": "applicable", "version": "1", "capabilities": ["landscape_inventory_structure", "entities_and_relationships", "flows_and_dependencies", "configuration_variations"], "reason": "análise estrutural da fixture Python/Frappe"}],
+      "criteria": {"items": [
+        {"id": "correctness", "kind": "correctness", "description": "A possibilidade deve corresponder ao DocType e ao evento observado.", "required": true, "evidence_ids": ["evidence-python-sales-order-flow", "evidence-python-event-flow"], "gap_ids": []},
+        {"id": "completion", "kind": "completion", "description": "A tarefa deve declarar sua conclusão controlada.", "required": true, "evidence_ids": [], "gap_ids": []},
+        {"id": "evidence", "kind": "evidence", "description": "O fluxo possível deve apontar DocType e evento.", "required": true, "evidence_ids": ["evidence-python-sales-order-flow", "evidence-python-event-flow"], "gap_ids": []},
+        {"id": "citation", "kind": "citation", "description": "O fluxo possível deve citar DocType e evento.", "required": true, "evidence_ids": ["evidence-python-sales-order-flow", "evidence-python-event-flow"], "gap_ids": []},
+        {"id": "gap", "kind": "gap", "description": "A resposta deve distinguir possibilidade de dispatch real.", "required": true, "evidence_ids": [], "gap_ids": ["gap-python-flow-runtime"]}
+      ]},
+      "reference_answer": {"summary": "SalesOrder e sales_order sustentam fluxo possível; dispatch e runtime não são observados.", "claim_ids": ["claim-python-possible-flow"], "gap_ids": ["gap-python-flow-runtime"]},
+      "policy": {"source_access": "read-only", "external_transfer": "deny", "network_access": "disabled", "mutation_access": "disabled", "permissions": ["context.read", "filesystem.read"]},
+      "created_at": "2026-08-28T00:00:00Z", "updated_at": "2026-08-28T00:00:00Z"
+    }
+  ]
+}
