@@ -46,7 +46,8 @@ func TestVariantRunnerRoutesBuiltInsInNormalizedOrderAndKeepsResultsSeparate(t *
 				Status:       VariantStatusCompleted,
 				OutputDigest: variantTestDigest(string(expected)),
 				EvidenceIDs:  []string{"eval-ctx-manifest"},
-				CitationIDs:  []string{"citation-" + string(expected)},
+				ClaimIDs:     []string{"eval-ctx-claim"},
+				Citations:    []VariantCitation{{ID: "citation-" + string(expected), ClaimID: "eval-ctx-claim", EvidenceID: "eval-ctx-manifest"}},
 			}, nil
 		})
 	}
@@ -80,7 +81,7 @@ func TestVariantRunnerRoutesBuiltInsInNormalizedOrderAndKeepsResultsSeparate(t *
 		if execution.Outcome != VariantOutcomeCompleted || execution.Result.Status != VariantStatusCompleted {
 			t.Fatalf("execution %d = %#v", index, execution)
 		}
-		if execution.Result.OutputDigest == "" || len(execution.Result.EvidenceIDs) != 1 || len(execution.Result.CitationIDs) != 1 {
+		if execution.Result.OutputDigest == "" || len(execution.Result.EvidenceIDs) != 1 || len(execution.Result.Citations) != 1 {
 			t.Fatalf("content-free result %d = %#v", index, execution.Result)
 		}
 	}

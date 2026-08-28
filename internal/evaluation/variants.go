@@ -69,16 +69,28 @@ type VariantExecutionResult struct {
 	Conclusion   VariantConclusion      `json:"conclusion"`
 	OutputDigest string                 `json:"output_digest,omitempty"`
 	EvidenceIDs  []string               `json:"evidence_ids,omitempty"`
-	CitationIDs  []string               `json:"citation_ids,omitempty"`
+	ClaimIDs     []string               `json:"claim_ids,omitempty"`
+	GapIDs       []string               `json:"gap_ids,omitempty"`
+	Citations    []VariantCitation      `json:"citations,omitempty"`
 	Limitations  []string               `json:"limitations,omitempty"`
 	Metrics      *VariantMetrics        `json:"metrics,omitempty"`
+}
+
+// VariantCitation identifies one claim/evidence support edge without
+// carrying either response or source content across the executor boundary.
+type VariantCitation struct {
+	ID         string `json:"id"`
+	ClaimID    string `json:"claim_id"`
+	EvidenceID string `json:"evidence_id"`
 }
 
 // Clone returns a detached result, including optional metric observations.
 func (r VariantExecutionResult) Clone() VariantExecutionResult {
 	clone := r
 	clone.EvidenceIDs = cloneCaseStrings(r.EvidenceIDs)
-	clone.CitationIDs = cloneCaseStrings(r.CitationIDs)
+	clone.ClaimIDs = cloneCaseStrings(r.ClaimIDs)
+	clone.GapIDs = cloneCaseStrings(r.GapIDs)
+	clone.Citations = append([]VariantCitation(nil), r.Citations...)
 	clone.Limitations = cloneCaseStrings(r.Limitations)
 	if r.Metrics != nil {
 		metrics := r.Metrics.Clone()
@@ -136,9 +148,33 @@ func (r VariantExecutionResult) Normalize() (VariantExecutionResult, error) {
 	if err != nil {
 		return VariantExecutionResult{}, err
 	}
-	result.CitationIDs, err = normalizeVariantIDs(result.CitationIDs)
+	result.ClaimIDs, err = normalizeVariantIDs(result.ClaimIDs)
 	if err != nil {
 		return VariantExecutionResult{}, err
+	}
+	result.GapIDs, err = normalizeVariantIDs(result.GapIDs)
+	if err != nil {
+		return VariantExecutionResult{}, err
+	}
+	result.Citations, err = normalizeVariantCitations(result.Citations)
+	if err != nil {
+		return VariantExecutionResult{}, err
+	}
+	claimIDs := make(map[string]struct{}, len(result.ClaimIDs))
+	for _, id := range result.ClaimIDs {
+		claimIDs[id] = struct{}{}
+	}
+	evidenceIDs := make(map[string]struct{}, len(result.EvidenceIDs))
+	for _, id := range result.EvidenceIDs {
+		evidenceIDs[id] = struct{}{}
+	}
+	for _, citation := range result.Citations {
+		if _, ok := claimIDs[citation.ClaimID]; !ok {
+			return VariantExecutionResult{}, ErrInvalidVariantResult
+		}
+		if _, ok := evidenceIDs[citation.EvidenceID]; !ok {
+			return VariantExecutionResult{}, ErrInvalidVariantResult
+		}
 	}
 	result.Limitations, err = normalizeVariantLimitations(result.Limitations)
 	if err != nil {
@@ -453,6 +489,7 @@ type VariantExecutionRecord struct {
 	Outcome              VariantOutcome         `json:"outcome"`
 	ErrorCode            string                 `json:"error_code,omitempty"`
 	Result               VariantExecutionResult `json:"result"`
+	Quality              *VariantQuality        `json:"quality"`
 	Differences          *VariantDifference     `json:"differences,omitempty"`
 }
 
@@ -606,6 +643,9 @@ func (r *VariantRunner) runNormalizedCase(ctx context.Context, item EvaluationCa
 			record.Outcome = VariantOutcomeUnavailable
 			record.ErrorCode = "executor_unavailable"
 			record.Result = unavailableVariantResult()
+			if err := attachVariantQuality(item, &record); err != nil {
+				return VariantCaseReport{}, err
+			}
 			caseReport.Executions = append(caseReport.Executions, record)
 			continue
 		}
@@ -620,6 +660,9 @@ func (r *VariantRunner) runNormalizedCase(ctx context.Context, item EvaluationCa
 			record.Outcome = VariantOutcomeFailed
 			record.ErrorCode = "executor_failed"
 			record.Result = failedVariantResult("executor_failed")
+			if err := attachVariantQuality(item, &record); err != nil {
+				return VariantCaseReport{}, err
+			}
 			caseReport.Executions = append(caseReport.Executions, record)
 			continue
 		}
@@ -628,6 +671,9 @@ func (r *VariantRunner) runNormalizedCase(ctx context.Context, item EvaluationCa
 			record.Outcome = VariantOutcomeFailed
 			record.ErrorCode = "invalid_executor_result"
 			record.Result = failedVariantResult("invalid_executor_result")
+			if err := attachVariantQuality(item, &record); err != nil {
+				return VariantCaseReport{}, err
+			}
 			caseReport.Executions = append(caseReport.Executions, record)
 			continue
 		}
@@ -639,6 +685,9 @@ func (r *VariantRunner) runNormalizedCase(ctx context.Context, item EvaluationCa
 			record.ErrorCode = "executor_unavailable"
 		} else if normalizedResult.Status == VariantStatusCancelled {
 			record.ErrorCode = "cancelled"
+		}
+		if err := attachVariantQuality(item, &record); err != nil {
+			return VariantCaseReport{}, err
 		}
 		caseReport.Executions = append(caseReport.Executions, record)
 	}
@@ -770,6 +819,27 @@ func (r VariantExecutionRecord) Validate() error {
 		return ErrInvalidVariantResult
 	}
 	if err := r.Result.Validate(); err != nil {
+		return ErrInvalidVariantResult
+	}
+	if r.Quality == nil || r.Quality.Validate() != nil {
+		return ErrInvalidVariantResult
+	}
+	if r.Quality.Evidence.Retrieved != len(r.Result.EvidenceIDs) ||
+		r.Quality.Citations.Total != len(r.Result.Citations) ||
+		r.Quality.Gaps.Recognized > len(r.Result.GapIDs) {
+		return ErrInvalidVariantResult
+	}
+	abstentionActual := r.Result.Conclusion == VariantConclusionAbstained
+	if r.Quality.Abstention.Actual != abstentionActual {
+		return ErrInvalidVariantResult
+	}
+	evaluableCompletion := r.Result.Status == VariantStatusCompleted &&
+		(r.Result.Conclusion == VariantConclusionPassed || abstentionActual)
+	expectedCompleted := r.Result.Status == VariantStatusCompleted &&
+		(r.Result.Conclusion == VariantConclusionPassed ||
+			(r.Result.Conclusion == VariantConclusionAbstained && r.Quality.Abstention.Expected))
+	expectedAppropriate := evaluableCompletion && r.Quality.Abstention.Expected == abstentionActual
+	if r.Quality.Completed != expectedCompleted || r.Quality.Abstention.Appropriate != expectedAppropriate {
 		return ErrInvalidVariantResult
 	}
 	if VariantExecutionStatus(r.Outcome) != r.Result.Status {
@@ -1030,6 +1100,44 @@ func normalizeVariantIDs(values []string) ([]string, error) {
 	sort.Strings(result)
 	if err := validateUniqueList(result); err != nil {
 		return nil, ErrInvalidVariantResult
+	}
+	return result, nil
+}
+
+func normalizeVariantCitations(values []VariantCitation) ([]VariantCitation, error) {
+	if len(values) > maxListItems {
+		return nil, ErrInvalidVariantResult
+	}
+	if values == nil {
+		return nil, nil
+	}
+	result := append([]VariantCitation(nil), values...)
+	for _, citation := range result {
+		if err := validateIdentifier("variant citation", citation.ID, maxCaseIDBytes); err != nil {
+			return nil, ErrInvalidVariantResult
+		}
+		if err := validateIdentifier("variant citation claim", citation.ClaimID, maxCaseIDBytes); err != nil {
+			return nil, ErrInvalidVariantResult
+		}
+		if err := validateIdentifier("variant citation evidence", citation.EvidenceID, maxCaseIDBytes); err != nil {
+			return nil, ErrInvalidVariantResult
+		}
+	}
+	sort.SliceStable(result, func(left, right int) bool {
+		if result[left].ID != result[right].ID {
+			return result[left].ID < result[right].ID
+		}
+		if result[left].ClaimID != result[right].ClaimID {
+			return result[left].ClaimID < result[right].ClaimID
+		}
+		return result[left].EvidenceID < result[right].EvidenceID
+	})
+	seen := make(map[string]struct{}, len(result))
+	for _, citation := range result {
+		if _, exists := seen[citation.ID]; exists {
+			return nil, ErrInvalidVariantResult
+		}
+		seen[citation.ID] = struct{}{}
 	}
 	return result, nil
 }
