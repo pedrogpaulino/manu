@@ -71,6 +71,20 @@ type VariantExecutionResult struct {
 	EvidenceIDs  []string               `json:"evidence_ids,omitempty"`
 	CitationIDs  []string               `json:"citation_ids,omitempty"`
 	Limitations  []string               `json:"limitations,omitempty"`
+	Metrics      *VariantMetrics        `json:"metrics,omitempty"`
+}
+
+// Clone returns a detached result, including optional metric observations.
+func (r VariantExecutionResult) Clone() VariantExecutionResult {
+	clone := r
+	clone.EvidenceIDs = cloneCaseStrings(r.EvidenceIDs)
+	clone.CitationIDs = cloneCaseStrings(r.CitationIDs)
+	clone.Limitations = cloneCaseStrings(r.Limitations)
+	if r.Metrics != nil {
+		metrics := r.Metrics.Clone()
+		clone.Metrics = &metrics
+	}
+	return clone
 }
 
 // Validate checks a result without exposing an executor error or payload.
@@ -129,6 +143,13 @@ func (r VariantExecutionResult) Normalize() (VariantExecutionResult, error) {
 	result.Limitations, err = normalizeVariantLimitations(result.Limitations)
 	if err != nil {
 		return VariantExecutionResult{}, err
+	}
+	if result.Metrics != nil {
+		normalizedMetrics, metricsErr := result.Metrics.Normalize()
+		if metricsErr != nil {
+			return VariantExecutionResult{}, metricsErr
+		}
+		result.Metrics = &normalizedMetrics
 	}
 	return result, nil
 }
