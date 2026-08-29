@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/pedrogpaulino/manu/internal/evidence"
+	"github.com/pedrogpaulino/manu/internal/fact"
 )
 
 func TestApplyLocalContextPolicyPreservesDeniedTransferForLocalPackage(t *testing.T) {
@@ -92,6 +93,155 @@ func TestApplyLocalContextPolicyHonorsPersistenceAndRedaction(t *testing.T) {
 			t.Fatalf("denied local result = %#v", result)
 		}
 	})
+}
+
+func TestApplyLocalContextPolicyAppliesPersistenceToStructuredItems(t *testing.T) {
+	fixture := contextPolicyTestFixture(t, "structured local policy content")
+	for _, persist := range []evidence.Decision{
+		evidence.DecisionAllow,
+		evidence.DecisionRedact,
+		evidence.DecisionDeny,
+	} {
+		t.Run(string(persist), func(t *testing.T) {
+			items := []ContextItem{fixture.fact, fixture.entity, fixture.evidence}
+			policy := &evidence.Policy{Installation: evidence.PolicyLayer{
+				Persist: persist, ExternalTransfer: evidence.DecisionDeny,
+			}}
+			request := contextPolicyTestRequest(t, fixture.scope, items, []ContextRelation{fixture.relation}, map[string]evidence.Decision{
+				fixture.fact.ID:     evidence.DecisionAllow,
+				fixture.entity.ID:   evidence.DecisionAllow,
+				fixture.evidence.ID: evidence.DecisionAllow,
+			}, policy, []string{fixture.fact.ID, fixture.entity.ID, fixture.evidence.ID})
+			request.Mode = ContextPolicyModeLocal
+			request.PolicyDigest = mustContextLocalPolicyDigest(t, policy, request.Authorizations)
+
+			result, err := ApplyLocalContextPolicy(context.Background(), request)
+			if err != nil {
+				t.Fatalf("ApplyLocalContextPolicy() error = %v", err)
+			}
+			if err := result.ValidateAgainst(request); err != nil {
+				t.Fatalf("result.ValidateAgainst() error = %v", err)
+			}
+			switch persist {
+			case evidence.DecisionAllow:
+				if len(result.Items) != 3 || len(result.Relations) != 1 {
+					t.Fatalf("allow result = %#v", result)
+				}
+			case evidence.DecisionRedact:
+				if len(result.Items) != 1 || result.Items[0].Kind != ContextItemEvidence || result.Items[0].Evidence.Content != evidence.RedactedContent || len(result.Relations) != 0 {
+					t.Fatalf("redact result = %#v", result)
+				}
+			case evidence.DecisionDeny:
+				if len(result.Items) != 0 || len(result.Relations) != 0 || len(result.ContinuationIDs) != 0 {
+					t.Fatalf("deny result = %#v", result)
+				}
+			}
+			for _, audit := range result.ItemAudit {
+				if persist != evidence.DecisionAllow && (audit.ItemID == fixture.fact.ID || audit.ItemID == fixture.entity.ID) && audit.Reason != ContextPolicyItemExcludedPersistence {
+					t.Fatalf("structured audit = %#v", audit)
+				}
+			}
+		})
+	}
+}
+
+func TestApplyLocalContextPolicyClosesNestedFactReferencesAndLineage(t *testing.T) {
+	fixture := contextPolicyTestFixture(t, "nested local policy content")
+	inputFact := cloneContextItem(fixture.fact)
+	derivedFact := cloneContextItem(fixture.fact)
+	derivedFact.Fact.Predicate = fact.PredicateCall
+	derivedFact.Fact.Lineage = &fact.Lineage{
+		RuleID:       "rule-local-support",
+		RuleVersion:  "v1",
+		InputFactIDs: []string{inputFact.ID},
+	}
+	derivedFact.Fact.ID = ""
+	derivedID, err := fact.FactID(*derivedFact.Fact)
+	if err != nil {
+		t.Fatalf("derived fact.FactID() error = %v", err)
+	}
+	derivedFact.Fact.ID = derivedID
+	derivedFact.ID = derivedID
+	derivedFact.Origin = ContextKnowledgeDerived
+	derivedFact.SupportIDs = []string{inputFact.ID, fixture.evidence.ID}
+	derivedFact.Provenance.Lineage = &fact.Lineage{
+		RuleID:       "rule-local-support",
+		RuleVersion:  "v1",
+		InputFactIDs: []string{inputFact.ID},
+	}
+
+	items := []ContextItem{inputFact, derivedFact, fixture.evidence}
+	request := contextPolicyTestRequest(t, fixture.scope, items, nil, map[string]evidence.Decision{
+		inputFact.ID:        evidence.DecisionAllow,
+		derivedFact.ID:      evidence.DecisionAllow,
+		fixture.evidence.ID: evidence.DecisionRedact,
+	}, nil, []string{inputFact.ID, derivedFact.ID, fixture.evidence.ID})
+	request.Mode = ContextPolicyModeLocal
+	request.PolicyDigest = mustContextLocalPolicyDigest(t, nil, request.Authorizations)
+
+	result, err := ApplyLocalContextPolicy(context.Background(), request)
+	if err != nil {
+		t.Fatalf("ApplyLocalContextPolicy() error = %v", err)
+	}
+	if len(result.Items) != 3 {
+		t.Fatalf("nested result items = %#v", result.Items)
+	}
+	var outputFact, outputDerived, outputEvidence ContextItem
+	for _, item := range result.Items {
+		switch item.ID {
+		case inputFact.ID:
+			outputFact = item
+		case derivedFact.ID:
+			outputDerived = item
+		default:
+			if item.Kind == ContextItemEvidence {
+				outputEvidence = item
+			}
+		}
+	}
+	if outputEvidence.Evidence == nil || outputEvidence.Evidence.ContentState != evidence.ContentStateRedacted {
+		t.Fatalf("nested evidence output = %#v", outputEvidence)
+	}
+	if outputFact.Fact == nil || len(outputFact.Fact.Evidence) != 1 || outputFact.Fact.Evidence[0].ID != outputEvidence.ID {
+		t.Fatalf("fact evidence refs = %#v, want %q", outputFact.Fact, outputEvidence.ID)
+	}
+	if outputDerived.Fact == nil || outputDerived.Fact.Lineage == nil || !reflect.DeepEqual(outputDerived.Fact.Lineage.InputFactIDs, []string{outputFact.ID}) {
+		t.Fatalf("fact lineage refs = %#v", outputDerived.Fact)
+	}
+	if outputDerived.Provenance.Lineage == nil || !reflect.DeepEqual(outputDerived.Provenance.Lineage.InputFactIDs, []string{outputFact.ID}) {
+		t.Fatalf("context lineage refs = %#v", outputDerived.Provenance)
+	}
+	if !reflect.DeepEqual(outputDerived.SupportIDs, []string{outputFact.ID, outputEvidence.ID}) {
+		t.Fatalf("nested support refs = %#v", outputDerived.SupportIDs)
+	}
+}
+
+func TestApplyLocalContextPolicyRemovesNestedDependentsWhenSupportDenied(t *testing.T) {
+	fixture := contextPolicyTestFixture(t, "denied nested local support")
+	dependent := cloneContextItem(fixture.fact)
+	dependent.SupportIDs = nil
+	dependent.Fact.Evidence[0].ID = fixture.evidence.ID
+	dependent.Provenance.Evidence = nil
+	items := []ContextItem{dependent, fixture.evidence}
+	request := contextPolicyTestRequest(t, fixture.scope, items, nil, map[string]evidence.Decision{
+		dependent.ID:        evidence.DecisionAllow,
+		fixture.evidence.ID: evidence.DecisionDeny,
+	}, nil, []string{dependent.ID, fixture.evidence.ID})
+	request.Mode = ContextPolicyModeLocal
+	request.PolicyDigest = mustContextLocalPolicyDigest(t, nil, request.Authorizations)
+
+	result, err := ApplyLocalContextPolicy(context.Background(), request)
+	if err != nil {
+		t.Fatalf("ApplyLocalContextPolicy() error = %v", err)
+	}
+	if len(result.Items) != 0 || len(result.ContinuationIDs) != 0 {
+		t.Fatalf("nested dependent survived = %#v", result)
+	}
+	for _, audit := range result.ItemAudit {
+		if audit.ItemID == dependent.ID && audit.Reason != ContextPolicyItemExcludedSupport {
+			t.Fatalf("dependent audit = %#v", audit)
+		}
+	}
 }
 
 func TestLocalContextPolicyDigestIsDistinctAndExternalPathRemainsSeparate(t *testing.T) {

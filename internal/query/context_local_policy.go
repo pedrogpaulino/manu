@@ -1,6 +1,9 @@
 package query
 
-import "github.com/pedrogpaulino/manu/internal/evidence"
+import (
+	"github.com/pedrogpaulino/manu/internal/evidence"
+	"github.com/pedrogpaulino/manu/internal/fact"
+)
 
 func contextPolicyModeRequestValue(mode ContextPolicyMode) ContextPolicyMode {
 	if mode == ContextPolicyModeLocal {
@@ -73,6 +76,27 @@ func contextPolicyValidLocalPreparedRepresentation(unit evidence.EvidenceUnit) b
 	default:
 		return false
 	}
+}
+
+// contextPolicyLocalStructuredDecision resolves the local persistence outcome
+// for structured items. Facts and entities have no field-level redaction
+// representation in ContextItem, so Redact is fail-closed alongside Deny.
+func contextPolicyLocalStructuredDecision(policy *evidence.Policy) (evidence.Decision, error) {
+	resolvedPolicy := evidence.DefaultPolicy()
+	if policy != nil && !policy.IsZero() {
+		resolvedPolicy = *policy
+		if policy.Classifications != nil {
+			resolvedPolicy.Classifications = make(map[evidence.Classification]evidence.PolicyLayer, len(policy.Classifications))
+			for classification, layer := range policy.Classifications {
+				resolvedPolicy.Classifications[classification] = layer
+			}
+		}
+	}
+	resolved, err := resolvedPolicy.Resolve(evidence.ClassificationSafeText)
+	if err != nil {
+		return evidence.DecisionDeny, ErrInvalidContextPolicy
+	}
+	return resolved.Persist, nil
 }
 
 // contextPolicyFilterLocalDependentItems removes facts, entities and other
@@ -149,9 +173,44 @@ func contextPolicyFilterLocalDependentItems(
 			if _, dependent := remove[originalID]; dependent {
 				continue
 			}
+			if item.Fact != nil {
+				for _, reference := range item.Fact.Evidence {
+					originalReferenceID, inputItem := initialOutputToOriginal[reference.ID]
+					if !inputItem {
+						remove[originalID] = ContextPolicyItemExcludedSupport
+						break
+					}
+					if _, available := (*remap)[originalReferenceID]; !available {
+						remove[originalID] = ContextPolicyItemExcludedSupport
+						break
+					}
+				}
+			}
+			if _, dependent := remove[originalID]; dependent {
+				continue
+			}
+			if item.Fact != nil && item.Fact.Lineage != nil {
+				for _, inputID := range item.Fact.Lineage.InputFactIDs {
+					originalInputID, inputItem := initialOutputToOriginal[inputID]
+					if !inputItem {
+						remove[originalID] = ContextPolicyItemExcludedSupport
+						break
+					}
+					if _, available := (*remap)[originalInputID]; !available {
+						remove[originalID] = ContextPolicyItemExcludedSupport
+						break
+					}
+				}
+			}
+			if _, dependent := remove[originalID]; dependent {
+				continue
+			}
 
 			item.SupportIDs = contextPolicyRemapIDs(item.SupportIDs, *remap)
 			item.Provenance = contextPolicyRemapLocalProvenance(item.Provenance, *remap)
+			if item.Fact != nil {
+				item.Fact = contextPolicyRemapLocalFact(item.Fact, *remap)
+			}
 			if !contextPolicySafeItemRepresentation(*item) {
 				remove[originalID] = ContextPolicyItemExcludedInspection
 			}
@@ -181,6 +240,47 @@ func contextPolicyFilterLocalDependentItems(
 		}
 		result.Items = retained
 	}
+}
+
+func contextPolicyRemapLocalFact(value *fact.CanonicalFact, remap map[string]string) *fact.CanonicalFact {
+	result := cloneContextFact(value)
+	for index, reference := range result.Evidence {
+		if remapped, ok := remap[reference.ID]; ok {
+			result.Evidence[index].ID = remapped
+		}
+	}
+	if result.Lineage != nil {
+		result.Lineage.InputFactIDs = contextPolicyRemapIDs(result.Lineage.InputFactIDs, remap)
+	}
+	return result
+}
+
+func contextPolicyLocalRelationReferencesRetained(
+	relation ContextRelation,
+	remap map[string]string,
+	initialOutputToOriginal map[string]string,
+) bool {
+	for _, reference := range relation.Provenance.Evidence {
+		originalID, known := initialOutputToOriginal[reference.ID]
+		if !known {
+			return false
+		}
+		if _, retained := remap[originalID]; !retained {
+			return false
+		}
+	}
+	if relation.Provenance.Lineage != nil {
+		for _, inputID := range relation.Provenance.Lineage.InputFactIDs {
+			originalID, known := initialOutputToOriginal[inputID]
+			if !known {
+				return false
+			}
+			if _, retained := remap[originalID]; !retained {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func contextPolicyRemapLocalProvenance(provenance ContextProvenance, remap map[string]string) ContextProvenance {

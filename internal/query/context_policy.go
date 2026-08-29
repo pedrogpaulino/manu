@@ -662,6 +662,14 @@ func applyContextPolicy(ctx context.Context, request ContextPolicyRequest, mode 
 	idRemap := make(map[string]string, len(request.Items))
 	includedIDs := make(map[string]struct{}, len(request.Items))
 	policyFiltered := false
+	localStructuredDecision := evidence.DecisionAllow
+	if mode == ContextPolicyModeLocal {
+		var localPolicyErr error
+		localStructuredDecision, localPolicyErr = contextPolicyLocalStructuredDecision(request.TransferPolicy)
+		if localPolicyErr != nil {
+			return ContextPolicyResult{}, localPolicyErr
+		}
+	}
 	for _, input := range request.Items {
 		if err := contextPolicyContextErr(ctx); err != nil {
 			return ContextPolicyResult{}, err
@@ -686,6 +694,14 @@ func applyContextPolicy(ctx context.Context, request ContextPolicyRequest, mode 
 				continue
 			}
 			if mode == ContextPolicyModeLocal {
+				if localStructuredDecision != evidence.DecisionAllow {
+					result.ItemAudit = append(result.ItemAudit, ContextPolicyItemAudit{
+						ItemID: input.ID, Included: false,
+						Reason: ContextPolicyItemExcludedPersistence,
+					})
+					policyFiltered = true
+					continue
+				}
 				output := cloneContextItem(input)
 				if !contextPolicySafeItemRepresentation(output) {
 					result.ItemAudit = append(result.ItemAudit, ContextPolicyItemAudit{
@@ -907,6 +923,17 @@ func applyContextPolicy(ctx context.Context, request ContextPolicyRequest, mode 
 			})
 			policyFiltered = true
 			continue
+		}
+		if mode == ContextPolicyModeLocal {
+			if !contextPolicyLocalRelationReferencesRetained(output, idRemap, initialOutputToOriginal) {
+				result.RelationAudit = append(result.RelationAudit, ContextPolicyRelationAudit{
+					RelationID: relation.ID, Included: false,
+					Reason: ContextPolicyRelationExcludedSupport,
+				})
+				policyFiltered = true
+				continue
+			}
+			output.Provenance = contextPolicyRemapLocalProvenance(output.Provenance, idRemap)
 		}
 		if _, collision := includedIDs[output.ID]; collision || !contextPolicyRelationRepresentationSafe(output) {
 			result.RelationAudit = append(result.RelationAudit, ContextPolicyRelationAudit{
