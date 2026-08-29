@@ -137,8 +137,9 @@ func NewContextService(
 }
 
 // BuildContext reads one immutable snapshot and returns a validated,
-// consumer-neutral package. Authorization is applied to the complete candidate
-// universe before selection and continuation; no generator or backend is
+// consumer-neutral local package. Local authorization is applied to the
+// complete candidate universe before selection and continuation; external
+// transfer remains a separate projection concern. No generator or backend is
 // consulted by this method except through the supplied ports.
 func (s *ProductionContextService) BuildContext(ctx context.Context, request ContextRequest) (ContextPackage, error) {
 	if s == nil || s.snapshotReader == nil || s.retriever == nil || s.continuation == nil {
@@ -192,7 +193,7 @@ func (s *ProductionContextService) BuildContext(ctx context.Context, request Con
 	if err != nil {
 		return ContextPackage{}, contextServiceStageError(ctx, err, ErrContextServiceComposition)
 	}
-	authorized, err := AuthorizeContextCandidateProjection(
+	authorized, err := AuthorizeLocalContextCandidateProjection(
 		ctx,
 		request.Scope,
 		projection,

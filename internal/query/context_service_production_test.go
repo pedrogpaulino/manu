@@ -2,10 +2,8 @@ package query
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/pedrogpaulino/manu/internal/evidence"
@@ -188,8 +186,20 @@ func TestProductionContextServiceAppliesPolicyAndReportsDegradations(t *testing.
 	if err != nil {
 		t.Fatalf("denied BuildContext() error = %v", err)
 	}
-	if len(denied.Items) != 0 || len(denied.Relations) != 0 || !productionContextTestHasDegradation(denied, ContextDegradationPolicyFiltered) {
+	if len(denied.Items) == 0 {
 		t.Fatalf("denied package = %#v", denied)
+	}
+	var deniedEvidence bool
+	for _, item := range denied.Items {
+		if item.Kind == ContextItemEvidence && item.Evidence != nil {
+			deniedEvidence = item.Evidence.ExternalTransfer == evidence.DecisionDeny && item.Evidence.Content == fixture.units[0].Content
+		}
+	}
+	if !deniedEvidence {
+		t.Fatalf("local package did not preserve denied transfer evidence: %#v", denied.Items)
+	}
+	if _, err := ProjectContextPackage(context.Background(), denied); !errors.Is(err, ErrInvalidContextGatewayProjection) {
+		t.Fatalf("gateway projection for denied transfer error = %v, want %v", err, ErrInvalidContextGatewayProjection)
 	}
 
 	redactedService := productionContextTestService(t, &productionContextTestReader{snapshot: fixture.snapshot}, &productionContextTestRetriever{result: fixture.retrieval}, &evidence.Policy{Installation: evidence.PolicyLayer{
@@ -199,15 +209,20 @@ func TestProductionContextServiceAppliesPolicyAndReportsDegradations(t *testing.
 	if err != nil {
 		t.Fatalf("redacted BuildContext() error = %v", err)
 	}
-	if len(redacted.Items) != 1 || redacted.Items[0].Evidence == nil || redacted.Items[0].Evidence.Content != evidence.RedactedContent || !productionContextTestHasDegradation(redacted, ContextDegradationPolicyFiltered) {
+	if len(redacted.Items) == 0 {
 		t.Fatalf("redacted package = %#v", redacted)
 	}
-	encoded, err := json.Marshal(redacted)
-	if err != nil {
-		t.Fatalf("json.Marshal(redacted) error = %v", err)
+	var redactedEvidence bool
+	for _, item := range redacted.Items {
+		if item.Kind == ContextItemEvidence && item.Evidence != nil {
+			redactedEvidence = item.Evidence.ExternalTransfer == evidence.DecisionRedact && item.Evidence.Content == fixture.units[0].Content
+		}
 	}
-	if strings.Contains(string(encoded), fixture.units[0].Content) {
-		t.Fatalf("redacted content leaked into package: %s", encoded)
+	if !redactedEvidence {
+		t.Fatalf("local package did not preserve independently redacted transfer evidence: %#v", redacted.Items)
+	}
+	if _, err := ProjectContextPackage(context.Background(), redacted); !errors.Is(err, ErrInvalidContextGatewayProjection) {
+		t.Fatalf("gateway projection for redacted transfer error = %v, want %v", err, ErrInvalidContextGatewayProjection)
 	}
 
 	degradedRetrieval := fixture.retrieval

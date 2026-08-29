@@ -124,6 +124,61 @@ func AuthorizeContextCandidateProjection(
 	estimator ContextTokenEstimatorConfiguration,
 	limits ContextTokenEstimationLimits,
 ) (ContextAuthorizedCandidateProjection, error) {
+	return authorizeContextCandidateProjection(
+		ctx,
+		scope,
+		projection,
+		policy,
+		estimator,
+		limits,
+		ContextPolicyModeExternal,
+	)
+}
+
+// AuthorizeLocalContextCandidateProjection applies local persistence policy
+// while preserving each evidence unit's independent external-transfer
+// decision. It is deliberately separate from the provider-facing path.
+func AuthorizeLocalContextCandidateProjection(
+	ctx context.Context,
+	scope Scope,
+	projection ContextCandidateProjection,
+	policy *evidence.Policy,
+	estimator ContextTokenEstimatorConfiguration,
+	limits ContextTokenEstimationLimits,
+) (ContextAuthorizedCandidateProjection, error) {
+	return authorizeContextCandidateProjection(
+		ctx,
+		scope,
+		projection,
+		policy,
+		estimator,
+		limits,
+		ContextPolicyModeLocal,
+	)
+}
+
+// AuthorizeContextLocalCandidateProjection is a descriptive alias for the
+// explicit local candidate-policy path.
+func AuthorizeContextLocalCandidateProjection(
+	ctx context.Context,
+	scope Scope,
+	projection ContextCandidateProjection,
+	policy *evidence.Policy,
+	estimator ContextTokenEstimatorConfiguration,
+	limits ContextTokenEstimationLimits,
+) (ContextAuthorizedCandidateProjection, error) {
+	return AuthorizeLocalContextCandidateProjection(ctx, scope, projection, policy, estimator, limits)
+}
+
+func authorizeContextCandidateProjection(
+	ctx context.Context,
+	scope Scope,
+	projection ContextCandidateProjection,
+	policy *evidence.Policy,
+	estimator ContextTokenEstimatorConfiguration,
+	limits ContextTokenEstimationLimits,
+	mode ContextPolicyMode,
+) (ContextAuthorizedCandidateProjection, error) {
 	if ctx == nil {
 		return ContextAuthorizedCandidateProjection{}, ErrInvalidContextAuthorizedProjection
 	}
@@ -171,7 +226,7 @@ func AuthorizeContextCandidateProjection(
 	}
 
 	transferPolicy := cloneContextAuthorizedPolicy(policy)
-	digest, err := ContextPolicyDigest(transferPolicy, authorizations)
+	digest, err := ContextPolicyDigestForMode(mode, transferPolicy, authorizations)
 	if err != nil {
 		return ContextAuthorizedCandidateProjection{}, ErrInvalidContextAuthorizedProjection
 	}
@@ -180,11 +235,17 @@ func AuthorizeContextCandidateProjection(
 		Items:           items,
 		Relations:       relations,
 		Authorizations:  authorizations,
+		Mode:            contextPolicyModeRequestValue(mode),
 		TransferPolicy:  transferPolicy,
 		PolicyDigest:    digest,
 		ContinuationIDs: contextAuthorizedProjectionIDs(items),
 	}
-	policyResult, err := ApplyContextPolicy(ctx, request)
+	var policyResult ContextPolicyResult
+	if mode == ContextPolicyModeLocal {
+		policyResult, err = ApplyLocalContextPolicy(ctx, request)
+	} else {
+		policyResult, err = ApplyContextPolicy(ctx, request)
+	}
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return ContextAuthorizedCandidateProjection{}, err

@@ -18,6 +18,33 @@ var (
 	ErrInvalidContextPolicy = errors.New("query: invalid context policy")
 )
 
+// ContextPolicyMode selects the trust-boundary representation produced by a
+// policy application. The zero value remains the legacy external mode.
+type ContextPolicyMode string
+
+const (
+	// ContextPolicyModeExternal prepares items for an external provider.
+	ContextPolicyModeExternal ContextPolicyMode = "external"
+	// ContextPolicyModeLocal prepares items for the local context package.
+	ContextPolicyModeLocal ContextPolicyMode = "local"
+
+	// ContextPolicyExternal and ContextPolicyLocal are concise aliases for
+	// callers that use policy as the mode vocabulary.
+	ContextPolicyExternal = ContextPolicyModeExternal
+	ContextPolicyLocal    = ContextPolicyModeLocal
+)
+
+func normalizeContextPolicyMode(mode ContextPolicyMode) (ContextPolicyMode, error) {
+	switch mode {
+	case "":
+		return ContextPolicyModeExternal, nil
+	case ContextPolicyModeExternal, ContextPolicyModeLocal:
+		return mode, nil
+	default:
+		return "", ErrInvalidContextPolicy
+	}
+}
+
 // ContextItemAuthorization is the explicit decision for one input item.
 // Every item in a ContextPolicyRequest must have exactly one authorization.
 type ContextItemAuthorization struct {
@@ -44,6 +71,7 @@ const (
 	ContextPolicyItemExcludedAuthorizationDeny   ContextPolicyItemAuditReason = "excluded_authorization_deny"
 	ContextPolicyItemExcludedAuthorizationRedact ContextPolicyItemAuditReason = "excluded_authorization_redact"
 	ContextPolicyItemExcludedTransferPolicy      ContextPolicyItemAuditReason = "excluded_transfer_policy"
+	ContextPolicyItemExcludedPersistence         ContextPolicyItemAuditReason = "excluded_persistence_policy"
 	ContextPolicyItemExcludedInspection          ContextPolicyItemAuditReason = "excluded_inspection"
 	ContextPolicyItemExcludedSupport             ContextPolicyItemAuditReason = "excluded_support"
 	ContextPolicyItemExcludedInvalid             ContextPolicyItemAuditReason = "excluded_invalid"
@@ -80,6 +108,7 @@ func (a ContextPolicyItemAudit) Validate() error {
 		ContextPolicyItemExcludedAuthorizationDeny,
 		ContextPolicyItemExcludedAuthorizationRedact,
 		ContextPolicyItemExcludedTransferPolicy,
+		ContextPolicyItemExcludedPersistence,
 		ContextPolicyItemExcludedInspection,
 		ContextPolicyItemExcludedSupport,
 		ContextPolicyItemExcludedInvalid,
@@ -141,10 +170,16 @@ type ContextPolicyRequest struct {
 	Items           []ContextItem              `json:"items"`
 	Relations       []ContextRelation          `json:"relations,omitempty"`
 	Authorizations  []ContextItemAuthorization `json:"authorizations"`
+	Mode            ContextPolicyMode          `json:"mode,omitempty"`
 	TransferPolicy  *evidence.Policy           `json:"-"`
 	PolicyDigest    string                     `json:"policy_digest"`
 	ContinuationIDs []string                   `json:"continuation_ids,omitempty"`
 }
+
+// ContextLocalPolicyRequest is the explicit local-policy spelling. It keeps
+// the shared request shape while making the trust-boundary purpose visible at
+// call sites.
+type ContextLocalPolicyRequest = ContextPolicyRequest
 
 // ContextPolicyDigest computes the required SHA-256 identity of a transfer
 // policy and its explicit authorizations. A nil policy is represented by the
@@ -182,9 +217,88 @@ func ContextPolicyDigest(policy *evidence.Policy, authorizations []ContextItemAu
 	return hex.EncodeToString(digest[:]), nil
 }
 
+// ContextPolicyDigestForMode computes a mode-bound policy identity. External
+// mode delegates to ContextPolicyDigest to preserve its established digest;
+// local mode uses domain separation so local and external continuations and
+// packages cannot collide.
+func ContextPolicyDigestForMode(mode ContextPolicyMode, policy *evidence.Policy, authorizations []ContextItemAuthorization) (string, error) {
+	normalized, err := normalizeContextPolicyMode(mode)
+	if err != nil {
+		return "", err
+	}
+	if normalized == ContextPolicyModeExternal {
+		return ContextPolicyDigest(policy, authorizations)
+	}
+	if policy != nil && policy.Validate() != nil {
+		return "", ErrInvalidContextPolicy
+	}
+	authorizations = append([]ContextItemAuthorization(nil), authorizations...)
+	seenAuthorizations := make(map[string]struct{}, len(authorizations))
+	for _, authorization := range authorizations {
+		if authorization.Validate() != nil {
+			return "", ErrInvalidContextPolicy
+		}
+		if _, duplicate := seenAuthorizations[authorization.ItemID]; duplicate {
+			return "", ErrInvalidContextPolicy
+		}
+		seenAuthorizations[authorization.ItemID] = struct{}{}
+	}
+	sort.SliceStable(authorizations, func(left, right int) bool {
+		if authorizations[left].ItemID != authorizations[right].ItemID {
+			return authorizations[left].ItemID < authorizations[right].ItemID
+		}
+		return authorizations[left].Decision < authorizations[right].Decision
+	})
+
+	var localPolicy *contextLocalPolicyDigestMaterial
+	if policy != nil {
+		localPolicy = &contextLocalPolicyDigestMaterial{
+			InstallationPersist: policy.Installation.Persist,
+			SourcePersist:       policy.Source.Persist,
+		}
+		if policy.Classifications != nil {
+			localPolicy.Classifications = make(map[evidence.Classification]evidence.Decision, len(policy.Classifications))
+			for classification, layer := range policy.Classifications {
+				localPolicy.Classifications[classification] = layer.Persist
+			}
+		}
+	}
+	encoded, err := json.Marshal(struct {
+		Mode           ContextPolicyMode                 `json:"mode"`
+		Policy         *contextLocalPolicyDigestMaterial `json:"policy"`
+		Authorizations []ContextItemAuthorization        `json:"authorizations"`
+	}{
+		Mode:           ContextPolicyModeLocal,
+		Policy:         localPolicy,
+		Authorizations: authorizations,
+	})
+	if err != nil {
+		return "", ErrInvalidContextPolicy
+	}
+	encoded = append([]byte("context-policy-local-v1\x00"), encoded...)
+	localDigest := sha256.Sum256(encoded)
+	return hex.EncodeToString(localDigest[:]), nil
+}
+
+type contextLocalPolicyDigestMaterial struct {
+	InstallationPersist evidence.Decision                             `json:"installation_persist"`
+	SourcePersist       evidence.Decision                             `json:"source_persist"`
+	Classifications     map[evidence.Classification]evidence.Decision `json:"classifications,omitempty"`
+}
+
+// ContextLocalPolicyDigest computes the mode-bound identity for a local
+// context package.
+func ContextLocalPolicyDigest(policy *evidence.Policy, authorizations []ContextItemAuthorization) (string, error) {
+	return ContextPolicyDigestForMode(ContextPolicyModeLocal, policy, authorizations)
+}
+
 // Validate checks scope, collection bounds, explicit one-to-one
 // authorizations, policy identity and continuation identities.
 func (r ContextPolicyRequest) Validate() error {
+	mode, err := normalizeContextPolicyMode(r.Mode)
+	if err != nil {
+		return err
+	}
 	if r.Scope.Validate() != nil {
 		return ErrInvalidContextScope
 	}
@@ -263,7 +377,7 @@ func (r ContextPolicyRequest) Validate() error {
 	if !isSHA256(r.PolicyDigest) {
 		return ErrInvalidContextPolicy
 	}
-	policyDigest, err := ContextPolicyDigest(r.TransferPolicy, r.Authorizations)
+	policyDigest, err := ContextPolicyDigestForMode(mode, r.TransferPolicy, r.Authorizations)
 	if err != nil || policyDigest != r.PolicyDigest {
 		return ErrInvalidContextPolicy
 	}
@@ -294,6 +408,7 @@ type ContextPolicyResult struct {
 	ItemAudit       []ContextPolicyItemAudit     `json:"item_audit"`
 	RelationAudit   []ContextPolicyRelationAudit `json:"relation_audit"`
 	ContinuationIDs []string                     `json:"continuation_ids,omitempty"`
+	Mode            ContextPolicyMode            `json:"mode,omitempty"`
 	PolicyDigest    string                       `json:"policy_digest"`
 	PolicyFiltered  bool                         `json:"policy_filtered"`
 	Degradations    []ContextDegradation         `json:"degradations,omitempty"`
@@ -302,6 +417,10 @@ type ContextPolicyResult struct {
 // Validate checks result scope, identity uniqueness, relation closure,
 // content-free audits, post-policy continuation IDs and degradation state.
 func (r ContextPolicyResult) Validate() error {
+	mode, err := normalizeContextPolicyMode(r.Mode)
+	if err != nil {
+		return err
+	}
 	if r.Scope.Validate() != nil {
 		return ErrInvalidContextScope
 	}
@@ -323,7 +442,7 @@ func (r ContextPolicyResult) Validate() error {
 			return ErrInvalidContextReference
 		}
 		if item.Kind == ContextItemEvidence {
-			if item.Evidence == nil || item.Evidence.ValidatePrepared() != nil || !contextPolicyValidPreparedRepresentation(*item.Evidence) {
+			if item.Evidence == nil || item.Evidence.ValidatePrepared() != nil || !contextPolicyValidPreparedRepresentationForMode(*item.Evidence, mode) {
 				return ErrInvalidContextPolicy
 			}
 		} else if !contextPolicySafeItemRepresentation(item) {
@@ -456,10 +575,20 @@ func (r ContextPolicyResult) ValidateAgainst(request ContextPolicyRequest) error
 	if err := r.Validate(); err != nil {
 		return err
 	}
-	if !sameScope(r.Scope, request.Scope) || r.PolicyDigest != request.PolicyDigest {
+	requestMode, err := normalizeContextPolicyMode(request.Mode)
+	if err != nil {
+		return err
+	}
+	resultMode, err := normalizeContextPolicyMode(r.Mode)
+	if err != nil || requestMode != resultMode || !sameScope(r.Scope, request.Scope) || r.PolicyDigest != request.PolicyDigest {
 		return ErrInvalidContextPolicy
 	}
-	expected, err := ApplyContextPolicy(context.Background(), request)
+	var expected ContextPolicyResult
+	if requestMode == ContextPolicyModeLocal {
+		expected, err = ApplyLocalContextPolicy(context.Background(), request)
+	} else {
+		expected, err = ApplyContextPolicy(context.Background(), request)
+	}
 	if err != nil || !reflect.DeepEqual(r, expected) {
 		return ErrInvalidContextPolicy
 	}
@@ -471,12 +600,40 @@ func (r ContextPolicyResult) ValidateAgainst(request ContextPolicyRequest) error
 // collections preserve their input order; maps are used only for bounded
 // identity lookups and remapping.
 func ApplyContextPolicy(ctx context.Context, request ContextPolicyRequest) (ContextPolicyResult, error) {
+	if request.Mode == ContextPolicyModeLocal {
+		return ContextPolicyResult{}, ErrInvalidContextPolicy
+	}
+	return applyContextPolicy(ctx, request, ContextPolicyModeExternal)
+}
+
+// ApplyLocalContextPolicy applies local persistence policy to an authorized
+// candidate set. External transfer remains an independent decision recorded
+// on each evidence unit; it is never used to remove safe local content.
+func ApplyLocalContextPolicy(ctx context.Context, request ContextLocalPolicyRequest) (ContextPolicyResult, error) {
+	if request.Mode == ContextPolicyModeExternal {
+		return ContextPolicyResult{}, ErrInvalidContextPolicy
+	}
+	request.Mode = ContextPolicyModeLocal
+	return applyContextPolicy(ctx, request, ContextPolicyModeLocal)
+}
+
+// ApplyContextLocalPolicy is a descriptive alias for ApplyLocalContextPolicy.
+func ApplyContextLocalPolicy(ctx context.Context, request ContextLocalPolicyRequest) (ContextPolicyResult, error) {
+	return ApplyLocalContextPolicy(ctx, request)
+}
+
+func applyContextPolicy(ctx context.Context, request ContextPolicyRequest, mode ContextPolicyMode) (ContextPolicyResult, error) {
 	if ctx == nil {
 		return ContextPolicyResult{}, ErrInvalidContextPolicy
 	}
 	if err := ctx.Err(); err != nil {
 		return ContextPolicyResult{}, err
 	}
+	requestedMode := request.Mode
+	if requestedMode != "" && requestedMode != mode {
+		return ContextPolicyResult{}, ErrInvalidContextPolicy
+	}
+	request.Mode = mode
 	if err := request.Validate(); err != nil {
 		return ContextPolicyResult{}, err
 	}
@@ -492,6 +649,7 @@ func ApplyContextPolicy(ctx context.Context, request ContextPolicyRequest) (Cont
 
 	result := ContextPolicyResult{
 		Scope:         request.Scope,
+		Mode:          requestedMode,
 		PolicyDigest:  request.PolicyDigest,
 		Items:         make([]ContextItem, 0, len(request.Items)),
 		ItemAudit:     make([]ContextPolicyItemAudit, 0, len(request.Items)),
@@ -525,6 +683,28 @@ func ApplyContextPolicy(ctx context.Context, request ContextPolicyRequest) (Cont
 					Reason: ContextPolicyItemExcludedAuthorizationRedact,
 				})
 				policyFiltered = true
+				continue
+			}
+			if mode == ContextPolicyModeLocal {
+				output := cloneContextItem(input)
+				if !contextPolicySafeItemRepresentation(output) {
+					result.ItemAudit = append(result.ItemAudit, ContextPolicyItemAudit{
+						ItemID: input.ID, Included: false,
+						Reason: ContextPolicyItemExcludedInspection,
+					})
+					policyFiltered = true
+					continue
+				}
+				if _, collision := includedIDs[output.ID]; collision {
+					return ContextPolicyResult{}, ErrInvalidContextPolicy
+				}
+				result.Items = append(result.Items, output)
+				idRemap[input.ID] = output.ID
+				includedIDs[output.ID] = struct{}{}
+				result.ItemAudit = append(result.ItemAudit, ContextPolicyItemAudit{
+					ItemID: input.ID, OutputID: output.ID, Included: true,
+					Reason: ContextPolicyItemIncluded, Redacted: false,
+				})
 				continue
 			}
 			if !contextPolicySafeItemRepresentation(input) {
@@ -584,6 +764,62 @@ func ApplyContextPolicy(ctx context.Context, request ContextPolicyRequest) (Cont
 		}
 		if authorization != evidence.DecisionAllow && authorization != evidence.DecisionRedact {
 			return ContextPolicyResult{}, ErrInvalidContextPolicy
+		}
+		if mode == ContextPolicyModeLocal {
+			persistFloor, floorErr := contextPolicyCombinedFloor(input.Evidence.Persist, authorization)
+			if floorErr != nil {
+				return ContextPolicyResult{}, ErrInvalidContextPolicy
+			}
+			policy := contextPolicyForPersistence(request.TransferPolicy, persistFloor, input.Evidence.ExternalTransfer)
+			prepared, prepareErr := evidence.PrepareForPersistence(*input.Evidence, policy)
+			if prepareErr != nil || prepared.ValidatePrepared() != nil {
+				result.ItemAudit = append(result.ItemAudit, ContextPolicyItemAudit{
+					ItemID: input.ID, Included: false,
+					Reason: ContextPolicyItemExcludedInvalid,
+				})
+				policyFiltered = true
+				continue
+			}
+			transferFloor, transferErr := contextPolicyCombinedFloor(input.Evidence.ExternalTransfer, prepared.ExternalTransfer)
+			if transferErr != nil {
+				return ContextPolicyResult{}, ErrInvalidContextPolicy
+			}
+			prepared.ExternalTransfer = transferFloor
+			if prepared.Persist == evidence.DecisionDeny || !contextPolicyValidLocalPreparedRepresentation(prepared) {
+				result.ItemAudit = append(result.ItemAudit, ContextPolicyItemAudit{
+					ItemID: input.ID, Included: false,
+					Reason: ContextPolicyItemExcludedPersistence,
+				})
+				policyFiltered = true
+				continue
+			}
+
+			output := cloneContextItem(input)
+			output.ID = prepared.ID
+			output.Evidence = &prepared
+			if !contextPolicySafeItemRepresentation(output) {
+				result.ItemAudit = append(result.ItemAudit, ContextPolicyItemAudit{
+					ItemID: input.ID, Included: false,
+					Reason: ContextPolicyItemExcludedInspection,
+				})
+				policyFiltered = true
+				continue
+			}
+			if _, collision := originalIDs[output.ID]; collision && output.ID != input.ID {
+				return ContextPolicyResult{}, ErrInvalidContextPolicy
+			}
+			if _, collision := includedIDs[output.ID]; collision {
+				return ContextPolicyResult{}, ErrInvalidContextPolicy
+			}
+			result.Items = append(result.Items, output)
+			idRemap[input.ID] = output.ID
+			includedIDs[output.ID] = struct{}{}
+			result.ItemAudit = append(result.ItemAudit, ContextPolicyItemAudit{
+				ItemID: input.ID, OutputID: output.ID, Included: true,
+				Reason:   ContextPolicyItemIncluded,
+				Redacted: prepared.ContentState == evidence.ContentStateRedacted,
+			})
+			continue
 		}
 
 		floor, floorErr := contextPolicyCombinedFloor(input.Evidence.ExternalTransfer, authorization)
@@ -645,7 +881,11 @@ func ApplyContextPolicy(ctx context.Context, request ContextPolicyRequest) (Cont
 		})
 	}
 	initialOutputToOriginal := contextPolicyInitialOutputToOriginal(idRemap, originalIDs)
-	if contextPolicyFilterDependentItems(&result, &idRemap, originalIDs, initialOutputToOriginal) {
+	filteredDependencies := contextPolicyFilterDependentItems
+	if mode == ContextPolicyModeLocal {
+		filteredDependencies = contextPolicyFilterLocalDependentItems
+	}
+	if filteredDependencies(&result, &idRemap, originalIDs, initialOutputToOriginal) {
 		policyFiltered = true
 	}
 	if err := ctx.Err(); err != nil {
