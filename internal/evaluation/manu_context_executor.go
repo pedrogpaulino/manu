@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math"
 	"path"
 	"reflect"
 	"sort"
@@ -333,17 +334,59 @@ func manuContextIntent(request VariantExecutionRequest) (query.Intent, error) {
 }
 
 func manuContextMatchedEvidence(expected []ExpectedEvidence, items []query.ContextItem) []string {
-	matched := make([]string, 0, len(expected))
-	for _, candidate := range expected {
+	type candidateMatch struct {
+		itemIndex int
+		score     int
+	}
+	adjacency := make([][]candidateMatch, len(expected))
+	for expectedIndex, candidate := range expected {
 		if candidate.EvidenceID == "" || candidate.Locator == nil {
 			continue
 		}
-		for _, item := range items {
+		for itemIndex, item := range items {
 			locator := manuContextItemLocator(item)
 			if locator != nil && manuContextLocatorMatches(*candidate.Locator, *locator) {
-				matched = append(matched, candidate.EvidenceID)
-				break
+				adjacency[expectedIndex] = append(adjacency[expectedIndex], candidateMatch{
+					itemIndex: itemIndex,
+					score:     manuContextLocatorMatchScore(*candidate.Locator, *locator),
+				})
 			}
+		}
+		sort.SliceStable(adjacency[expectedIndex], func(left, right int) bool {
+			if adjacency[expectedIndex][left].score != adjacency[expectedIndex][right].score {
+				return adjacency[expectedIndex][left].score > adjacency[expectedIndex][right].score
+			}
+			return adjacency[expectedIndex][left].itemIndex < adjacency[expectedIndex][right].itemIndex
+		})
+	}
+
+	matchedExpectedByItem := make([]int, len(items))
+	for index := range matchedExpectedByItem {
+		matchedExpectedByItem[index] = -1
+	}
+	var augment func(int, []bool) bool
+	augment = func(expectedIndex int, visitedItems []bool) bool {
+		for _, candidate := range adjacency[expectedIndex] {
+			if visitedItems[candidate.itemIndex] {
+				continue
+			}
+			visitedItems[candidate.itemIndex] = true
+			matchedExpected := matchedExpectedByItem[candidate.itemIndex]
+			if matchedExpected == -1 || augment(matchedExpected, visitedItems) {
+				matchedExpectedByItem[candidate.itemIndex] = expectedIndex
+				return true
+			}
+		}
+		return false
+	}
+	for expectedIndex := range adjacency {
+		augment(expectedIndex, make([]bool, len(items)))
+	}
+
+	matched := make([]string, 0, len(expected))
+	for _, expectedIndex := range matchedExpectedByItem {
+		if expectedIndex >= 0 {
+			matched = append(matched, expected[expectedIndex].EvidenceID)
 		}
 	}
 	sort.Strings(matched)
@@ -371,31 +414,126 @@ func manuContextItemLocator(item query.ContextItem) *contract.Locator {
 }
 
 func manuContextLocatorMatches(expected, actual contract.Locator) bool {
+	if expected.Validate() != nil || actual.Validate() != nil {
+		return false
+	}
 	if !manuContextPathMatches(expected.Path, actual.Path) {
 		return false
 	}
-	if expected.Member != "" && expected.Member != actual.Member {
+	if !manuContextHasMeaningfulDimension(expected) || !manuContextHasMeaningfulDimension(actual) {
 		return false
 	}
-	if expected.StartLine != 0 && expected.StartLine != actual.StartLine {
+	if !manuContextLocatorDimensionMatches(expected.URI, actual.URI) ||
+		!manuContextLocatorDimensionMatches(expected.SourceID, actual.SourceID) ||
+		!manuContextLocatorDimensionMatches(expected.ArtifactID, actual.ArtifactID) {
 		return false
 	}
-	if expected.StartColumn != 0 && expected.StartColumn != actual.StartColumn {
+	if expected.Member != "" && actual.Member != "" && expected.Member != actual.Member {
 		return false
 	}
-	if expected.EndLine != 0 && expected.EndLine != actual.EndLine {
+	comparableDimension := expected.Member != "" && actual.Member != ""
+	if manuContextHasLinePosition(expected) && manuContextHasLinePosition(actual) &&
+		!manuContextLineRangesOverlap(expected, actual) {
 		return false
 	}
-	if expected.EndColumn != 0 && expected.EndColumn != actual.EndColumn {
+	if manuContextHasLinePosition(expected) && manuContextHasLinePosition(actual) {
+		comparableDimension = true
+	}
+	if manuContextHasColumnPosition(expected) && manuContextHasColumnPosition(actual) &&
+		!manuContextColumnRangesOverlap(expected, actual) {
 		return false
 	}
-	if expected.ByteOffset != 0 && expected.ByteOffset != actual.ByteOffset {
+	if manuContextHasColumnPosition(expected) && manuContextHasColumnPosition(actual) {
+		comparableDimension = true
+	}
+	if manuContextHasBytePosition(expected) && manuContextHasBytePosition(actual) &&
+		!manuContextByteRangesOverlap(expected, actual) {
 		return false
 	}
-	if expected.ByteLength != 0 && expected.ByteLength != actual.ByteLength {
-		return false
+	if manuContextHasBytePosition(expected) && manuContextHasBytePosition(actual) {
+		comparableDimension = true
 	}
-	return expected.Path != "" || expected.Member != "" || expected.StartLine != 0 || expected.EndLine != 0 || expected.ByteOffset != 0 || expected.ByteLength != 0
+	return comparableDimension
+}
+
+func manuContextLocatorMatchScore(expected, actual contract.Locator) int {
+	score := manuContextPathMatchScore(expected.Path, actual.Path)
+	if expected.Member != "" && actual.Member != "" {
+		score += 40
+	} else if expected.Member != "" || actual.Member != "" {
+		score += 5
+	}
+	if expected.URI != "" && actual.URI != "" {
+		score += 20
+	}
+	if expected.SourceID != "" && actual.SourceID != "" {
+		score += 20
+	}
+	if expected.ArtifactID != "" && actual.ArtifactID != "" {
+		score += 20
+	}
+	score += manuContextLineRangeMatchScore(expected, actual)
+	score += manuContextColumnRangeMatchScore(expected, actual)
+	score += manuContextByteRangeMatchScore(expected, actual)
+	return score
+}
+
+func manuContextPathMatchScore(expected, actual string) int {
+	if expected == "" || actual == "" {
+		return 0
+	}
+	normalize := func(value string) string {
+		return path.Clean(strings.ReplaceAll(value, "\\", "/"))
+	}
+	normalizedExpected := normalize(expected)
+	normalizedActual := normalize(actual)
+	if normalizedExpected == normalizedActual {
+		return 100
+	}
+	if !strings.Contains(normalizedExpected, "/") || !strings.Contains(normalizedActual, "/") {
+		if path.Base(normalizedExpected) == path.Base(normalizedActual) {
+			return 50
+		}
+	}
+	return 0
+}
+
+func manuContextLineRangeMatchScore(expected, actual contract.Locator) int {
+	if !manuContextHasLinePosition(expected) || !manuContextHasLinePosition(actual) {
+		return 0
+	}
+	expectedStart, expectedEnd := manuContextLineRange(expected)
+	actualStart, actualEnd := manuContextLineRange(actual)
+	return manuContextRangeMatchScore(expectedStart, expectedEnd, actualStart, actualEnd)
+}
+
+func manuContextColumnRangeMatchScore(expected, actual contract.Locator) int {
+	if !manuContextHasColumnPosition(expected) || !manuContextHasColumnPosition(actual) {
+		return 0
+	}
+	expectedStart, expectedEnd := manuContextColumnRange(expected)
+	actualStart, actualEnd := manuContextColumnRange(actual)
+	return manuContextRangeMatchScore(expectedStart, expectedEnd, actualStart, actualEnd)
+}
+
+func manuContextByteRangeMatchScore(expected, actual contract.Locator) int {
+	if !manuContextHasBytePosition(expected) || !manuContextHasBytePosition(actual) {
+		return 0
+	}
+	expectedStart, expectedEnd := manuContextByteRange(expected)
+	actualStart, actualEnd := manuContextByteRange(actual)
+	return manuContextRangeMatchScore(expectedStart, expectedEnd, actualStart, actualEnd)
+}
+
+func manuContextRangeMatchScore[T int | int64](expectedStart, expectedEnd, actualStart, actualEnd T) int {
+	if expectedStart == actualStart && expectedEnd == actualEnd {
+		return 40
+	}
+	if (expectedStart <= actualStart && actualEnd <= expectedEnd) ||
+		(actualStart <= expectedStart && expectedEnd <= actualEnd) {
+		return 30
+	}
+	return 20
 }
 
 func manuContextPathMatches(expected, actual string) bool {
@@ -419,6 +557,83 @@ func manuContextPathMatches(expected, actual string) bool {
 		return path.Base(normalizedExpected) == path.Base(normalizedActual)
 	}
 	return false
+}
+
+func manuContextLocatorDimensionMatches(expected, actual string) bool {
+	if expected == "" || actual == "" {
+		return true
+	}
+	return strings.TrimSpace(expected) == strings.TrimSpace(actual)
+}
+
+func manuContextHasMeaningfulDimension(locator contract.Locator) bool {
+	return strings.TrimSpace(locator.Member) != "" ||
+		manuContextHasLinePosition(locator) ||
+		manuContextHasColumnPosition(locator) ||
+		manuContextHasBytePosition(locator)
+}
+
+func manuContextHasLinePosition(locator contract.Locator) bool {
+	return locator.StartLine > 0 || locator.EndLine > 0
+}
+
+func manuContextHasColumnPosition(locator contract.Locator) bool {
+	return locator.StartColumn > 0 || locator.EndColumn > 0
+}
+
+func manuContextHasBytePosition(locator contract.Locator) bool {
+	return locator.ByteOffset > 0 || locator.ByteLength > 0
+}
+
+func manuContextLineRangesOverlap(expected, actual contract.Locator) bool {
+	expectedStart, expectedEnd := manuContextLineRange(expected)
+	actualStart, actualEnd := manuContextLineRange(actual)
+	return expectedStart <= actualEnd && actualStart <= expectedEnd
+}
+
+func manuContextLineRange(locator contract.Locator) (int, int) {
+	start, end := locator.StartLine, locator.EndLine
+	if start == 0 {
+		start = 1
+	}
+	if end == 0 {
+		end = start
+	}
+	return start, end
+}
+
+func manuContextColumnRangesOverlap(expected, actual contract.Locator) bool {
+	expectedStart, expectedEnd := manuContextColumnRange(expected)
+	actualStart, actualEnd := manuContextColumnRange(actual)
+	return expectedStart <= actualEnd && actualStart <= expectedEnd
+}
+
+func manuContextColumnRange(locator contract.Locator) (int, int) {
+	start, end := locator.StartColumn, locator.EndColumn
+	if start == 0 {
+		start = end
+	}
+	if end == 0 {
+		end = start
+	}
+	return start, end
+}
+
+func manuContextByteRangesOverlap(expected, actual contract.Locator) bool {
+	expectedStart, expectedEnd := manuContextByteRange(expected)
+	actualStart, actualEnd := manuContextByteRange(actual)
+	return expectedStart <= actualEnd && actualStart <= expectedEnd
+}
+
+func manuContextByteRange(locator contract.Locator) (int64, int64) {
+	start := locator.ByteOffset
+	if locator.ByteLength == 0 {
+		return start, start
+	}
+	if locator.ByteLength-1 > math.MaxInt64-start {
+		return start, math.MaxInt64
+	}
+	return start, start + locator.ByteLength - 1
 }
 
 func manuContextUniqueStrings(values []string) []string {

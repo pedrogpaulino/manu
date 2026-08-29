@@ -135,6 +135,252 @@ func TestManuContextExecutorReconcilesOnlyRecoveredLocators(t *testing.T) {
 	}
 }
 
+func TestManuContextLocatorMatchesRealFrontendShapes(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected contract.Locator
+		actual   contract.Locator
+		want     bool
+	}{
+		{
+			name: "java lines narrower and member omitted",
+			expected: contract.Locator{
+				Path:      "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+				Member:    "BookingResource",
+				StartLine: 11,
+				EndLine:   12,
+			},
+			actual: contract.Locator{
+				Path:      "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+				StartLine: 11,
+				EndLine:   11,
+			},
+			want: true,
+		},
+		{
+			name: "python lines narrower and member omitted",
+			expected: contract.Locator{
+				Path:      "internal/analyzer/python/testdata/frappe17/doctype.py",
+				Member:    "SalesOrder",
+				StartLine: 9,
+				EndLine:   13,
+			},
+			actual: contract.Locator{
+				Path:      "internal/analyzer/python/testdata/frappe17/doctype.py",
+				StartLine: 9,
+				EndLine:   9,
+			},
+			want: true,
+		},
+		{
+			name: "wso2 line and byte coordinates do not cross-match",
+			expected: contract.Locator{
+				Path:      "internal/analyzer/wso2/testdata/api-v1.xml",
+				Member:    "OrdersAPI",
+				StartLine: 2,
+				EndLine:   2,
+			},
+			actual: contract.Locator{
+				Path:       "internal/analyzer/wso2/testdata/api-v1.xml",
+				ByteOffset: 42,
+			},
+			want: false,
+		},
+		{
+			name: "normalized path separators",
+			expected: contract.Locator{
+				Path:      `internal\\analyzer\\java\\testdata\\quarkus3\\BookingResource.java`,
+				StartLine: 11,
+			},
+			actual: contract.Locator{
+				Path:      "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+				StartLine: 11,
+			},
+			want: true,
+		},
+		{
+			name: "different path rejected",
+			expected: contract.Locator{
+				Path:      "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+				StartLine: 11,
+			},
+			actual: contract.Locator{
+				Path:      "other/BookingResource.java",
+				StartLine: 11,
+			},
+			want: false,
+		},
+		{
+			name: "basename equivalence follows safe path rule",
+			expected: contract.Locator{
+				Path:      "BookingResource.java",
+				StartLine: 11,
+			},
+			actual: contract.Locator{
+				Path:      "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+				StartLine: 11,
+			},
+			want: true,
+		},
+		{
+			name: "line ranges without intersection rejected",
+			expected: contract.Locator{
+				Path:      "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+				StartLine: 11,
+				EndLine:   12,
+			},
+			actual: contract.Locator{
+				Path:      "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+				StartLine: 13,
+				EndLine:   14,
+			},
+			want: false,
+		},
+		{
+			name: "divergent members rejected when both present",
+			expected: contract.Locator{
+				Path:      "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+				Member:    "BookingResource",
+				StartLine: 11,
+			},
+			actual: contract.Locator{
+				Path:      "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+				Member:    "OtherResource",
+				StartLine: 11,
+			},
+			want: false,
+		},
+		{
+			name: "byte ranges without intersection rejected",
+			expected: contract.Locator{
+				Path:       "internal/analyzer/wso2/testdata/api-v1.xml",
+				ByteOffset: 10,
+				ByteLength: 3,
+			},
+			actual: contract.Locator{
+				Path:       "internal/analyzer/wso2/testdata/api-v1.xml",
+				ByteOffset: 20,
+				ByteLength: 2,
+			},
+			want: false,
+		},
+		{
+			name: "byte ranges overlap",
+			expected: contract.Locator{
+				Path:       "internal/analyzer/wso2/testdata/api-v1.xml",
+				ByteOffset: 10,
+				ByteLength: 10,
+			},
+			actual: contract.Locator{
+				Path:       "internal/analyzer/wso2/testdata/api-v1.xml",
+				ByteOffset: 15,
+				ByteLength: 2,
+			},
+			want: true,
+		},
+		{
+			name: "wso2 byte offsets match",
+			expected: contract.Locator{
+				Path:       "internal/analyzer/wso2/testdata/api-v1.xml",
+				ByteOffset: 42,
+			},
+			actual: contract.Locator{
+				Path:       "internal/analyzer/wso2/testdata/api-v1.xml",
+				ByteOffset: 42,
+			},
+			want: true,
+		},
+		{
+			name: "member-only expected cannot cross-match actual position",
+			expected: contract.Locator{
+				Path:   "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+				Member: "BookingResource",
+			},
+			actual: contract.Locator{
+				Path:      "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+				StartLine: 11,
+			},
+			want: false,
+		},
+		{
+			name: "path only locators rejected",
+			expected: contract.Locator{
+				Path: "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+			},
+			actual: contract.Locator{
+				Path: "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+			},
+			want: false,
+		},
+		{
+			name: "actual locator without position rejected",
+			expected: contract.Locator{
+				Path:      "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+				StartLine: 11,
+			},
+			actual: contract.Locator{
+				Path: "internal/analyzer/java/testdata/quarkus3/BookingResource.java",
+			},
+			want: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := manuContextLocatorMatches(test.expected, test.actual); got != test.want {
+				t.Fatalf("manuContextLocatorMatches() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
+func TestManuContextMatchedEvidenceMaximizesCardinality(t *testing.T) {
+	expected := []ExpectedEvidence{
+		{
+			EvidenceID: "evidence-broad",
+			Kind:       "definition",
+			Locator: &contract.Locator{
+				Path:      "src/example.go",
+				StartLine: 1,
+				EndLine:   3,
+			},
+		},
+		{
+			EvidenceID: "evidence-narrow",
+			Kind:       "definition",
+			Locator: &contract.Locator{
+				Path:      "src/example.go",
+				StartLine: 2,
+				EndLine:   2,
+			},
+		},
+	}
+	items := []query.ContextItem{
+		{
+			ID: "item-exact-broad",
+			Locator: contract.Locator{
+				Path:      "src/example.go",
+				StartLine: 1,
+				EndLine:   3,
+			},
+		},
+		{
+			ID: "item-overlap-broad",
+			Locator: contract.Locator{
+				Path:      "src/example.go",
+				StartLine: 3,
+				EndLine:   4,
+			},
+		},
+	}
+
+	got := manuContextMatchedEvidence(expected, items)
+	want := []string{"evidence-broad", "evidence-narrow"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("manuContextMatchedEvidence() = %#v, want %#v", got, want)
+	}
+}
+
 func TestManuContextExecutorAcceptsValidItemWithPayloadLocatorOnly(t *testing.T) {
 	request := manuContextTestRequest(t, TaskKindLocalization)
 	service := &manuContextTestService{}
