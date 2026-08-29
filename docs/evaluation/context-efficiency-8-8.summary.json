@@ -1,0 +1,340 @@
+{
+  "version": "v1alpha1",
+  "summary_digest": "fa28830b2a60bfc5458dcb9a0dd592e8ae04963173bc575e8fbb1e78299ab35a",
+  "raw_digest": "095b4dccd8a1a82d828342532898ad88b3cc4f692f6d5e60cbc7694a3404399c",
+  "artifact_digest": "095b4dccd8a1a82d828342532898ad88b3cc4f692f6d5e60cbc7694a3404399c",
+  "case_set_digest": "0b02b99cc37e0d82a9da0b5facae3809844dbd642012b70253b8fef11671bbb7",
+  "input_digest": "20c9dca9dedc21485e1a918cc82c855d956d9dfc5636883a583099cf7aef6b8a",
+  "result_digest": "4552e5b65cf4a4425345fef9f4ccb71c764be511de4ed3381f4f6ac52593c417",
+  "reproducibility_digest": "b8111ec55f10909537477600a12a003ee9af50935c45a925c77a4717ebcebf82",
+  "samples": {
+    "cases": 9,
+    "executions": 27,
+    "successful": 0,
+    "completed": 0,
+    "limited": 18,
+    "failed": 0,
+    "unavailable": 9,
+    "cancelled": 0,
+    "comparisons": 18,
+    "comparable_comparisons": 0
+  },
+  "outcomes": [
+    {
+      "variant_id": "direct",
+      "variant_kind": "direct-source",
+      "configuration_id": "direct-read-only",
+      "configuration_version": "v1",
+      "configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+      "attempted": 9,
+      "successful": 0,
+      "completed": 0,
+      "limited": 9,
+      "failed": 0,
+      "unavailable": 0,
+      "cancelled": 0
+    },
+    {
+      "variant_id": "manu",
+      "variant_kind": "manu-context",
+      "configuration_id": "manu-local-read-only",
+      "configuration_version": "v1",
+      "configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+      "attempted": 9,
+      "successful": 0,
+      "completed": 0,
+      "limited": 9,
+      "failed": 0,
+      "unavailable": 0,
+      "cancelled": 0
+    },
+    {
+      "variant_id": "text",
+      "variant_kind": "text-retrieval",
+      "configuration_id": "text-read-only",
+      "configuration_version": "v1",
+      "configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+      "attempted": 9,
+      "successful": 0,
+      "completed": 0,
+      "limited": 0,
+      "failed": 0,
+      "unavailable": 9,
+      "cancelled": 0
+    }
+  ],
+  "observed": [
+    {
+      "variant_id": "direct",
+      "variant_kind": "direct-source",
+      "configuration_id": "direct-read-only",
+      "configuration_version": "v1",
+      "configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+      "tool_calls": {
+        "available": 9,
+        "min": 1,
+        "mean": 1.6666666666666667,
+        "median": 2,
+        "max": 2,
+        "population_std_dev": 0.47140452079103173
+      },
+      "files_read": {
+        "available": 9,
+        "min": 1,
+        "mean": 1.6666666666666667,
+        "median": 2,
+        "max": 2,
+        "population_std_dev": 0.47140452079103173
+      },
+      "bytes_read": {
+        "available": 9,
+        "min": 782,
+        "mean": 960,
+        "median": 806,
+        "max": 1292,
+        "population_std_dev": 234.96382700322192
+      },
+      "duration_nanoseconds": {
+        "available": 9,
+        "min": 74300,
+        "mean": 95733.55555555556,
+        "median": 95500,
+        "max": 123101,
+        "population_std_dev": 12490.8271597922
+      },
+      "correct": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "completed": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "criteria_passed": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "evidence_recall": {
+        "available": 9,
+        "min": 1,
+        "mean": 1,
+        "median": 1,
+        "max": 1,
+        "population_std_dev": 0
+      },
+      "evidence_precision": {
+        "available": 9,
+        "min": 1,
+        "mean": 1,
+        "median": 1,
+        "max": 1,
+        "population_std_dev": 0
+      },
+      "gap_recall": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "abstention_appropriate": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      }
+    },
+    {
+      "variant_id": "manu",
+      "variant_kind": "manu-context",
+      "configuration_id": "manu-local-read-only",
+      "configuration_version": "v1",
+      "configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+      "tool_calls": {
+        "available": 9,
+        "min": 1,
+        "mean": 1,
+        "median": 1,
+        "max": 1,
+        "population_std_dev": 0
+      },
+      "bytes_read": {
+        "available": 9,
+        "min": 0,
+        "mean": 20226.555555555555,
+        "median": 26421,
+        "max": 34343,
+        "population_std_dev": 14786.918017935172
+      },
+      "duration_nanoseconds": {
+        "available": 9,
+        "min": 9620208,
+        "mean": 57939057.666666664,
+        "median": 72286158,
+        "max": 91868274,
+        "population_std_dev": 35657781.77347314
+      },
+      "correct": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "completed": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "criteria_passed": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "evidence_recall": {
+        "available": 9,
+        "min": 0,
+        "mean": 0.2222222222222222,
+        "median": 0,
+        "max": 1,
+        "population_std_dev": 0.3424674446093876
+      },
+      "evidence_precision": {
+        "available": 3,
+        "min": 1,
+        "mean": 1,
+        "median": 1,
+        "max": 1,
+        "population_std_dev": 0
+      },
+      "gap_recall": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "abstention_appropriate": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      }
+    },
+    {
+      "variant_id": "text",
+      "variant_kind": "text-retrieval",
+      "configuration_id": "text-read-only",
+      "configuration_version": "v1",
+      "configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+      "correct": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "completed": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "criteria_passed": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "evidence_recall": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "gap_recall": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      },
+      "abstention_appropriate": {
+        "available": 9,
+        "min": 0,
+        "mean": 0,
+        "median": 0,
+        "max": 0,
+        "population_std_dev": 0
+      }
+    }
+  ],
+  "savings": null,
+  "configurations": [
+    {
+      "id": "direct-read-only",
+      "version": "v1",
+      "digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23"
+    },
+    {
+      "id": "hybrid-retrieval",
+      "version": "v1",
+      "digest": "29a9b16f05191451806aa80920230f0701db02a14088f58fa764fb29275de390"
+    },
+    {
+      "id": "manu-local-read-only",
+      "version": "v1",
+      "digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785"
+    },
+    {
+      "id": "text-read-only",
+      "version": "v1",
+      "digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59"
+    }
+  ],
+  "limitations": [
+    "content_free_result",
+    "generation_not_executed",
+    "generator_not_executed",
+    "impact_uses_question_fallback_without_typed_target",
+    "model_not_executed",
+    "savings_only_defined_for_correct_supported_results",
+    "text_retrieval_not_executed",
+    "text_variant_unavailable",
+    "tokens_and_cost_unavailable",
+    "typed_target_not_available"
+  ]
+}

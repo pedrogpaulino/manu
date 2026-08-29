@@ -75,7 +75,7 @@
 - [x] 8.5 Implementar custo e esforço por tarefa correta e sustentada e economia entre variantes comparáveis, verificando resultado indefinido quando não houver sucesso correto.
 - [x] 8.6 Criar casos versionados de localização, explicação e impacto para Java/Quarkus, WSO2 e Python/Frappe, verificando referências e evidências esperadas por especialista ou fixture revisável.
 - [x] 8.7 Gerar relatórios brutos e resumos com digests, amostra, dispersão, configurações e limitações, verificando reprodução e comparação após alteração de frontend, regra ou recuperação.
-- [ ] 8.8 Executar a linha de base e a variante Manu no ambiente documentado, registrar os resultados em `docs/evaluation/` e verificar que qualquer economia seja descrita como observada no recorte, não como SLA ou garantia geral.
+- [x] 8.8 Executar a linha de base e a variante Manu no ambiente documentado, registrar os resultados em `docs/evaluation/` e verificar que qualquer economia seja descrita como observada no recorte, não como SLA ou garantia geral.
 
 ## 9. Verificação integrada e encerramento
 

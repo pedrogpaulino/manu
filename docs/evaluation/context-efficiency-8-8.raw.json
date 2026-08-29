@@ -1,0 +1,3611 @@
+{
+  "version": "v1alpha1",
+  "metadata": {
+    "run_id": "evaluation-variant-6372612c3899f3ac",
+    "started_at": "2026-08-29T22:11:20.496169472Z",
+    "finished_at": "2026-08-29T22:11:21.460575035Z",
+    "agent": {
+      "id": "manu-evaluation-harness",
+      "version": "v1"
+    },
+    "model": {
+      "id": "model-not-executed",
+      "version": "v1"
+    },
+    "context_server": {
+      "id": "manu-context",
+      "version": "runtime-v1",
+      "digest": "e9f4dc784a2467c69ab17216e04901792faaa84110e6338807b96ca5eeed8f1a"
+    },
+    "frontends": [
+      {
+        "id": "java",
+        "version": "1",
+        "digest": "b5d33170daa80b86ca671615af2510ecdc5e7f04da287bc0de33e41a5840845e"
+      },
+      {
+        "id": "python",
+        "version": "1",
+        "digest": "71f52911ab65b314a510ef8d3e24ea307b3555d2223282dce71213d11451af19"
+      },
+      {
+        "id": "wso2",
+        "version": "1",
+        "digest": "b8a15d9bce3ab2104acfa2479fa79d104cf0cfd48d000aa2a89c454529262ab0"
+      }
+    ],
+    "rules": [
+      {
+        "id": "rules-disabled",
+        "version": "v1",
+        "digest": "182c5bd6d449e1d7476cccfe627582491a136e38221d1acb62156c901452f45d"
+      }
+    ],
+    "retrieval": {
+      "id": "hybrid-retrieval",
+      "version": "v1",
+      "settings": {
+        "exact_weight": "1",
+        "max_candidates": "100",
+        "max_package_budget": "16000",
+        "max_package_budget_unit": "tokens",
+        "max_package_bytes": "262144",
+        "max_package_units": "16",
+        "max_relation_fan_out": "25",
+        "max_relation_hops": "1",
+        "relation_weight": "1",
+        "strategy": "hybrid",
+        "text_weight": "1",
+        "top_k": "20",
+        "vector_weight": "1"
+      }
+    },
+    "retrieval_digest": "29a9b16f05191451806aa80920230f0701db02a14088f58fa764fb29275de390",
+    "tools": [
+      {
+        "id": "filesystem-search",
+        "version": "v1"
+      },
+      {
+        "id": "manu-context",
+        "version": "v1"
+      },
+      {
+        "id": "text-retrieval",
+        "version": "v1"
+      }
+    ],
+    "limitations": [
+      "generator_not_executed",
+      "impact_uses_question_fallback_without_typed_target",
+      "model_not_executed",
+      "savings_only_defined_for_correct_supported_results",
+      "text_variant_unavailable",
+      "tokens_and_cost_unavailable"
+    ]
+  },
+  "execution": {
+    "version": "v1alpha1",
+    "cases_version": "v1alpha2",
+    "cases": [
+      {
+        "case_id": "EVAL-JAVA-EXP-01",
+        "case_version": 1,
+        "corpus_id": "java-quarkus3",
+        "corpus_revision": "java-quarkus3-factual-v1",
+        "source_id": "source-quarkus3",
+        "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+        "executions": [
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-JAVA-EXP-01",
+            "case_version": 1,
+            "corpus_id": "java-quarkus3",
+            "corpus_revision": "java-quarkus3-factual-v1",
+            "source_id": "source-quarkus3",
+            "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+            "variant_id": "direct",
+            "variant_kind": "direct-source",
+            "tool_ids": [
+              "filesystem-search"
+            ],
+            "configuration_id": "direct-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "55b3138a05e4d853e282447db094c7ea7524d328e46cca1e6ed348116d368a57",
+              "evidence_ids": [
+                "evidence-java-config",
+                "evidence-java-list"
+              ],
+              "limitations": [
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "direct-source-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 1,
+                "files_read": 1,
+                "bytes_read": 806,
+                "duration": {
+                  "value": 95500,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 2,
+                "relevant": 2,
+                "k": 2,
+                "recall": 1,
+                "precision": 1
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": true,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-JAVA-EXP-01",
+            "case_version": 1,
+            "corpus_id": "java-quarkus3",
+            "corpus_revision": "java-quarkus3-factual-v1",
+            "source_id": "source-quarkus3",
+            "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+            "variant_id": "manu",
+            "variant_kind": "manu-context",
+            "tool_ids": [
+              "manu-context"
+            ],
+            "configuration_id": "manu-local-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "54a4ed6c3edba454706cc42514f94e809f1b1a25683b439b5add0f73bb0afac3",
+              "limitations": [
+                "content_free_result",
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "manu-context-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 1,
+                "bytes_read": 0,
+                "duration": {
+                  "value": 11261209,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "manu-local-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "manu-context"
+              ],
+              "tool_ids_removed": [
+                "filesystem-search"
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-JAVA-EXP-01",
+            "case_version": 1,
+            "corpus_id": "java-quarkus3",
+            "corpus_revision": "java-quarkus3-factual-v1",
+            "source_id": "source-quarkus3",
+            "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+            "variant_id": "text",
+            "variant_kind": "text-retrieval",
+            "tool_ids": [
+              "filesystem-search",
+              "text-retrieval"
+            ],
+            "configuration_id": "text-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+            "outcome": "unavailable",
+            "error_code": "executor_unavailable",
+            "result": {
+              "version": "v1alpha1",
+              "status": "unavailable",
+              "conclusion": "not-evaluated",
+              "limitations": [
+                "text_retrieval_not_executed"
+              ]
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "text-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "text-retrieval"
+              ],
+              "configuration_keys_added": [
+                "retrieval"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "case_id": "EVAL-JAVA-IMP-01",
+        "case_version": 1,
+        "corpus_id": "java-quarkus3",
+        "corpus_revision": "java-quarkus3-factual-v1",
+        "source_id": "source-quarkus3",
+        "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+        "executions": [
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-JAVA-IMP-01",
+            "case_version": 1,
+            "corpus_id": "java-quarkus3",
+            "corpus_revision": "java-quarkus3-factual-v1",
+            "source_id": "source-quarkus3",
+            "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+            "variant_id": "direct",
+            "variant_kind": "direct-source",
+            "tool_ids": [
+              "filesystem-search"
+            ],
+            "configuration_id": "direct-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "aaad7d061ad7895ac25e0cbbc3fb0554aa4502f1237f9eaae0392f5d19f916a7",
+              "evidence_ids": [
+                "evidence-java-create-method",
+                "evidence-java-create-route"
+              ],
+              "limitations": [
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "direct-source-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 1,
+                "files_read": 1,
+                "bytes_read": 806,
+                "duration": {
+                  "value": 88500,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 2,
+                "relevant": 2,
+                "k": 2,
+                "recall": 1,
+                "precision": 1
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": true,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-JAVA-IMP-01",
+            "case_version": 1,
+            "corpus_id": "java-quarkus3",
+            "corpus_revision": "java-quarkus3-factual-v1",
+            "source_id": "source-quarkus3",
+            "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+            "variant_id": "manu",
+            "variant_kind": "manu-context",
+            "tool_ids": [
+              "manu-context"
+            ],
+            "configuration_id": "manu-local-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "5fbe8139dc2da27ddacf23ebe24902c1f5824eaf16c1c4e53725e4e979bf7369",
+              "evidence_ids": [
+                "evidence-java-create-method",
+                "evidence-java-create-route"
+              ],
+              "limitations": [
+                "content_free_result",
+                "generation_not_executed",
+                "typed_target_not_available"
+              ],
+              "metrics": {
+                "observer_id": "manu-context-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 1,
+                "bytes_read": 32757,
+                "duration": {
+                  "value": 91504772,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 2,
+                "relevant": 2,
+                "k": 2,
+                "recall": 1,
+                "precision": 1
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": true,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "manu-local-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "manu-context"
+              ],
+              "tool_ids_removed": [
+                "filesystem-search"
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-JAVA-IMP-01",
+            "case_version": 1,
+            "corpus_id": "java-quarkus3",
+            "corpus_revision": "java-quarkus3-factual-v1",
+            "source_id": "source-quarkus3",
+            "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+            "variant_id": "text",
+            "variant_kind": "text-retrieval",
+            "tool_ids": [
+              "filesystem-search",
+              "text-retrieval"
+            ],
+            "configuration_id": "text-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+            "outcome": "unavailable",
+            "error_code": "executor_unavailable",
+            "result": {
+              "version": "v1alpha1",
+              "status": "unavailable",
+              "conclusion": "not-evaluated",
+              "limitations": [
+                "text_retrieval_not_executed"
+              ]
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "text-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "text-retrieval"
+              ],
+              "configuration_keys_added": [
+                "retrieval"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "case_id": "EVAL-JAVA-LOC-01",
+        "case_version": 1,
+        "corpus_id": "java-quarkus3",
+        "corpus_revision": "java-quarkus3-factual-v1",
+        "source_id": "source-quarkus3",
+        "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+        "executions": [
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-JAVA-LOC-01",
+            "case_version": 1,
+            "corpus_id": "java-quarkus3",
+            "corpus_revision": "java-quarkus3-factual-v1",
+            "source_id": "source-quarkus3",
+            "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+            "variant_id": "direct",
+            "variant_kind": "direct-source",
+            "tool_ids": [
+              "filesystem-search"
+            ],
+            "configuration_id": "direct-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "01b38f1f2c05ce87f37bef4121cad9156b248c9f0b7d5e1139dcf09b91147258",
+              "evidence_ids": [
+                "evidence-java-resource"
+              ],
+              "limitations": [
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "direct-source-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 1,
+                "files_read": 1,
+                "bytes_read": 806,
+                "duration": {
+                  "value": 74300,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 1,
+                "retrieved": 1,
+                "relevant": 1,
+                "k": 1,
+                "recall": 1,
+                "precision": 1
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": true,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-JAVA-LOC-01",
+            "case_version": 1,
+            "corpus_id": "java-quarkus3",
+            "corpus_revision": "java-quarkus3-factual-v1",
+            "source_id": "source-quarkus3",
+            "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+            "variant_id": "manu",
+            "variant_kind": "manu-context",
+            "tool_ids": [
+              "manu-context"
+            ],
+            "configuration_id": "manu-local-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "8b8d27dec2c24eba8ec16c6ba2f5c92cc28543106c93b71e3a9e5fa7de6b3b74",
+              "limitations": [
+                "content_free_result",
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "manu-context-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 1,
+                "bytes_read": 0,
+                "duration": {
+                  "value": 9947408,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 1,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "manu-local-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "manu-context"
+              ],
+              "tool_ids_removed": [
+                "filesystem-search"
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-JAVA-LOC-01",
+            "case_version": 1,
+            "corpus_id": "java-quarkus3",
+            "corpus_revision": "java-quarkus3-factual-v1",
+            "source_id": "source-quarkus3",
+            "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+            "variant_id": "text",
+            "variant_kind": "text-retrieval",
+            "tool_ids": [
+              "filesystem-search",
+              "text-retrieval"
+            ],
+            "configuration_id": "text-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+            "outcome": "unavailable",
+            "error_code": "executor_unavailable",
+            "result": {
+              "version": "v1alpha1",
+              "status": "unavailable",
+              "conclusion": "not-evaluated",
+              "limitations": [
+                "text_retrieval_not_executed"
+              ]
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 1,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "text-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "text-retrieval"
+              ],
+              "configuration_keys_added": [
+                "retrieval"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "case_id": "EVAL-PYTHON-EXP-01",
+        "case_version": 1,
+        "corpus_id": "python-frappe17",
+        "corpus_revision": "python-frappe17-factual-v1",
+        "source_id": "source-python-integration",
+        "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+        "executions": [
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-PYTHON-EXP-01",
+            "case_version": 1,
+            "corpus_id": "python-frappe17",
+            "corpus_revision": "python-frappe17-factual-v1",
+            "source_id": "source-python-integration",
+            "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+            "variant_id": "direct",
+            "variant_kind": "direct-source",
+            "tool_ids": [
+              "filesystem-search"
+            ],
+            "configuration_id": "direct-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "6004373515ad64b814a0e4650ea67556d3033767721b904d60cdab50efa49485",
+              "evidence_ids": [
+                "evidence-python-doc-events",
+                "evidence-python-load-status"
+              ],
+              "limitations": [
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "direct-source-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 2,
+                "files_read": 2,
+                "bytes_read": 1292,
+                "duration": {
+                  "value": 96200,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 2,
+                "relevant": 2,
+                "k": 2,
+                "recall": 1,
+                "precision": 1
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": true,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-PYTHON-EXP-01",
+            "case_version": 1,
+            "corpus_id": "python-frappe17",
+            "corpus_revision": "python-frappe17-factual-v1",
+            "source_id": "source-python-integration",
+            "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+            "variant_id": "manu",
+            "variant_kind": "manu-context",
+            "tool_ids": [
+              "manu-context"
+            ],
+            "configuration_id": "manu-local-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "f908b0a76a9535d1b9f8e864068d2a28ffd87844e02125f034ebb34ac02e4574",
+              "limitations": [
+                "content_free_result",
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "manu-context-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 1,
+                "bytes_read": 34343,
+                "duration": {
+                  "value": 91868274,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "manu-local-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "manu-context"
+              ],
+              "tool_ids_removed": [
+                "filesystem-search"
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-PYTHON-EXP-01",
+            "case_version": 1,
+            "corpus_id": "python-frappe17",
+            "corpus_revision": "python-frappe17-factual-v1",
+            "source_id": "source-python-integration",
+            "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+            "variant_id": "text",
+            "variant_kind": "text-retrieval",
+            "tool_ids": [
+              "filesystem-search",
+              "text-retrieval"
+            ],
+            "configuration_id": "text-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+            "outcome": "unavailable",
+            "error_code": "executor_unavailable",
+            "result": {
+              "version": "v1alpha1",
+              "status": "unavailable",
+              "conclusion": "not-evaluated",
+              "limitations": [
+                "text_retrieval_not_executed"
+              ]
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "text-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "text-retrieval"
+              ],
+              "configuration_keys_added": [
+                "retrieval"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "case_id": "EVAL-PYTHON-IMP-01",
+        "case_version": 1,
+        "corpus_id": "python-frappe17",
+        "corpus_revision": "python-frappe17-factual-v1",
+        "source_id": "source-python-integration",
+        "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+        "executions": [
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-PYTHON-IMP-01",
+            "case_version": 1,
+            "corpus_id": "python-frappe17",
+            "corpus_revision": "python-frappe17-factual-v1",
+            "source_id": "source-python-integration",
+            "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+            "variant_id": "direct",
+            "variant_kind": "direct-source",
+            "tool_ids": [
+              "filesystem-search"
+            ],
+            "configuration_id": "direct-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "328dae67bc15285eff75df40fdae3c96aba5b1ad70c66c525c31bda44ad1a0ad",
+              "evidence_ids": [
+                "evidence-python-event-flow",
+                "evidence-python-sales-order-flow"
+              ],
+              "limitations": [
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "direct-source-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 2,
+                "files_read": 2,
+                "bytes_read": 1292,
+                "duration": {
+                  "value": 123101,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 2,
+                "relevant": 2,
+                "k": 2,
+                "recall": 1,
+                "precision": 1
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": true,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-PYTHON-IMP-01",
+            "case_version": 1,
+            "corpus_id": "python-frappe17",
+            "corpus_revision": "python-frappe17-factual-v1",
+            "source_id": "source-python-integration",
+            "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+            "variant_id": "manu",
+            "variant_kind": "manu-context",
+            "tool_ids": [
+              "manu-context"
+            ],
+            "configuration_id": "manu-local-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "3e405676f309f149d7cb636d2e34a04e3f635872a3846bb3eb42c7e8590c2bd9",
+              "evidence_ids": [
+                "evidence-python-sales-order-flow"
+              ],
+              "limitations": [
+                "content_free_result",
+                "generation_not_executed",
+                "typed_target_not_available"
+              ],
+              "metrics": {
+                "observer_id": "manu-context-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 1,
+                "bytes_read": 33326,
+                "duration": {
+                  "value": 89846272,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 1,
+                "relevant": 1,
+                "k": 1,
+                "recall": 0.5,
+                "precision": 1
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "manu-local-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "manu-context"
+              ],
+              "tool_ids_removed": [
+                "filesystem-search"
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-PYTHON-IMP-01",
+            "case_version": 1,
+            "corpus_id": "python-frappe17",
+            "corpus_revision": "python-frappe17-factual-v1",
+            "source_id": "source-python-integration",
+            "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+            "variant_id": "text",
+            "variant_kind": "text-retrieval",
+            "tool_ids": [
+              "filesystem-search",
+              "text-retrieval"
+            ],
+            "configuration_id": "text-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+            "outcome": "unavailable",
+            "error_code": "executor_unavailable",
+            "result": {
+              "version": "v1alpha1",
+              "status": "unavailable",
+              "conclusion": "not-evaluated",
+              "limitations": [
+                "text_retrieval_not_executed"
+              ]
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "text-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "text-retrieval"
+              ],
+              "configuration_keys_added": [
+                "retrieval"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "case_id": "EVAL-PYTHON-LOC-01",
+        "case_version": 1,
+        "corpus_id": "python-frappe17",
+        "corpus_revision": "python-frappe17-factual-v1",
+        "source_id": "source-python-integration",
+        "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+        "executions": [
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-PYTHON-LOC-01",
+            "case_version": 1,
+            "corpus_id": "python-frappe17",
+            "corpus_revision": "python-frappe17-factual-v1",
+            "source_id": "source-python-integration",
+            "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+            "variant_id": "direct",
+            "variant_kind": "direct-source",
+            "tool_ids": [
+              "filesystem-search"
+            ],
+            "configuration_id": "direct-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "e626aac2d53494a215ba90e9f87e2fbb9016b0152bea1edb2b1dd28906755a2c",
+              "evidence_ids": [
+                "evidence-python-events",
+                "evidence-python-sales-order"
+              ],
+              "limitations": [
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "direct-source-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 2,
+                "files_read": 2,
+                "bytes_read": 1292,
+                "duration": {
+                  "value": 99300,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 2,
+                "relevant": 2,
+                "k": 2,
+                "recall": 1,
+                "precision": 1
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": true,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-PYTHON-LOC-01",
+            "case_version": 1,
+            "corpus_id": "python-frappe17",
+            "corpus_revision": "python-frappe17-factual-v1",
+            "source_id": "source-python-integration",
+            "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+            "variant_id": "manu",
+            "variant_kind": "manu-context",
+            "tool_ids": [
+              "manu-context"
+            ],
+            "configuration_id": "manu-local-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "37f35d19525fb07fc5d8dd8ef970157f492372010bd05ca11a92f2db396464bc",
+              "evidence_ids": [
+                "evidence-python-sales-order"
+              ],
+              "limitations": [
+                "content_free_result",
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "manu-context-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 1,
+                "bytes_read": 33326,
+                "duration": {
+                  "value": 91231374,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 1,
+                "relevant": 1,
+                "k": 1,
+                "recall": 0.5,
+                "precision": 1
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "manu-local-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "manu-context"
+              ],
+              "tool_ids_removed": [
+                "filesystem-search"
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-PYTHON-LOC-01",
+            "case_version": 1,
+            "corpus_id": "python-frappe17",
+            "corpus_revision": "python-frappe17-factual-v1",
+            "source_id": "source-python-integration",
+            "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+            "variant_id": "text",
+            "variant_kind": "text-retrieval",
+            "tool_ids": [
+              "filesystem-search",
+              "text-retrieval"
+            ],
+            "configuration_id": "text-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+            "outcome": "unavailable",
+            "error_code": "executor_unavailable",
+            "result": {
+              "version": "v1alpha1",
+              "status": "unavailable",
+              "conclusion": "not-evaluated",
+              "limitations": [
+                "text_retrieval_not_executed"
+              ]
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "text-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "text-retrieval"
+              ],
+              "configuration_keys_added": [
+                "retrieval"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "case_id": "EVAL-WSO2-EXP-01",
+        "case_version": 1,
+        "corpus_id": "wso2-integration",
+        "corpus_revision": "wso2-declarative-v1",
+        "source_id": "wso2-integration-source",
+        "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+        "executions": [
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-WSO2-EXP-01",
+            "case_version": 1,
+            "corpus_id": "wso2-integration",
+            "corpus_revision": "wso2-declarative-v1",
+            "source_id": "wso2-integration-source",
+            "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+            "variant_id": "direct",
+            "variant_kind": "direct-source",
+            "tool_ids": [
+              "filesystem-search"
+            ],
+            "configuration_id": "direct-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "ce6787dc6f2e86a67c4464a9ba3163f2cad4767dc4bb05e5bb6ee49152ce4df8",
+              "evidence_ids": [
+                "evidence-wso2-include",
+                "evidence-wso2-sequence"
+              ],
+              "limitations": [
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "direct-source-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 2,
+                "files_read": 2,
+                "bytes_read": 782,
+                "duration": {
+                  "value": 88900,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 2,
+                "relevant": 2,
+                "k": 2,
+                "recall": 1,
+                "precision": 1
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": true,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-WSO2-EXP-01",
+            "case_version": 1,
+            "corpus_id": "wso2-integration",
+            "corpus_revision": "wso2-declarative-v1",
+            "source_id": "wso2-integration-source",
+            "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+            "variant_id": "manu",
+            "variant_kind": "manu-context",
+            "tool_ids": [
+              "manu-context"
+            ],
+            "configuration_id": "manu-local-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "583b568856e25783ac1f65f48274e3a5f5784b76335173a52149fc154a9850f8",
+              "limitations": [
+                "content_free_result",
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "manu-context-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 1,
+                "bytes_read": 21866,
+                "duration": {
+                  "value": 53885844,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "manu-local-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "manu-context"
+              ],
+              "tool_ids_removed": [
+                "filesystem-search"
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-WSO2-EXP-01",
+            "case_version": 1,
+            "corpus_id": "wso2-integration",
+            "corpus_revision": "wso2-declarative-v1",
+            "source_id": "wso2-integration-source",
+            "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+            "variant_id": "text",
+            "variant_kind": "text-retrieval",
+            "tool_ids": [
+              "filesystem-search",
+              "text-retrieval"
+            ],
+            "configuration_id": "text-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+            "outcome": "unavailable",
+            "error_code": "executor_unavailable",
+            "result": {
+              "version": "v1alpha1",
+              "status": "unavailable",
+              "conclusion": "not-evaluated",
+              "limitations": [
+                "text_retrieval_not_executed"
+              ]
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "text-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "text-retrieval"
+              ],
+              "configuration_keys_added": [
+                "retrieval"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "case_id": "EVAL-WSO2-IMP-01",
+        "case_version": 1,
+        "corpus_id": "wso2-integration",
+        "corpus_revision": "wso2-declarative-v1",
+        "source_id": "wso2-integration-source",
+        "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+        "executions": [
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-WSO2-IMP-01",
+            "case_version": 1,
+            "corpus_id": "wso2-integration",
+            "corpus_revision": "wso2-declarative-v1",
+            "source_id": "wso2-integration-source",
+            "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+            "variant_id": "direct",
+            "variant_kind": "direct-source",
+            "tool_ids": [
+              "filesystem-search"
+            ],
+            "configuration_id": "direct-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "486c6f49bd860bb41a56bec990def2ce8baa9b9936d9c289763a4ae205d94d96",
+              "evidence_ids": [
+                "evidence-wso2-include-flow",
+                "evidence-wso2-sequence-flow"
+              ],
+              "limitations": [
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "direct-source-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 2,
+                "files_read": 2,
+                "bytes_read": 782,
+                "duration": {
+                  "value": 104000,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 2,
+                "relevant": 2,
+                "k": 2,
+                "recall": 1,
+                "precision": 1
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": true,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-WSO2-IMP-01",
+            "case_version": 1,
+            "corpus_id": "wso2-integration",
+            "corpus_revision": "wso2-declarative-v1",
+            "source_id": "wso2-integration-source",
+            "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+            "variant_id": "manu",
+            "variant_kind": "manu-context",
+            "tool_ids": [
+              "manu-context"
+            ],
+            "configuration_id": "manu-local-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "f73e3a19f4fe030379597b1a9ca319ef82247f16f9ba3d582f744d181ac6b489",
+              "limitations": [
+                "content_free_result",
+                "generation_not_executed",
+                "typed_target_not_available"
+              ],
+              "metrics": {
+                "observer_id": "manu-context-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 1,
+                "bytes_read": 0,
+                "duration": {
+                  "value": 9620208,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "manu-local-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "manu-context"
+              ],
+              "tool_ids_removed": [
+                "filesystem-search"
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-WSO2-IMP-01",
+            "case_version": 1,
+            "corpus_id": "wso2-integration",
+            "corpus_revision": "wso2-declarative-v1",
+            "source_id": "wso2-integration-source",
+            "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+            "variant_id": "text",
+            "variant_kind": "text-retrieval",
+            "tool_ids": [
+              "filesystem-search",
+              "text-retrieval"
+            ],
+            "configuration_id": "text-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+            "outcome": "unavailable",
+            "error_code": "executor_unavailable",
+            "result": {
+              "version": "v1alpha1",
+              "status": "unavailable",
+              "conclusion": "not-evaluated",
+              "limitations": [
+                "text_retrieval_not_executed"
+              ]
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "text-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "text-retrieval"
+              ],
+              "configuration_keys_added": [
+                "retrieval"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "case_id": "EVAL-WSO2-LOC-01",
+        "case_version": 1,
+        "corpus_id": "wso2-integration",
+        "corpus_revision": "wso2-declarative-v1",
+        "source_id": "wso2-integration-source",
+        "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+        "executions": [
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-WSO2-LOC-01",
+            "case_version": 1,
+            "corpus_id": "wso2-integration",
+            "corpus_revision": "wso2-declarative-v1",
+            "source_id": "wso2-integration-source",
+            "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+            "variant_id": "direct",
+            "variant_kind": "direct-source",
+            "tool_ids": [
+              "filesystem-search"
+            ],
+            "configuration_id": "direct-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "0889ec514fae9a280f9c259f2d37e80cb323986bb5693ef6bdc454e0312f3f7a",
+              "evidence_ids": [
+                "evidence-wso2-api",
+                "evidence-wso2-endpoint"
+              ],
+              "limitations": [
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "direct-source-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 2,
+                "files_read": 2,
+                "bytes_read": 782,
+                "duration": {
+                  "value": 91801,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 2,
+                "relevant": 2,
+                "k": 2,
+                "recall": 1,
+                "precision": 1
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": true,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-WSO2-LOC-01",
+            "case_version": 1,
+            "corpus_id": "wso2-integration",
+            "corpus_revision": "wso2-declarative-v1",
+            "source_id": "wso2-integration-source",
+            "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+            "variant_id": "manu",
+            "variant_kind": "manu-context",
+            "tool_ids": [
+              "manu-context"
+            ],
+            "configuration_id": "manu-local-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+            "outcome": "limited",
+            "result": {
+              "version": "v1alpha1",
+              "status": "limited",
+              "conclusion": "partial",
+              "output_digest": "00f3f744b33f878ea4edeae1e081d621fa8470e9cdd360a41069b461b1269e4b",
+              "limitations": [
+                "content_free_result",
+                "generation_not_executed"
+              ],
+              "metrics": {
+                "observer_id": "manu-context-executor",
+                "observer_version": "v1alpha1",
+                "tool_calls": 1,
+                "bytes_read": 26421,
+                "duration": {
+                  "value": 72286158,
+                  "unit": "nanoseconds"
+                }
+              }
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "manu-local-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "manu-context"
+              ],
+              "tool_ids_removed": [
+                "filesystem-search"
+              ]
+            }
+          },
+          {
+            "version": "v1alpha1",
+            "case_id": "EVAL-WSO2-LOC-01",
+            "case_version": 1,
+            "corpus_id": "wso2-integration",
+            "corpus_revision": "wso2-declarative-v1",
+            "source_id": "wso2-integration-source",
+            "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+            "variant_id": "text",
+            "variant_kind": "text-retrieval",
+            "tool_ids": [
+              "filesystem-search",
+              "text-retrieval"
+            ],
+            "configuration_id": "text-read-only",
+            "configuration_version": "v1",
+            "configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+            "outcome": "unavailable",
+            "error_code": "executor_unavailable",
+            "result": {
+              "version": "v1alpha1",
+              "status": "unavailable",
+              "conclusion": "not-evaluated",
+              "limitations": [
+                "text_retrieval_not_executed"
+              ]
+            },
+            "quality": {
+              "correct": false,
+              "completed": false,
+              "required_criteria_passed": false,
+              "evidence": {
+                "expected": 2,
+                "retrieved": 0,
+                "relevant": 0,
+                "k": 0,
+                "recall": 0
+              },
+              "citations": {
+                "total": 0,
+                "valid": 0
+              },
+              "gaps": {
+                "expected": 1,
+                "recognized": 0,
+                "recall": 0
+              },
+              "abstention": {
+                "expected": false,
+                "actual": false,
+                "appropriate": false
+              },
+              "criteria": [
+                {
+                  "id": "citation",
+                  "kind": "citation",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "citation_support_compared"
+                },
+                {
+                  "id": "completion",
+                  "kind": "completion",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "completion_state_compared"
+                },
+                {
+                  "id": "correctness",
+                  "kind": "correctness",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "claim_set_compared"
+                },
+                {
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "evidence_ids_compared"
+                },
+                {
+                  "id": "gap",
+                  "kind": "gap",
+                  "required": true,
+                  "evaluated": true,
+                  "passed": false,
+                  "reason": "gap_ids_compared"
+                }
+              ]
+            },
+            "differences": {
+              "baseline_variant_id": "direct",
+              "baseline_configuration_id": "direct-read-only",
+              "baseline_configuration_version": "v1",
+              "configuration_id": "text-read-only",
+              "configuration_version": "v1",
+              "configuration_id_changed": true,
+              "configuration_version_changed": false,
+              "tool_ids_added": [
+                "text-retrieval"
+              ],
+              "configuration_keys_added": [
+                "retrieval"
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "efficiency": {
+      "aggregates": [
+        {
+          "variant_id": "direct",
+          "variant_kind": "direct-source",
+          "configuration_id": "direct-read-only",
+          "configuration_version": "v1",
+          "configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "attempted_tasks": 9,
+          "successful_tasks": 0
+        },
+        {
+          "variant_id": "manu",
+          "variant_kind": "manu-context",
+          "configuration_id": "manu-local-read-only",
+          "configuration_version": "v1",
+          "configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+          "attempted_tasks": 9,
+          "successful_tasks": 0
+        },
+        {
+          "variant_id": "text",
+          "variant_kind": "text-retrieval",
+          "configuration_id": "text-read-only",
+          "configuration_version": "v1",
+          "configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+          "attempted_tasks": 9,
+          "successful_tasks": 0
+        }
+      ],
+      "comparisons": [
+        {
+          "case_id": "EVAL-JAVA-EXP-01",
+          "case_version": 1,
+          "corpus_id": "java-quarkus3",
+          "corpus_revision": "java-quarkus3-factual-v1",
+          "source_id": "source-quarkus3",
+          "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "manu",
+          "candidate_variant_kind": "manu-context",
+          "candidate_configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-JAVA-EXP-01",
+          "case_version": 1,
+          "corpus_id": "java-quarkus3",
+          "corpus_revision": "java-quarkus3-factual-v1",
+          "source_id": "source-quarkus3",
+          "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "text",
+          "candidate_variant_kind": "text-retrieval",
+          "candidate_configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-JAVA-IMP-01",
+          "case_version": 1,
+          "corpus_id": "java-quarkus3",
+          "corpus_revision": "java-quarkus3-factual-v1",
+          "source_id": "source-quarkus3",
+          "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "manu",
+          "candidate_variant_kind": "manu-context",
+          "candidate_configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-JAVA-IMP-01",
+          "case_version": 1,
+          "corpus_id": "java-quarkus3",
+          "corpus_revision": "java-quarkus3-factual-v1",
+          "source_id": "source-quarkus3",
+          "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "text",
+          "candidate_variant_kind": "text-retrieval",
+          "candidate_configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-JAVA-LOC-01",
+          "case_version": 1,
+          "corpus_id": "java-quarkus3",
+          "corpus_revision": "java-quarkus3-factual-v1",
+          "source_id": "source-quarkus3",
+          "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "manu",
+          "candidate_variant_kind": "manu-context",
+          "candidate_configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-JAVA-LOC-01",
+          "case_version": 1,
+          "corpus_id": "java-quarkus3",
+          "corpus_revision": "java-quarkus3-factual-v1",
+          "source_id": "source-quarkus3",
+          "source_revision": "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "text",
+          "candidate_variant_kind": "text-retrieval",
+          "candidate_configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-PYTHON-EXP-01",
+          "case_version": 1,
+          "corpus_id": "python-frappe17",
+          "corpus_revision": "python-frappe17-factual-v1",
+          "source_id": "source-python-integration",
+          "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "manu",
+          "candidate_variant_kind": "manu-context",
+          "candidate_configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-PYTHON-EXP-01",
+          "case_version": 1,
+          "corpus_id": "python-frappe17",
+          "corpus_revision": "python-frappe17-factual-v1",
+          "source_id": "source-python-integration",
+          "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "text",
+          "candidate_variant_kind": "text-retrieval",
+          "candidate_configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-PYTHON-IMP-01",
+          "case_version": 1,
+          "corpus_id": "python-frappe17",
+          "corpus_revision": "python-frappe17-factual-v1",
+          "source_id": "source-python-integration",
+          "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "manu",
+          "candidate_variant_kind": "manu-context",
+          "candidate_configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-PYTHON-IMP-01",
+          "case_version": 1,
+          "corpus_id": "python-frappe17",
+          "corpus_revision": "python-frappe17-factual-v1",
+          "source_id": "source-python-integration",
+          "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "text",
+          "candidate_variant_kind": "text-retrieval",
+          "candidate_configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-PYTHON-LOC-01",
+          "case_version": 1,
+          "corpus_id": "python-frappe17",
+          "corpus_revision": "python-frappe17-factual-v1",
+          "source_id": "source-python-integration",
+          "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "manu",
+          "candidate_variant_kind": "manu-context",
+          "candidate_configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-PYTHON-LOC-01",
+          "case_version": 1,
+          "corpus_id": "python-frappe17",
+          "corpus_revision": "python-frappe17-factual-v1",
+          "source_id": "source-python-integration",
+          "source_revision": "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "text",
+          "candidate_variant_kind": "text-retrieval",
+          "candidate_configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-WSO2-EXP-01",
+          "case_version": 1,
+          "corpus_id": "wso2-integration",
+          "corpus_revision": "wso2-declarative-v1",
+          "source_id": "wso2-integration-source",
+          "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "manu",
+          "candidate_variant_kind": "manu-context",
+          "candidate_configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-WSO2-EXP-01",
+          "case_version": 1,
+          "corpus_id": "wso2-integration",
+          "corpus_revision": "wso2-declarative-v1",
+          "source_id": "wso2-integration-source",
+          "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "text",
+          "candidate_variant_kind": "text-retrieval",
+          "candidate_configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-WSO2-IMP-01",
+          "case_version": 1,
+          "corpus_id": "wso2-integration",
+          "corpus_revision": "wso2-declarative-v1",
+          "source_id": "wso2-integration-source",
+          "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "manu",
+          "candidate_variant_kind": "manu-context",
+          "candidate_configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-WSO2-IMP-01",
+          "case_version": 1,
+          "corpus_id": "wso2-integration",
+          "corpus_revision": "wso2-declarative-v1",
+          "source_id": "wso2-integration-source",
+          "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "text",
+          "candidate_variant_kind": "text-retrieval",
+          "candidate_configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-WSO2-LOC-01",
+          "case_version": 1,
+          "corpus_id": "wso2-integration",
+          "corpus_revision": "wso2-declarative-v1",
+          "source_id": "wso2-integration-source",
+          "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "manu",
+          "candidate_variant_kind": "manu-context",
+          "candidate_configuration_digest": "b4e3370847d99fe815e5d4763c20eeb17fa8c320d80d7e2aa65df3e08f882785",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        },
+        {
+          "case_id": "EVAL-WSO2-LOC-01",
+          "case_version": 1,
+          "corpus_id": "wso2-integration",
+          "corpus_revision": "wso2-declarative-v1",
+          "source_id": "wso2-integration-source",
+          "source_revision": "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366",
+          "baseline_variant_id": "direct",
+          "baseline_variant_kind": "direct-source",
+          "baseline_configuration_digest": "ff6c33d6e76e4c241f67daca1a49a0e979550a979b3379b45a5c2082bf93ee23",
+          "candidate_variant_id": "text",
+          "candidate_variant_kind": "text-retrieval",
+          "candidate_configuration_digest": "9888dd3566bd7646f8b2abb9f0d4735cfba512ab2cd4bc1594ea856d3ad85c59",
+          "comparable": false,
+          "reason": "baseline_and_candidate_not_successful"
+        }
+      ]
+    }
+  },
+  "case_set_digest": "0b02b99cc37e0d82a9da0b5facae3809844dbd642012b70253b8fef11671bbb7",
+  "input_digest": "20c9dca9dedc21485e1a918cc82c855d956d9dfc5636883a583099cf7aef6b8a",
+  "result_digest": "4552e5b65cf4a4425345fef9f4ccb71c764be511de4ed3381f4f6ac52593c417",
+  "reproducibility_digest": "b8111ec55f10909537477600a12a003ee9af50935c45a925c77a4717ebcebf82",
+  "artifact_digest": "095b4dccd8a1a82d828342532898ad88b3cc4f692f6d5e60cbc7694a3404399c"
+}
