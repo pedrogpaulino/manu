@@ -43,6 +43,9 @@ func runEvalWithRunners(ctx context.Context, args []string, stdout, stderr io.Wr
 }
 
 func runEvalWithDependencies(ctx context.Context, args []string, stdout, stderr io.Writer, run EvaluationRunner, liveRun LiveEvaluationRunner, load EvalConfigLoader, factory LiveGeneratorFactory) int {
+	if variantEvaluationRequested(args) {
+		return runEvalVariantsWithDependencies(ctx, args, stdout, stderr, load, variantEvaluationRun)
+	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
