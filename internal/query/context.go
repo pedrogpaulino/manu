@@ -607,24 +607,25 @@ func (d ContextDegradation) Validate() error { return d.validate() }
 // representation. It contains only selected canonical material and metadata;
 // it does not provide source or persistence access.
 type ContextPackage struct {
-	Version        string                  `json:"version"`
-	ID             string                  `json:"id"`
-	Digest         string                  `json:"digest"`
-	Revision       string                  `json:"revision"`
-	Scope          Scope                   `json:"scope"`
-	Intent         Intent                  `json:"intent"`
-	Limits         ContextLimits           `json:"limits"`
-	Items          []ContextItem           `json:"items"`
-	Relations      []ContextRelation       `json:"relations,omitempty"`
-	Coverage       []contract.Coverage     `json:"coverage,omitempty"`
-	Gaps           []contract.Gap          `json:"gaps,omitempty"`
-	Degradations   []ContextDegradation    `json:"degradations,omitempty"`
-	Audit          []ContextSelectionAudit `json:"audit,omitempty"`
-	TokenEstimate  int                     `json:"token_estimate"`
-	CharactersUsed int64                   `json:"characters_used"`
-	BytesUsed      int64                   `json:"bytes_used"`
-	Truncated      bool                    `json:"truncated"`
-	Continuation   *ContextContinuation    `json:"continuation,omitempty"`
+	Version         string                         `json:"version"`
+	ID              string                         `json:"id"`
+	Digest          string                         `json:"digest"`
+	IdentityBinding *ContextPackageIdentityBinding `json:"identity_binding,omitempty"`
+	Revision        string                         `json:"revision"`
+	Scope           Scope                          `json:"scope"`
+	Intent          Intent                         `json:"intent"`
+	Limits          ContextLimits                  `json:"limits"`
+	Items           []ContextItem                  `json:"items"`
+	Relations       []ContextRelation              `json:"relations,omitempty"`
+	Coverage        []contract.Coverage            `json:"coverage,omitempty"`
+	Gaps            []contract.Gap                 `json:"gaps,omitempty"`
+	Degradations    []ContextDegradation           `json:"degradations,omitempty"`
+	Audit           []ContextSelectionAudit        `json:"audit,omitempty"`
+	TokenEstimate   int                            `json:"token_estimate"`
+	CharactersUsed  int64                          `json:"characters_used"`
+	BytesUsed       int64                          `json:"bytes_used"`
+	Truncated       bool                           `json:"truncated"`
+	Continuation    *ContextContinuation           `json:"continuation,omitempty"`
 }
 
 // Package is the descriptive alias for ContextPackage.
@@ -753,6 +754,9 @@ func (p ContextPackage) Validate() error {
 			return ErrInvalidContextContinuation
 		}
 	}
+	if err := validateFinalizedContextPackageIdentity(p); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -797,18 +801,29 @@ type ContextService interface {
 // result without changing the package returned by a service.
 func (p ContextPackage) Clone() ContextPackage {
 	clone := p
-	clone.Items = make([]ContextItem, len(p.Items))
-	for index, item := range p.Items {
-		clone.Items[index] = cloneContextItem(item)
+	clone.IdentityBinding = cloneContextPackageIdentityBinding(p.IdentityBinding)
+	if p.Items != nil {
+		clone.Items = make([]ContextItem, len(p.Items))
+		for index, item := range p.Items {
+			clone.Items[index] = cloneContextItem(item)
+		}
 	}
-	clone.Relations = make([]ContextRelation, len(p.Relations))
-	for index, relation := range p.Relations {
-		clone.Relations[index] = cloneContextRelation(relation)
+	if p.Relations != nil {
+		clone.Relations = make([]ContextRelation, len(p.Relations))
+		for index, relation := range p.Relations {
+			clone.Relations[index] = cloneContextRelation(relation)
+		}
 	}
 	clone.Coverage = cloneContractCoverage(p.Coverage)
 	clone.Gaps = cloneContractGaps(p.Gaps)
-	clone.Degradations = append([]ContextDegradation(nil), p.Degradations...)
-	clone.Audit = append([]ContextSelectionAudit(nil), p.Audit...)
+	if p.Degradations != nil {
+		clone.Degradations = make([]ContextDegradation, len(p.Degradations))
+		copy(clone.Degradations, p.Degradations)
+	}
+	if p.Audit != nil {
+		clone.Audit = make([]ContextSelectionAudit, len(p.Audit))
+		copy(clone.Audit, p.Audit)
+	}
 	clone.Continuation = cloneContextContinuation(p.Continuation)
 	return clone
 }
@@ -829,14 +844,14 @@ func cloneContextItem(item ContextItem) ContextItem {
 	}
 	clone.Evidence = cloneContextEvidence(item.Evidence)
 	clone.Provenance = cloneContextProvenance(item.Provenance)
-	clone.SupportIDs = append([]string(nil), item.SupportIDs...)
+	clone.SupportIDs = cloneContextStrings(item.SupportIDs)
 	return clone
 }
 
 func cloneContextRelation(relation ContextRelation) ContextRelation {
 	clone := relation
-	clone.Path = append([]string(nil), relation.Path...)
-	clone.SupportIDs = append([]string(nil), relation.SupportIDs...)
+	clone.Path = cloneContextStrings(relation.Path)
+	clone.SupportIDs = cloneContextStrings(relation.SupportIDs)
 	clone.Provenance = cloneContextProvenance(relation.Provenance)
 	return clone
 }
@@ -849,10 +864,10 @@ func cloneContextProvenance(provenance ContextProvenance) ContextProvenance {
 	}
 	if provenance.Lineage != nil {
 		lineage := *provenance.Lineage
-		lineage.InputFactIDs = append([]string(nil), provenance.Lineage.InputFactIDs...)
+		lineage.InputFactIDs = cloneContextStrings(provenance.Lineage.InputFactIDs)
 		clone.Lineage = &lineage
 	}
-	clone.Evidence = append([]fact.EvidenceRef(nil), provenance.Evidence...)
+	clone.Evidence = cloneContextEvidenceRefs(provenance.Evidence)
 	return clone
 }
 
@@ -863,11 +878,14 @@ func cloneContextFact(value *fact.CanonicalFact) *fact.CanonicalFact {
 	clone := *value
 	clone.Object = cloneContextParticipant(value.Object)
 	clone.Value = cloneContextValue(value.Value)
-	clone.Qualifiers = append([]fact.Qualifier(nil), value.Qualifiers...)
-	clone.Evidence = append([]fact.EvidenceRef(nil), value.Evidence...)
+	if value.Qualifiers != nil {
+		clone.Qualifiers = make([]fact.Qualifier, len(value.Qualifiers))
+		copy(clone.Qualifiers, value.Qualifiers)
+	}
+	clone.Evidence = cloneContextEvidenceRefs(value.Evidence)
 	if value.Lineage != nil {
 		lineage := *value.Lineage
-		lineage.InputFactIDs = append([]string(nil), value.Lineage.InputFactIDs...)
+		lineage.InputFactIDs = cloneContextStrings(value.Lineage.InputFactIDs)
 		clone.Lineage = &lineage
 	}
 	return &clone
@@ -894,7 +912,7 @@ func cloneContextEvidence(value *evidence.EvidenceUnit) *evidence.EvidenceUnit {
 		return nil
 	}
 	clone := *value
-	clone.Findings = append([]string(nil), value.Findings...)
+	clone.Findings = cloneContextStrings(value.Findings)
 	return &clone
 }
 
@@ -911,7 +929,11 @@ func cloneContextContinuation(value *ContextContinuation) *ContextContinuation {
 }
 
 func cloneContractCoverage(values []contract.Coverage) []contract.Coverage {
-	clone := append([]contract.Coverage(nil), values...)
+	if values == nil {
+		return nil
+	}
+	clone := make([]contract.Coverage, len(values))
+	copy(clone, values)
 	for index := range clone {
 		if values[index].Locator != nil {
 			locator := *values[index].Locator
@@ -922,13 +944,35 @@ func cloneContractCoverage(values []contract.Coverage) []contract.Coverage {
 }
 
 func cloneContractGaps(values []contract.Gap) []contract.Gap {
-	clone := append([]contract.Gap(nil), values...)
+	if values == nil {
+		return nil
+	}
+	clone := make([]contract.Gap, len(values))
+	copy(clone, values)
 	for index := range clone {
 		if values[index].Locator != nil {
 			locator := *values[index].Locator
 			clone[index].Locator = &locator
 		}
 	}
+	return clone
+}
+
+func cloneContextStrings(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	clone := make([]string, len(values))
+	copy(clone, values)
+	return clone
+}
+
+func cloneContextEvidenceRefs(values []fact.EvidenceRef) []fact.EvidenceRef {
+	if values == nil {
+		return nil
+	}
+	clone := make([]fact.EvidenceRef, len(values))
+	copy(clone, values)
 	return clone
 }
 

@@ -119,6 +119,183 @@ func TestProjectContextPackageProducesMatchingValidatedViews(t *testing.T) {
 	}
 }
 
+func TestProjectContextPackageRejectsUnsealedPackage(t *testing.T) {
+	packageContext := contextGatewayTestPackage(t, "unsealed gateway content")
+	projection, err := ProjectContextPackage(context.Background(), packageContext)
+	if err != nil {
+		t.Fatalf("ProjectContextPackage() error = %v", err)
+	}
+
+	unsealed := packageContext.Clone()
+	unsealed.IdentityBinding = nil
+	if _, err := ProjectContextPackage(context.Background(), unsealed); !errors.Is(err, ErrInvalidContextGatewayProjection) {
+		t.Fatalf("ProjectContextPackage(unsealed) error = %v, want %v", err, ErrInvalidContextGatewayProjection)
+	}
+	if err := projection.ValidateAgainst(unsealed); !errors.Is(err, ErrInvalidContextGatewayProjection) {
+		t.Fatalf("ValidateAgainst(unsealed) error = %v, want %v", err, ErrInvalidContextGatewayProjection)
+	}
+}
+
+func TestProjectContextPackageForExternalTransferAppliesPolicyAtomically(t *testing.T) {
+	packageContext := contextGatewayTestPackage(t, "external policy content")
+	before := packageContext.Clone()
+
+	tests := []struct {
+		name             string
+		policy           evidence.Policy
+		wantError        bool
+		wantEvidence     int
+		wantRedactedOnly bool
+		wantPresent      bool
+	}{
+		{
+			name:         "deny",
+			policy:       evidence.Policy{Installation: evidence.PolicyLayer{ExternalTransfer: evidence.DecisionDeny}},
+			wantError:    true,
+			wantEvidence: 0,
+		},
+		{
+			name:             "redact",
+			policy:           evidence.Policy{Installation: evidence.PolicyLayer{ExternalTransfer: evidence.DecisionRedact}},
+			wantEvidence:     2,
+			wantRedactedOnly: true,
+		},
+		{
+			name:         "allow",
+			policy:       evidence.Policy{Installation: evidence.PolicyLayer{ExternalTransfer: evidence.DecisionAllow}},
+			wantEvidence: 5,
+			wantPresent:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			projection, err := ProjectContextPackageForExternalTransfer(context.Background(), packageContext, tt.policy)
+			if tt.wantError {
+				if !errors.Is(err, ErrInvalidContextGatewayProjection) {
+					t.Fatalf("ProjectContextPackageForExternalTransfer() error = %v, want %v", err, ErrInvalidContextGatewayProjection)
+				}
+				if !reflect.DeepEqual(projection, ContextGatewayProjection{}) {
+					t.Fatalf("denied projection = %#v, want no projection", projection)
+				}
+				if !reflect.DeepEqual(packageContext, before) {
+					t.Fatal("external projection mutated local package")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ProjectContextPackageForExternalTransfer() error = %v", err)
+			}
+			if err := projection.Validate(); err != nil {
+				t.Fatalf("projection.Validate() error = %v", err)
+			}
+			if len(projection.GatewayPackage.Evidence) != tt.wantEvidence || len(projection.ValidationPackage.Evidence) != tt.wantEvidence {
+				t.Fatalf("projected evidence count = %d/%d, want %d", len(projection.GatewayPackage.Evidence), len(projection.ValidationPackage.Evidence), tt.wantEvidence)
+			}
+			var redacted, present bool
+			for _, item := range projection.GatewayPackage.Evidence {
+				if item.Content == evidence.RedactedContent {
+					redacted = true
+				}
+				if item.Content == "external policy content" {
+					present = true
+				}
+			}
+			if tt.wantRedactedOnly && (!redacted || present) {
+				t.Fatalf("redacted projection leaked or omitted representation: %#v", projection.GatewayPackage.Evidence)
+			}
+			if tt.wantPresent && !present {
+				t.Fatalf("allow projection omitted present content: %#v", projection.GatewayPackage.Evidence)
+			}
+			if !reflect.DeepEqual(packageContext, before) {
+				t.Fatal("external projection mutated local package")
+			}
+		})
+	}
+}
+
+func TestProjectContextPackageRejectsFinalizedTransferTampering(t *testing.T) {
+	packageContext := contextGatewayTestPackage(t, "finalized transfer content")
+	packageContext.Relations = nil
+	packageContext.Items = packageContext.Items[:3]
+	packageContext.Audit = packageContext.Audit[:3]
+	denied, err := evidence.PrepareForExternalTransfer(*packageContext.Items[2].Evidence, evidence.Policy{
+		Installation: evidence.PolicyLayer{ExternalTransfer: evidence.DecisionDeny},
+	})
+	if err != nil {
+		t.Fatalf("PrepareForExternalTransfer() error = %v", err)
+	}
+	oldID := packageContext.Items[2].ID
+	packageContext.Items[2].ID = denied.ID
+	packageContext.Items[2].Evidence = &denied
+	packageContext.Items[2].Provenance.Evidence[0].ID = denied.ID
+	for index := range packageContext.Items {
+		for supportIndex, supportID := range packageContext.Items[index].SupportIDs {
+			if supportID == oldID {
+				packageContext.Items[index].SupportIDs[supportIndex] = denied.ID
+			}
+		}
+	}
+	for index := range packageContext.Audit {
+		if packageContext.Audit[index].ItemID == oldID {
+			packageContext.Audit[index].ItemID = denied.ID
+		}
+	}
+	packageContext.ID = ""
+	packageContext.Digest = ""
+	packageContext.IdentityBinding = nil
+	finalized, err := FinalizeContextPackage(context.Background(), packageContext, ContextPackageIdentityBinding{
+		PolicyDigest:          strings.Repeat("a", 64),
+		PolicyContinuationIDs: []string{packageContext.Items[0].ID, packageContext.Items[1].ID},
+	})
+	if err != nil {
+		t.Fatalf("FinalizeContextPackage() error = %v", err)
+	}
+	for _, tt := range []struct {
+		name   string
+		mutate func(*ContextPackage)
+	}{
+		{
+			name: "deny to allow",
+			mutate: func(value *ContextPackage) {
+				value.Items[2].Evidence.ExternalTransfer = evidence.DecisionAllow
+			},
+		},
+		{
+			name: "content",
+			mutate: func(value *ContextPackage) {
+				value.Items[2].Evidence.Content = "tampered transfer content"
+			},
+		},
+		{
+			name: "package id",
+			mutate: func(value *ContextPackage) {
+				value.ID = "context-tampered"
+			},
+		},
+		{
+			name: "package digest",
+			mutate: func(value *ContextPackage) {
+				value.Digest = strings.Repeat("b", 64)
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mutated := finalized.Clone()
+			tt.mutate(&mutated)
+			if err := mutated.Validate(); err == nil {
+				t.Fatalf("ContextPackage.Validate() accepted %s tampering", tt.name)
+			}
+			if _, err := ProjectContextPackage(context.Background(), mutated); !errors.Is(err, ErrInvalidContextGatewayProjection) {
+				t.Fatalf("legacy projection error = %v, want %v", err, ErrInvalidContextGatewayProjection)
+			}
+			if _, err := ProjectContextPackageForExternalTransfer(context.Background(), mutated, evidence.Policy{Installation: evidence.PolicyLayer{ExternalTransfer: evidence.DecisionAllow}}); !errors.Is(err, ErrInvalidContextGatewayProjection) {
+				t.Fatalf("external projection error = %v, want %v", err, ErrInvalidContextGatewayProjection)
+			}
+		})
+	}
+}
+
 func TestProjectContextPackageGatewayContractReachesGeneratorWithoutSourceAccess(t *testing.T) {
 	packageContext := contextGatewayTestPackage(t, "generator contract content")
 	projection, err := ProjectContextPackage(context.Background(), packageContext)
@@ -181,12 +358,8 @@ func TestProjectContextPackageIsDeterministicAndInputIndependent(t *testing.T) {
 
 	changedDigest := packageContext.Clone()
 	changedDigest.Digest = strings.Repeat("b", 64)
-	changedProjection, err := ProjectContextPackage(context.Background(), changedDigest)
-	if err != nil {
-		t.Fatalf("changed digest projection error = %v", err)
-	}
-	if changedProjection.GatewayPackage.Digest == first.GatewayPackage.Digest {
-		t.Fatal("changing context package digest did not change projected digest")
+	if _, err := ProjectContextPackage(context.Background(), changedDigest); !errors.Is(err, ErrInvalidContextGatewayProjection) {
+		t.Fatalf("changed digest projection error = %v, want invalid projection", err)
 	}
 
 	changedContent, err := ProjectContextPackage(context.Background(), contextGatewayTestPackage(t, "different gateway content"))
@@ -199,6 +372,7 @@ func TestProjectContextPackageIsDeterministicAndInputIndependent(t *testing.T) {
 
 	changedRelation := packageContext.Clone()
 	changedRelation.Relations[0].Predicate = fact.PredicateCall
+	changedRelation = contextGatewayRefinalize(t, changedRelation)
 	changedRelationProjection, err := ProjectContextPackage(context.Background(), changedRelation)
 	if err != nil {
 		t.Fatalf("changed relation projection error = %v", err)
@@ -321,11 +495,6 @@ func TestProjectContextPackageFailsClosedWithoutEchoingUnsafeContent(t *testing.
 		t.Run(tt.name, func(t *testing.T) {
 			packageContext := contextGatewayTestPackage(t, "present gateway content")
 			tt.mutate(&packageContext)
-			if tt.name == "fact secret" {
-				if err := packageContext.Validate(); err != nil {
-					t.Fatalf("fact-secret fixture became structurally invalid before projection: %v", err)
-				}
-			}
 			projection, err := ProjectContextPackage(context.Background(), packageContext)
 			if err == nil {
 				t.Fatalf("ProjectContextPackage() accepted unsafe input: %#v", projection)
@@ -360,6 +529,7 @@ func TestProjectContextPackageRelationLocatorUsesProjectedSupportNotNestedProven
 	packageContext.Relations[0].Provenance.Evidence = []fact.EvidenceRef{{
 		ID: "provenance-only", Locator: otherLocator,
 	}}
+	packageContext = contextGatewayRefinalize(t, packageContext)
 	projection, err := ProjectContextPackage(context.Background(), packageContext)
 	if err != nil {
 		t.Fatalf("ProjectContextPackage() error = %v", err)
@@ -618,6 +788,7 @@ func TestProjectContextPackageKeepsFullValidationLocatorsAndBoundsGatewayLocator
 			for index := range packageContext.Items {
 				packageContext.Items[index].Locator = tt.locator
 			}
+			packageContext = contextGatewayRefinalize(t, packageContext)
 			if err := packageContext.Validate(); err != nil {
 				t.Fatalf("ContextPackage.Validate() error = %v", err)
 			}
@@ -789,10 +960,29 @@ func contextGatewayTestPackage(t *testing.T, content string) ContextPackage {
 		TokenEstimate: 32,
 		Truncated:     false,
 	}
-	if err := packageContext.Validate(); err != nil {
-		t.Fatalf("gateway package fixture invalid: %v", err)
+	return contextGatewayRefinalize(t, packageContext)
+}
+
+func contextGatewayRefinalize(t *testing.T, packageContext ContextPackage) ContextPackage {
+	t.Helper()
+	var binding ContextPackageIdentityBinding
+	if packageContext.IdentityBinding != nil {
+		binding = *packageContext.IdentityBinding
+		binding.PolicyContinuationIDs = append([]string(nil), packageContext.IdentityBinding.PolicyContinuationIDs...)
+	} else {
+		binding.PolicyDigest = strings.Repeat("a", 64)
+		for _, item := range packageContext.Items {
+			binding.PolicyContinuationIDs = append(binding.PolicyContinuationIDs, item.ID)
+		}
 	}
-	return packageContext
+	packageContext.ID = ""
+	packageContext.Digest = ""
+	packageContext.IdentityBinding = nil
+	finalized, err := FinalizeContextPackage(context.Background(), packageContext, binding)
+	if err != nil {
+		t.Fatalf("FinalizeContextPackage() error: %v", err)
+	}
+	return finalized
 }
 
 func contextGatewayReplaceEvidenceContent(packageContext *ContextPackage, index int, content string) {

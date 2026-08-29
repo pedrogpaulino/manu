@@ -380,6 +380,7 @@ func contextConformancePackage(t *testing.T, request query.ContextRequest) query
 		return contextToolTestEvidencePackage(t, request.Intent.Target.ID, query.ContextDegradationExactUnavailable)
 	}
 	packageContext := contextToolTestPackage(t).Clone()
+	packageContext.IdentityBinding = nil
 	packageContext.ID = ""
 	packageContext.Digest = ""
 	packageContext.Intent = request.Intent

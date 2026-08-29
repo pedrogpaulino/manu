@@ -429,10 +429,15 @@ func TestContextE2EProtectedWSO2PolicyDoesNotCrossBoundary(t *testing.T) {
 		Gaps:         append([]contract.Gap(nil), family.gaps...),
 		Degradations: append([]ContextDegradation(nil), result.Degradations...),
 	}
-	packageContext.Digest = contextE2EPackageDigest(t, packageContext, result)
-	packageContext.ID = "context-" + packageContext.Digest
-	if err := packageContext.Validate(); err != nil {
-		t.Fatalf("protected WSO2 package validation error: %v", err)
+	var finalizeBinding = ContextPackageIdentityBinding{
+		PolicyDigest:          result.PolicyDigest,
+		PolicyContinuationIDs: result.ContinuationIDs,
+		PolicyFiltered:        result.PolicyFiltered,
+	}
+	var finalizeErr error
+	packageContext, finalizeErr = FinalizeContextPackage(context.Background(), packageContext, finalizeBinding)
+	if finalizeErr != nil {
+		t.Fatalf("FinalizeContextPackage(protected WSO2) error: %v", finalizeErr)
 	}
 	projection, err := ProjectContextPackage(context.Background(), packageContext)
 	if err != nil {
@@ -746,10 +751,13 @@ func TestContextE2ETruncatedPackageCarriesContinuation(t *testing.T) {
 				Truncated:      true,
 				Continuation:   page.Continuation,
 			}
-			packageContext.Digest = contextE2EPackageDigest(t, packageContext, pagePolicy)
-			packageContext.ID = "context-" + packageContext.Digest
-			if err := packageContext.Validate(); err != nil {
-				t.Fatalf("truncated ContextPackage.Validate() error: %v", err)
+			packageContext, err = FinalizeContextPackage(context.Background(), packageContext, ContextPackageIdentityBinding{
+				PolicyDigest:          pagePolicy.PolicyDigest,
+				PolicyContinuationIDs: pagePolicy.ContinuationIDs,
+				PolicyFiltered:        pagePolicy.PolicyFiltered,
+			})
+			if err != nil {
+				t.Fatalf("FinalizeContextPackage(truncated) error: %v", err)
 			}
 			projection, err := ProjectContextPackage(context.Background(), packageContext)
 			if err != nil {
@@ -1930,9 +1938,15 @@ func contextE2EPackage(t *testing.T, family contextE2EFamily, request ContextReq
 	if len(packageContext.Gaps) > 0 {
 		packageContext.Degradations = append(packageContext.Degradations, ContextDegradation{Code: ContextDegradationCoverageIncomplete})
 	}
-	packageContext.Digest = contextE2EPackageDigest(t, packageContext, policy)
-	packageContext.ID = "context-" + packageContext.Digest
-	return packageContext
+	finalized, err := FinalizeContextPackage(context.Background(), packageContext, ContextPackageIdentityBinding{
+		PolicyDigest:          policy.PolicyDigest,
+		PolicyContinuationIDs: policy.ContinuationIDs,
+		PolicyFiltered:        policy.PolicyFiltered,
+	})
+	if err != nil {
+		t.Fatalf("FinalizeContextPackage() error: %v", err)
+	}
+	return finalized
 }
 
 func contextE2EPackageDigest(t *testing.T, packageContext ContextPackage, policy ContextPolicyResult) string {

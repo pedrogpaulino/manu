@@ -21,9 +21,9 @@ var (
 // the final package identity but is not part of ContextPackage itself.
 // PolicyContinuationIDs preserve the policy result's semantic order.
 type ContextPackageIdentityBinding struct {
-	PolicyDigest          string
-	PolicyContinuationIDs []string
-	PolicyFiltered        bool
+	PolicyDigest          string   `json:"policy_digest"`
+	PolicyContinuationIDs []string `json:"policy_continuation_ids,omitempty"`
+	PolicyFiltered        bool     `json:"policy_filtered,omitempty"`
 }
 
 // contextPackageIdentityMaterial is deliberately a typed struct. Field order
@@ -76,6 +76,28 @@ func FinalizeContextPackage(ctx context.Context, input ContextPackage, binding C
 		return ContextPackage{}, err
 	}
 
+	digest, err := contextPackageIdentityDigest(input, binding)
+	if err != nil {
+		return ContextPackage{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return ContextPackage{}, err
+	}
+	final := input.Clone()
+	final.IdentityBinding = &ContextPackageIdentityBinding{
+		PolicyDigest:          binding.PolicyDigest,
+		PolicyContinuationIDs: cloneContextPackageIdentityIDs(binding.PolicyContinuationIDs),
+		PolicyFiltered:        binding.PolicyFiltered,
+	}
+	final.Digest = digest
+	final.ID = "context-" + digest
+	if err := final.Validate(); err != nil {
+		return ContextPackage{}, fmt.Errorf("%w: finalized package", ErrInvalidContextPackageIdentity)
+	}
+	return final, nil
+}
+
+func contextPackageIdentityDigest(input ContextPackage, binding ContextPackageIdentityBinding) (string, error) {
 	material := contextPackageIdentityMaterial{
 		Version:               input.Version,
 		Revision:              input.Revision,
@@ -99,19 +121,10 @@ func FinalizeContextPackage(ctx context.Context, input ContextPackage, binding C
 	}
 	encoded, err := json.Marshal(material)
 	if err != nil {
-		return ContextPackage{}, fmt.Errorf("%w: material encoding", ErrInvalidContextPackageIdentity)
-	}
-	if err := ctx.Err(); err != nil {
-		return ContextPackage{}, err
+		return "", fmt.Errorf("%w: material encoding", ErrInvalidContextPackageIdentity)
 	}
 	digest := sha256.Sum256(encoded)
-	final := input.Clone()
-	final.Digest = hex.EncodeToString(digest[:])
-	final.ID = "context-" + final.Digest
-	if err := final.Validate(); err != nil {
-		return ContextPackage{}, fmt.Errorf("%w: finalized package", ErrInvalidContextPackageIdentity)
-	}
-	return final, nil
+	return hex.EncodeToString(digest[:]), nil
 }
 
 func cloneContextPackageIdentityIDs(values []string) []string {
@@ -121,6 +134,17 @@ func cloneContextPackageIdentityIDs(values []string) []string {
 	clone := make([]string, len(values))
 	copy(clone, values)
 	return clone
+}
+
+func cloneContextPackageIdentityBinding(value *ContextPackageIdentityBinding) *ContextPackageIdentityBinding {
+	if value == nil {
+		return nil
+	}
+	return &ContextPackageIdentityBinding{
+		PolicyDigest:          value.PolicyDigest,
+		PolicyContinuationIDs: cloneContextPackageIdentityIDs(value.PolicyContinuationIDs),
+		PolicyFiltered:        value.PolicyFiltered,
+	}
 }
 
 func validateContextPackageIdentityBinding(input ContextPackage, binding ContextPackageIdentityBinding) error {
@@ -162,6 +186,20 @@ func validateContextPackageIdentityMaterial(input ContextPackage) error {
 	probe.Digest = zeroContextDigest
 	if err := probe.Validate(); err != nil {
 		return fmt.Errorf("%w: package material", ErrInvalidContextPackageIdentity)
+	}
+	return nil
+}
+
+func validateFinalizedContextPackageIdentity(input ContextPackage) error {
+	if input.IdentityBinding == nil {
+		return nil
+	}
+	if err := validateContextPackageIdentityBinding(input, *input.IdentityBinding); err != nil {
+		return err
+	}
+	digest, err := contextPackageIdentityDigest(input, *input.IdentityBinding)
+	if err != nil || digest != input.Digest || input.ID != "context-"+digest {
+		return ErrInvalidContextPackageIdentity
 	}
 	return nil
 }

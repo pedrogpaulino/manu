@@ -136,6 +136,9 @@ func (p ContextGatewayProjection) ValidateAgainstGateway() error {
 // ValidateAgainst recomputes the deterministic projection for the supplied
 // context package and rejects any altered projection.
 func (p ContextGatewayProjection) ValidateAgainst(input ContextPackage) error {
+	if input.IdentityBinding == nil {
+		return ErrInvalidContextGatewayProjection
+	}
 	if err := p.Validate(); err != nil {
 		return err
 	}
@@ -155,7 +158,189 @@ func ProjectContextPackage(ctx context.Context, input ContextPackage) (ContextGa
 	if err := contextGatewayContextErr(ctx); err != nil {
 		return ContextGatewayProjection{}, err
 	}
+	if input.IdentityBinding == nil {
+		return ContextGatewayProjection{}, ErrInvalidContextGatewayProjection
+	}
 	return projectContextPackage(ctx, input)
+}
+
+// ProjectContextPackageForExternalTransfer applies a trusted external policy
+// to a local ContextPackage before creating the generator-facing views. The
+// local package is never mutated; authorization and transfer decisions are
+// recomputed for every item, and ApplyContextPolicy removes dependent facts,
+// entities and relations when required support is denied.
+func ProjectContextPackageForExternalTransfer(
+	ctx context.Context,
+	input ContextPackage,
+	policy evidence.Policy,
+) (ContextGatewayProjection, error) {
+	if ctx == nil {
+		return ContextGatewayProjection{}, ErrInvalidContextGatewayProjection
+	}
+	if err := contextGatewayContextErr(ctx); err != nil {
+		return ContextGatewayProjection{}, err
+	}
+	if err := input.Validate(); err != nil {
+		return ContextGatewayProjection{}, ErrInvalidContextGatewayProjection
+	}
+	if input.IdentityBinding == nil {
+		return ContextGatewayProjection{}, ErrInvalidContextGatewayProjection
+	}
+	if err := policy.Validate(); err != nil {
+		return ContextGatewayProjection{}, ErrInvalidContextGatewayProjection
+	}
+
+	authorizations := make([]ContextItemAuthorization, 0, len(input.Items))
+	continuationIDs := make([]string, 0, len(input.Items))
+	for _, item := range input.Items {
+		if err := contextGatewayContextErr(ctx); err != nil {
+			return ContextGatewayProjection{}, err
+		}
+		authorizations = append(authorizations, ContextItemAuthorization{
+			ItemID:   item.ID,
+			Decision: evidence.DecisionAllow,
+		})
+		continuationIDs = append(continuationIDs, item.ID)
+	}
+	policyDigest, err := ContextPolicyDigest(&policy, authorizations)
+	if err != nil {
+		return ContextGatewayProjection{}, ErrInvalidContextGatewayProjection
+	}
+	transferPolicy := cloneContextAuthorizedPolicy(&policy)
+	result, err := ApplyContextPolicy(ctx, ContextPolicyRequest{
+		Scope:           input.Scope,
+		Items:           input.Items,
+		Relations:       input.Relations,
+		Authorizations:  authorizations,
+		TransferPolicy:  transferPolicy,
+		PolicyDigest:    policyDigest,
+		ContinuationIDs: continuationIDs,
+	})
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return ContextGatewayProjection{}, err
+		}
+		return ContextGatewayProjection{}, ErrInvalidContextGatewayProjection
+	}
+	if len(input.Items) > 0 && len(result.Items) == 0 {
+		return ContextGatewayProjection{}, ErrInvalidContextGatewayProjection
+	}
+	projected, err := contextGatewayPackageAfterExternalTransfer(input, result)
+	if err != nil {
+		return ContextGatewayProjection{}, ErrInvalidContextGatewayProjection
+	}
+	return projectContextPackage(ctx, projected)
+}
+
+// ProjectExternalContextPackage is the descriptive spelling for callers that
+// make the external trust-boundary operation explicit.
+func ProjectExternalContextPackage(
+	ctx context.Context,
+	input ContextPackage,
+	policy evidence.Policy,
+) (ContextGatewayProjection, error) {
+	return ProjectContextPackageForExternalTransfer(ctx, input, policy)
+}
+
+// ProjectContextPackageWithExternalPolicy accepts the pointer spelling used
+// by policy-bearing application configuration while retaining an explicit
+// external-transfer operation. A nil policy fails closed.
+func ProjectContextPackageWithExternalPolicy(
+	ctx context.Context,
+	input ContextPackage,
+	policy *evidence.Policy,
+) (ContextGatewayProjection, error) {
+	if policy == nil {
+		return ContextGatewayProjection{}, ErrInvalidContextGatewayProjection
+	}
+	return ProjectContextPackageForExternalTransfer(ctx, input, *policy)
+}
+
+// ProjectContextPackageWithPolicy is a concise alias for the explicit
+// external-policy projection.
+func ProjectContextPackageWithPolicy(
+	ctx context.Context,
+	input ContextPackage,
+	policy *evidence.Policy,
+) (ContextGatewayProjection, error) {
+	return ProjectContextPackageWithExternalPolicy(ctx, input, policy)
+}
+
+func contextGatewayPackageAfterExternalTransfer(input ContextPackage, result ContextPolicyResult) (ContextPackage, error) {
+	if err := result.Validate(); err != nil || !sameScope(result.Scope, input.Scope) {
+		return ContextPackage{}, ErrInvalidContextGatewayProjection
+	}
+	audits, err := contextGatewayExternalAudits(input.Audit, result)
+	if err != nil {
+		return ContextPackage{}, err
+	}
+	projected := input.Clone()
+	// The local identity binds the local representation. The external policy
+	// produces a projection with the original context identity, so it must not
+	// be reused to validate the changed item set.
+	projected.IdentityBinding = nil
+	projected.Items = make([]ContextItem, len(result.Items))
+	for index, item := range result.Items {
+		projected.Items[index] = cloneContextItem(item)
+	}
+	projected.Relations = make([]ContextRelation, len(result.Relations))
+	for index, relation := range result.Relations {
+		projected.Relations[index] = cloneContextRelation(relation)
+	}
+	projected.Audit = audits
+	return projected, nil
+}
+
+func contextGatewayExternalAudits(input []ContextSelectionAudit, result ContextPolicyResult) ([]ContextSelectionAudit, error) {
+	outputByInput := make(map[string]string, len(result.ItemAudit))
+	selectedOutputs := make(map[string]struct{}, len(result.Items))
+	for _, audit := range result.ItemAudit {
+		if audit.Included {
+			if _, duplicate := outputByInput[audit.ItemID]; duplicate {
+				return nil, ErrInvalidContextGatewayProjection
+			}
+			outputByInput[audit.ItemID] = audit.OutputID
+		}
+	}
+	for _, item := range result.Items {
+		if _, exists := selectedOutputs[item.ID]; exists {
+			return nil, ErrInvalidContextGatewayProjection
+		}
+		selectedOutputs[item.ID] = struct{}{}
+	}
+
+	audits := make([]ContextSelectionAudit, 0, len(input))
+	seen := make(map[string]struct{}, len(input))
+	for _, audit := range input {
+		outputID, included := outputByInput[audit.ItemID]
+		if included {
+			if outputID == "" {
+				return nil, ErrInvalidContextGatewayProjection
+			}
+			audit.ItemID = outputID
+			audit.Included = true
+			audit.Reason = ContextSelectionIncluded
+		} else if _, selected := selectedOutputs[audit.ItemID]; selected {
+			return nil, ErrInvalidContextGatewayProjection
+		} else if audit.Included {
+			// A transfer policy may remove an item (and its dependent
+			// relations). Keep the content-free audit, but make the output
+			// package's selection state reflect that removal.
+			audit.Included = false
+			audit.Reason = ContextSelectionExcludedPolicy
+		}
+		if _, duplicate := seen[audit.ItemID]; duplicate {
+			return nil, ErrInvalidContextGatewayProjection
+		}
+		seen[audit.ItemID] = struct{}{}
+		audits = append(audits, audit)
+	}
+	for _, item := range result.Items {
+		if _, exists := seen[item.ID]; !exists {
+			return nil, ErrInvalidContextGatewayProjection
+		}
+	}
+	return audits, nil
 }
 
 func projectContextPackage(ctx context.Context, input ContextPackage) (ContextGatewayProjection, error) {
