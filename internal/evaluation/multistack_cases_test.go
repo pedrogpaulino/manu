@@ -34,17 +34,17 @@ func TestContextEfficiencyFixtureHasCompleteThreeByThreeMatrix(t *testing.T) {
 	expectedFamilies := map[string]multistackFamilySpec{
 		"java-quarkus3": {
 			corpusRevision: "java-quarkus3-factual-v1", sourceID: "source-quarkus3",
-			sourceRevision: "528a6670e30f2074548c63516046b58a61b5bca2e38ce9974e176f09c3554efb", analyzerID: "java",
+			sourceRevision: "40d85814e785143cb6a2ee3f62fd2c717982baac5b933c6ac82a6e84d6e2b83a", analyzerID: "java",
 			artifacts: []string{"internal/analyzer/java/testdata/quarkus3/BookingResource.java"},
 		},
 		"wso2-integration": {
 			corpusRevision: "wso2-declarative-v1", sourceID: "wso2-integration-source",
-			sourceRevision: "1861914ca608c8fca2c4add57f7d7b43e6a711703431ecb41c3d7e6fb80a86db", analyzerID: "wso2",
+			sourceRevision: "d8a72eaf6593c5343f98c11825cf6ae02a7aed4c30ceee339bde5fdcda356366", analyzerID: "wso2",
 			artifacts: []string{"internal/analyzer/wso2/testdata/api-v1.xml", "internal/analyzer/wso2/testdata/shared-v1.xml"},
 		},
 		"python-frappe17": {
 			corpusRevision: "python-frappe17-factual-v1", sourceID: "source-python-integration",
-			sourceRevision: "9eab722a13516e68b60d097b5c425e0dc1247df6ad330a23175249cc927ef9ab", analyzerID: "python",
+			sourceRevision: "e68854f7d8af328136c2dc50a3870e6eb52cea4b64d4051fb6ec6743507e3c72", analyzerID: "python",
 			artifacts: []string{"internal/analyzer/python/testdata/frappe17/doctype.py", "internal/analyzer/python/testdata/frappe17/hooks.py"},
 		},
 	}
