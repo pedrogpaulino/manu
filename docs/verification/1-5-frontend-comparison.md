@@ -87,4 +87,4 @@ conveniência.
 ## Relações
 
 - ADR: [`0005-kernel-factual-frontends-substituiveis-e-intercambio.md`](../decisions/0005-kernel-factual-frontends-substituiveis-e-intercambio.md)
-- OpenSpec: [tarefa 1.5](../../openspec/changes/establish-evidence-backed-context-engine/tasks.md)
+- OpenSpec: [tarefa 1.5](../../openspec/changes/archive/2026-08-30-establish-evidence-backed-context-engine/tasks.md)

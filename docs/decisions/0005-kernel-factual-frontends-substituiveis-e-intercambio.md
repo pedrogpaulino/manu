@@ -131,6 +131,6 @@ para IA continua uma decisão separada do acesso local.
 
 ## Relações
 
-- OpenSpec: [proposta](../../openspec/changes/establish-evidence-backed-context-engine/proposal.md), [design](../../openspec/changes/establish-evidence-backed-context-engine/design.md) e [especificação do substrato factual](../../openspec/changes/establish-evidence-backed-context-engine/specs/analysis-fact-substrate/spec.md)
+- OpenSpec: [proposta](../../openspec/changes/archive/2026-08-30-establish-evidence-backed-context-engine/proposal.md), [design](../../openspec/changes/archive/2026-08-30-establish-evidence-backed-context-engine/design.md) e [especificação do substrato factual](../../openspec/changes/archive/2026-08-30-establish-evidence-backed-context-engine/specs/analysis-fact-substrate/spec.md)
 - Documentos afetados: [`PRODUCT.md`](../../PRODUCT.md), [`DOMAIN.md`](../../DOMAIN.md), [`ARCHITECTURE.md`](../../ARCHITECTURE.md) e [registro da comparação](../verification/1-5-frontend-comparison.md)
 - ADR substituído/substituto: não aplicável
