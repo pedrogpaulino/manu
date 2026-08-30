@@ -79,8 +79,8 @@
 
 ## 9. Verificação integrada e encerramento
 
-- [ ] 9.1 Executar `gofmt -d` nos arquivos Go alterados, `go vet ./...`, `go test ./... -count=1`, `go mod verify` e `git diff --check`, corrigindo toda falha introduzida pela mudança.
-- [ ] 9.2 Executar `go test -race ./...` quando CGO e compilador C estiverem disponíveis e registrar explicitamente a ausência quando não estiverem; executar também a ferramenta opcional de vulnerabilidades quando instalada.
-- [ ] 9.3 Produzir builds estáticos `linux/amd64` e `linux/arm64` de `./cmd/manu` com `CGO_ENABLED=0`, verificando que o suporte MCP e os frontends padrão não introduzam dependência dinâmica.
-- [ ] 9.4 Executar `go test ./docs`, validação estrutural `docker compose config --quiet` quando a célula for afetada e um fluxo Agent -> bundle -> ingestão -> contexto -> MCP, registrando a revisão e os limites observados.
-- [ ] 9.5 Revisar links relativos, placeholders, termos canônicos e responsabilidade única de documentos e executar `openspec validate establish-evidence-backed-context-engine --strict` até a mudança permanecer válida.
+- [x] 9.1 Executar `gofmt -d` nos arquivos Go alterados, `go vet ./...`, `go test ./... -count=1`, `go mod verify` e `git diff --check`, corrigindo toda falha introduzida pela mudança.
+- [x] 9.2 Executar `go test -race ./...` quando CGO e compilador C estiverem disponíveis e registrar explicitamente a ausência quando não estiverem; executar também a ferramenta opcional de vulnerabilidades quando instalada.
+- [x] 9.3 Produzir builds estáticos `linux/amd64` e `linux/arm64` de `./cmd/manu` com `CGO_ENABLED=0`, verificando que o suporte MCP e os frontends padrão não introduzam dependência dinâmica.
+- [x] 9.4 Executar `go test ./docs`, validação estrutural `docker compose config --quiet` quando a célula for afetada e um fluxo Agent -> bundle -> ingestão -> contexto -> MCP, registrando a revisão e os limites observados.
+- [x] 9.5 Revisar links relativos, placeholders, termos canônicos e responsabilidade única de documentos e executar `openspec validate establish-evidence-backed-context-engine --strict` até a mudança permanecer válida.

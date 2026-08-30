@@ -286,6 +286,7 @@ saída conforme sua política operacional.
 - [`docs/evaluation/knowledge-engine-go-first-baseline.md`](docs/evaluation/knowledge-engine-go-first-baseline.md) — linha de base do microcorte e limitações das métricas.
 - [`docs/evaluation/first-vertical-slice-corpus.md`](docs/evaluation/first-vertical-slice-corpus.md) — manifesto do corpus e dos recortes.
 - [`docs/evaluation/first-vertical-slice-evaluation.md`](docs/evaluation/first-vertical-slice-evaluation.md) — protocolo de avaliação, perguntas e métricas.
+- [`docs/verification/9-4-agent-bundle-context-mcp.md`](docs/verification/9-4-agent-bundle-context-mcp.md) — verificação integrada do fluxo Agent, bundle, contexto e MCP.
 - [`openspec/specs/knowledge-engine-runtime/spec.md`](openspec/specs/knowledge-engine-runtime/spec.md) — requisitos canônicos do runtime do Knowledge Engine.
 - [`openspec/`](openspec/) — mudanças, especificações e tarefas rastreáveis.
 
